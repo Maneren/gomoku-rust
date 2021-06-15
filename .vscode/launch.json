@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'gomoku'",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=gomoku",
+          "--package=gomoku"
+        ],
+        "filter": {
+          "name": "gomoku",
+          "kind": "bin"
+        }
+      },
+      "args": ["test.txt", "x"],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
