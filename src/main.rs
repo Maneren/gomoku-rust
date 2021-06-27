@@ -75,7 +75,7 @@ fn solve(board: &Board, current_player: bool) -> (Board, Move, Stats) {
   };
 
   let mut ai = AI::new(board.clone(), stats);
-  let best_move = ai.decide(current_player, 6);
+  let best_move = ai.decide(current_player, 0);
 
   let mut board = ai.board;
 

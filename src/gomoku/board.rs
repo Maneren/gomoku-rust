@@ -29,16 +29,18 @@ pub struct Board {
 
 impl Board {
   pub fn new(input_data: &[Vec<char>]) -> Result<Board, Error> {
-    if input_data.len() != 10 {
+    if input_data.len() <= 8 {
       return Err(Error {
         msg: "Invalid board height".into(),
       });
     }
 
-    for i in 0..input_data.len() {
-      if input_data.get(i).unwrap().len() != 10 {
+    let height = input_data.len();
+
+    for (index, row) in input_data.iter().enumerate() {
+      if row.len() != height {
         return Err(Error {
-          msg: format!("Invalid board width on row {}", i + 1),
+          msg: format!("Invalid board width on row {}", index + 1),
         });
       }
     }
