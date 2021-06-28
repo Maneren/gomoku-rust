@@ -7,14 +7,14 @@ use std::io::prelude::*;
 // mod board;
 
 mod gomoku;
-use gomoku::board::{Board};
+use gomoku::board::Board;
 use gomoku::{Move, Stats, AI};
 
 type Error = Box<dyn std::error::Error>;
 
 fn main() {
   match &env::args().collect::<Vec<String>>()[..] {
-    [_, path, player] => match run(path, player) {
+    [_, path, player, depth] => match run(path, player, depth) {
       Ok(_) => println!("Done!"),
       Err(msg) => println!("Error: {}", msg),
     },
@@ -22,7 +22,9 @@ fn main() {
   }
 }
 
-fn run(path_to_input: &str, player: &str) -> Result<(), Error> {
+fn run(path_to_input: &str, player: &str, depth: &str) -> Result<(), Error> {
+  let depth: u32 = depth.parse()?;
+
   let input_string = load_input(&path_to_input)?;
   let board = Board::from_string(&input_string)?;
 
@@ -36,15 +38,14 @@ fn run(path_to_input: &str, player: &str) -> Result<(), Error> {
 
   println!("{}", board);
 
-  println!("Solving!\n");
+  println!("Searching to depth {}\n", depth);
 
   let start = std::time::Instant::now();
 
-  let (solved, best_move, stats) = solve(&board, player);
+  let (solved, best_move, stats) = solve(&board, player, depth);
 
   let run_time = start.elapsed().as_micros();
 
-  // println!("{}", render_solution(&board, &solved));
   println!(
     "evaluated {} boards, a-b pruned {} times\n",
     stats.boards_evaluated, stats.pruned
@@ -68,14 +69,14 @@ fn load_input(path: &str) -> Result<String, Error> {
   Ok(contents)
 }
 
-fn solve(board: &Board, current_player: bool) -> (Board, Move, Stats) {
+fn solve(board: &Board, current_player: bool, depth: u32) -> (Board, Move, Stats) {
   let stats = Stats {
     boards_evaluated: 0,
     pruned: 0,
   };
 
   let mut ai = AI::new(board.clone(), stats);
-  let best_move = ai.decide(current_player, 0);
+  let best_move = ai.decide(current_player, depth);
 
   let mut board = ai.board;
 

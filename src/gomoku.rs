@@ -1,4 +1,4 @@
-use std::cmp;
+// use std::cmp;
 
 // for shuffling
 use rand::seq::SliceRandom;
@@ -8,47 +8,43 @@ pub mod board;
 use board::{Board, TilePointer};
 
 pub type Move = (TilePointer, i128);
-type MovesWithPriority = Vec<(Move, i32)>;
+type MoveWithPriority = (TilePointer, i32);
+type MovesWithPriority = Vec<MoveWithPriority>;
 
 fn find_empty_tiles(board: &Board) -> Vec<TilePointer> {
   let mut empty_fields: Vec<TilePointer> = vec![];
+  let board_size = board.get_size();
 
-  for y in 0..board.get_size() {
-    for x in 0..board.get_size() {
-      let tile = board.get_tile((x, y));
-      if *tile == None {
-        empty_fields.push((x, y));
+  for y in 0..board_size {
+    for x in 0..board_size {
+      let ptr = (x, y);
+      if board.get_tile(ptr).is_none() {
+        empty_fields.push(ptr);
       }
     }
   }
+
   empty_fields
 }
 
 use cached::proc_macro::cached;
 #[cached]
-pub fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> i128 {
-  println!(
-    "consecutive: {:?}, open_ends: {:?}, has_hole: {:?}, is_on_turn: {:?}",
-    consecutive, open_ends, has_hole, is_on_turn
-  );
-
+fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> i128 {
   let score: i128 = if has_hole {
-    match consecutive {
-      5 => {
-        if is_on_turn {
-          50_000
-        } else {
-          0
+    if is_on_turn {
+      match consecutive {
+        5 => 50_000,
+        4 => {
+          if open_ends == 2 {
+            20_000
+          } else {
+            0
+          }
         }
+        _ => 0,
       }
-      4 => {
-        if open_ends == 2 && is_on_turn {
-          20_000
-        } else {
-          0
-        }
-      }
-      _ => 0,
+    } else {
+      0
     }
   } else {
     match consecutive {
@@ -67,7 +63,7 @@ pub fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: b
       3 => match open_ends {
         2 => {
           if is_on_turn {
-            300
+            500
           } else {
             50
           }
@@ -83,8 +79,6 @@ pub fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: b
       _ => 0,
     }
   };
-
-  println!("shape_score: {:?}", score);
 
   score
 }
@@ -113,16 +107,10 @@ fn eval_sequence(sequence: &[&Option<bool>], evaluate_for: bool, is_on_turn: boo
           open_ends = 0;
         }
       }
-
       None => {
         if consecutive == 0 {
           open_ends = 1
         } else {
-          println!(
-            "sequence: {:?}, index: {:?}, has_hole: {:?}",
-            sequence, index, has_hole
-          );
-
           if !has_hole && index + 1 < sequence.len() && *sequence[index + 1] == Some(evaluate_for) {
             has_hole = true;
             consecutive += 1;
@@ -149,38 +137,40 @@ fn eval_sequence(sequence: &[&Option<bool>], evaluate_for: bool, is_on_turn: boo
   score
 }
 
-fn wins_loses_from_sequence(
+fn wins_from_sequence(
   board: &Board,
   sequence: &[TilePointer],
   current_player: bool,
-  wins_or_loses: bool,
 ) -> MovesWithPriority {
-  let mut moves = vec![];
+  let mut moves: MovesWithPriority = vec![];
   let mut consecutive = 0;
-  let mut before = None;
-  let modifier_pritority = if wins_or_loses { 2 } else { 1 };
+  let mut before: Option<TilePointer> = None;
 
   for ptr in sequence {
-    let tile = board.get_tile(*ptr);
+    let ptr = *ptr;
+    let tile = board.get_tile(ptr);
+
     match *tile {
       None => {
         match consecutive {
           4 => {
-            moves.push(((*ptr, 100_000), 5 * modifier_pritority));
             if let Some(value) = before {
-              moves.push(((value, 100_000), 5 * modifier_pritority))
+              moves.push((ptr, 5));
+              moves.push((value, 5));
+            } else {
+              moves.push((ptr, 5));
             }
           }
           3 => {
             if let Some(value) = before {
-              moves.push(((value, 10_000), 2 * modifier_pritority));
-              moves.push(((*ptr, 10_000), 2 * modifier_pritority))
+              moves.push((value, 1));
+              moves.push((ptr, 1));
             }
           }
           _ => (),
         }
         consecutive = 0;
-        before = Some(*ptr);
+        before = Some(ptr);
       }
       Some(player) => {
         if player == current_player {
@@ -188,7 +178,7 @@ fn wins_loses_from_sequence(
         } else {
           if consecutive == 4 {
             if let Some(value) = before {
-              moves.push(((value, 100_000), 5 * modifier_pritority))
+              moves.push((value, 5));
             }
           }
           consecutive = 0;
@@ -200,28 +190,26 @@ fn wins_loses_from_sequence(
 
   if consecutive == 4 {
     if let Some(value) = before {
-      moves.push(((value, 100_000), 5 * modifier_pritority))
+      moves.push((value, 5))
     }
   }
 
   moves
 }
 
-fn get_forced_moves(board: &Board, current_player: bool) -> Vec<Move> {
-  let mut forced_moves = vec![];
+fn get_forced_moves(board: &Board, current_player: bool) -> Vec<TilePointer> {
+  let mut forced_moves: MovesWithPriority = vec![];
+
   for sequence in &board.sequences {
-    forced_moves.append(&mut wins_loses_from_sequence(
-      board,
-      sequence,
-      current_player,
-      true,
-    ));
-    forced_moves.append(&mut wins_loses_from_sequence(
-      board,
-      sequence,
-      !current_player, // opponent
-      false,
-    ));
+    let mut wins = wins_from_sequence(board, sequence, current_player);
+    for move_with_priority in &mut wins {
+      move_with_priority.1 *= 2;
+    }
+
+    let mut loses = wins_from_sequence(board, sequence, Utils::next(current_player));
+
+    forced_moves.append(&mut wins);
+    forced_moves.append(&mut loses);
   }
 
   forced_moves.shuffle(&mut thread_rng());
@@ -247,7 +235,6 @@ pub struct AI {
   pub board: Board,
   pub stats: Stats,
 }
-
 impl AI {
   pub fn new(board: Board, stats: Stats) -> AI {
     AI { board, stats }
@@ -256,138 +243,112 @@ impl AI {
   pub fn decide(&mut self, current_player: bool, analysis_depth: u32) -> Move {
     self.minimax(
       current_player,
-      current_player,
       analysis_depth,
-      i128::MIN,
-      i128::MAX,
+      -(10_i128.pow(10)),
+      10_i128.pow(10),
     )
   }
 
   fn minimax(
     &mut self,
-    decide_as: bool,
     current_player: bool,
     remaining_depth: u32,
     alpha: i128,
     beta: i128,
   ) -> Move {
-    // let base_score = evaluate_board(&self.board, decide_as);
-    // println!("base_score: {:?}", base_score);
-
-    let maxing = decide_as == current_player;
-
     let forced_moves = get_forced_moves(&self.board, current_player);
     if !forced_moves.is_empty() {
-      return *forced_moves.get(0).unwrap();
+      let ptr = forced_moves[0];
+
+      self.board.set_tile(ptr, Some(current_player));
+      let analysis = self.evaluate_board(current_player);
+      self.board.set_tile(ptr, None);
+
+      self.stats.pruned += 1;
+      return (ptr, analysis);
     }
 
-    // let mut available_moves = find_empty_tiles(&self.board);
-    let available_moves = find_empty_tiles(&self.board);
-    // available_moves.shuffle(&mut thread_rng());
+    // let available_moves = find_empty_tiles(&self.board);
+    let mut available_moves = find_empty_tiles(&self.board);
+    available_moves.shuffle(&mut thread_rng());
 
     let moves_to_consider: Vec<(usize, usize)>;
-    let mut best_move;
 
     if remaining_depth > 0 {
       let mut move_results: Vec<Move> = vec![];
       for move_ in &available_moves {
         let move_ = *move_;
-        self.stats.boards_evaluated += 1;
 
         self.board.set_tile(move_, Some(current_player));
-        let analysis = self.evaluate_board(decide_as);
+        let analysis = self.evaluate_board(current_player);
         self.board.set_tile(move_, None);
 
         move_results.push((move_, analysis));
       }
 
       move_results.sort_unstable_by_key(|move_result| move_result.1);
-      if maxing {
-        // descending order
-        move_results.reverse();
-      }
+      move_results.reverse(); // descending order
 
       moves_to_consider = move_results[0..5].iter().map(|result| result.0).collect();
-      best_move = *moves_to_consider.get(0).unwrap();
     } else {
-      best_move = *available_moves.get(0).unwrap();
-      moves_to_consider = available_moves[1..].to_vec();
+      moves_to_consider = available_moves;
     }
 
-    let mut best_score = if maxing { i128::MIN } else { i128::MAX };
+    let mut best_move = moves_to_consider[0];
     let mut alpha = alpha;
-    let mut beta = beta;
 
     for move_ in &moves_to_consider {
-      println!("\n\nmove_: {:?}", move_);
+      let move_ = *move_;
+      self.board.set_tile(move_, Some(current_player));
 
-      let score: i128;
-      self.board.set_tile(*move_, Some(current_player));
-
-      if remaining_depth > 0 {
-        let result = self.minimax(
-          decide_as,
-          Utils::next(current_player),
-          remaining_depth - 1,
-          alpha,
-          beta,
-        );
-        score = result.1;
+      let score: i128 = if remaining_depth > 0 {
+        self
+          .minimax(
+            Utils::next(current_player),
+            remaining_depth - 1,
+            -beta,
+            -alpha,
+          )
+          .1
       } else {
-        score = self.evaluate_board(decide_as);
-      }
+        self.evaluate_board(current_player)
+      };
 
-      self.board.set_tile(*move_, None);
+      self.board.set_tile(move_, None);
 
-      if maxing {
-        alpha = cmp::max(alpha, score);
-      } else {
-        beta = cmp::min(beta, score);
-      }
-      if (score > best_score && maxing) || (score < best_score && !maxing) {
-        best_score = score;
-        best_move = *move_;
-      }
-      if alpha > beta {
+      if score > beta {
         self.stats.pruned += 1;
-        break;
+        return (best_move, beta);
+      }
+      if score > alpha {
+        alpha = score;
+        best_move = move_;
       }
     }
 
-    (best_move, best_score)
+    (best_move, -alpha)
   }
 
   fn evaluate_board(&mut self, current_player: bool) -> i128 {
-    let board = &self.board;
     self.stats.boards_evaluated += 1;
+
+    let board = &self.board;
     let tile_sequences: Vec<Vec<&Option<bool>>> = board
       .sequences
       .iter()
       .map(|sequence| sequence.iter().map(|ptr| board.get_tile(*ptr)).collect())
       .collect();
 
-    println!("tile_sequences: {:?}", tile_sequences);
-
-    let scores_current: Vec<i128> = tile_sequences
+    let score_current = tile_sequences
       .iter()
       .map(|sequence| eval_sequence(&sequence, current_player, false))
-      .collect();
+      .sum::<i128>();
 
-    println!("current: {:?}", scores_current);
-    let score_current: i128 = scores_current.iter().sum();
-
-    let scores_opponent: Vec<i128> = tile_sequences
+    let score_opponent = tile_sequences
       .iter()
       .map(|sequence| eval_sequence(&sequence, Utils::next(current_player), true))
-      .collect();
+      .sum::<i128>();
 
-    println!("opponent: {:?}", scores_opponent);
-    let score_opponent: i128 = scores_opponent.iter().sum();
-    let score = score_current - score_opponent;
-
-    println!("current {:?}, opponent {:?}", score_current, score_opponent);
-    println!("score {:?}", score);
-
-    score
+    score_current - score_opponent
   }
 }
