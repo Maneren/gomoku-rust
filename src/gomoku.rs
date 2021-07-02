@@ -137,7 +137,7 @@ fn eval_sequence(sequence: &[&Option<bool>], evaluate_for: bool, is_on_turn: boo
   score
 }
 
-fn wins_from_sequence(
+/* fn wins_from_sequence(
   board: &Board,
   sequence: &[TilePointer],
   current_player: bool,
@@ -197,7 +197,7 @@ fn wins_from_sequence(
   moves
 }
 
-fn get_forced_moves(board: &Board, current_player: bool) -> Vec<TilePointer> {
+fn  get_forced_moves(board: &Board, current_player: bool) -> Vec<TilePointer> {
   let mut forced_moves: MovesWithPriority = vec![];
 
   for sequence in &board.sequences {
@@ -217,7 +217,7 @@ fn get_forced_moves(board: &Board, current_player: bool) -> Vec<TilePointer> {
   let forced_moves = forced_moves.iter().map(|move_| move_.0).collect();
 
   forced_moves
-}
+}*/
 
 struct Utils {}
 impl Utils {
@@ -231,6 +231,7 @@ pub struct Stats {
   pub pruned: u32,
 }
 
+use std::thread;
 pub struct AI {
   pub board: Board,
   pub stats: Stats,
@@ -256,7 +257,7 @@ impl AI {
     alpha: i128,
     beta: i128,
   ) -> Move {
-    let forced_moves = get_forced_moves(&self.board, current_player);
+    /* let forced_moves = get_forced_moves(&self.board, current_player);
     if !forced_moves.is_empty() {
       let ptr = forced_moves[0];
 
@@ -266,9 +267,8 @@ impl AI {
 
       self.stats.pruned += 1;
       return (ptr, analysis);
-    }
+    } */
 
-    // let available_moves = find_empty_tiles(&self.board);
     let mut available_moves = find_empty_tiles(&self.board);
     available_moves.shuffle(&mut thread_rng());
 
@@ -296,6 +296,38 @@ impl AI {
 
     let mut best_move = moves_to_consider[0];
     let mut alpha = alpha;
+
+    // let threads: Vec<_> = moves_to_consider
+    //   .iter()
+    //   .map(|move_| {
+    //     thread::spawn(move || {
+    //       let move_ = *move_;
+    //       board.set_tile(move_, Some(current_player));
+
+    //       let score: i128 = if remaining_depth > 0 {
+    //         self
+    //           .minimax(
+    //             Utils::next(current_player),
+    //             remaining_depth - 1,
+    //             -beta,
+    //             -alpha,
+    //           )
+    //           .1
+    //       } else {
+    //         self.evaluate_board(current_player)
+    //       };
+
+    //       self.board.set_tile(move_, None);
+
+    //       return (move_, score);
+    //     })
+    //   })
+    //   .collect();
+
+    // let scores: Vec<Move>;
+    // for handle in threads {
+    //   scores.push(handle.join().unwrap());
+    // }
 
     for move_ in &moves_to_consider {
       let move_ = *move_;
