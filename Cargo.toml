@@ -6,4 +6,3 @@ edition = "2018"
 
 [dependencies]
 rand = "0.8.3"
-cached = "0.23.0"

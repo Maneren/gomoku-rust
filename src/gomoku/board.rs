@@ -23,7 +23,7 @@ pub type Tile = Option<bool>;
 pub type TilePointer = (usize, usize);
 
 pub struct Board {
-  pub data: Vec<Vec<Tile>>,
+  data: Vec<Vec<Tile>>,
   pub sequences: Vec<Vec<TilePointer>>,
 }
 
@@ -63,12 +63,12 @@ impl Board {
       })
       .collect();
 
-    let sequences = Board::get_all_tile_sequences(data.len());
+    let sequences = Board::get_all_sequences(data.len());
 
     Ok(Board { data, sequences })
   }
 
-  fn get_all_tile_sequences(board_size: usize) -> Vec<Vec<TilePointer>> {
+  fn get_all_sequences(board_size: usize) -> Vec<Vec<TilePointer>> {
     let mut sequences = Vec::new();
 
     // horizontal
@@ -132,6 +132,30 @@ impl Board {
     sequences
   }
 
+  pub fn get_all_tile_sequences(&self) -> Vec<Vec<&Option<bool>>> {
+    self
+      .sequences
+      .iter()
+      .map(|sequence| sequence.iter().map(|ptr| self.get_tile(ptr)).collect())
+      .collect()
+  }
+
+  pub fn get_empty_tiles(&self) -> Vec<TilePointer> {
+    let mut empty_fields: Vec<TilePointer> = vec![];
+    let board_size = self.get_size();
+
+    for y in 0..board_size {
+      for x in 0..board_size {
+        let ptr = (x, y);
+        if self.get_tile(&ptr).is_none() {
+          empty_fields.push(ptr);
+        }
+      }
+    }
+
+    empty_fields
+  }
+
   pub fn from_string(input_string: &str) -> Result<Board, Error> {
     // split string into Vec<Vec<chars>>
     let rows = input_string
@@ -151,18 +175,39 @@ impl Board {
     Ok(board)
   }
 
-  pub fn get_tile(&self, ptr: TilePointer) -> &Tile {
-    let (x, y) = ptr;
+  pub fn get_tile(&self, ptr: &TilePointer) -> &Tile {
+    let (x, y) = *ptr;
     &self.data[y][x]
   }
 
-  pub fn set_tile(&mut self, ptr: TilePointer, value: Tile) {
-    let (x, y) = ptr;
+  pub fn set_tile(&mut self, ptr: &TilePointer, value: Tile) {
+    let (x, y) = *ptr;
     self.data[y][x] = value;
   }
 
   pub fn get_size(&self) -> usize {
     self.data.len()
+  }
+
+  pub fn hash(&self) -> i128 {
+    let mut hash = 0;
+    for tile in self.data.iter().flatten() {
+      hash += match *tile {
+        Some(player) => {
+          if player {
+            1
+          } else {
+            2
+          }
+        }
+        None => 0,
+      };
+      if hash >= i128::MAX / 3 {
+        hash /= 10
+      }
+      hash *= 3;
+    }
+    hash
   }
 }
 
