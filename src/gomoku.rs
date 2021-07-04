@@ -71,15 +71,7 @@ fn evaluate_board(
 
   let score_opponent = tile_sequences
     .iter()
-    .map(|sequence| {
-      eval_sequence(
-        cache,
-        stats,
-        &sequence,
-        next_player(current_player),
-        true,
-      )
-    })
+    .map(|sequence| eval_sequence(cache, stats, &sequence, next_player(current_player), true))
     .sum::<i128>();
 
   let score = score_current - score_opponent;
@@ -201,10 +193,9 @@ fn shape_score(
   has_hole: bool,
   is_on_turn: bool,
 ) -> i128 {
-  let sequence_hash = (consecutive, open_ends, has_hole, is_on_turn);
-  if cached_shapes.contains_key(&sequence_hash) {
-    // stats.cached_sequences_used += 1;
-    return cached_shapes[&sequence_hash];
+  let shape_hash = (consecutive, open_ends, has_hole, is_on_turn);
+  if cached_shapes.contains_key(&shape_hash) {
+    return cached_shapes[&shape_hash];
   }
 
   let score: i128 = if has_hole {
@@ -257,7 +248,7 @@ fn shape_score(
     }
   };
 
-  cached_shapes.insert(sequence_hash, score);
+  cached_shapes.insert(shape_hash, score);
 
   score
 }
