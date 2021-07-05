@@ -156,11 +156,7 @@ fn run(player: bool, depth: u8, start: bool) {
     board.set_tile(&tile, Some(player));
 
     println!("stats: {:?}", stats);
-    println!(
-      "cache: boards {:?}, sequences {:?}",
-      cache.boards.len(),
-      cache.sequences.len()
-    );
+    println!("cache: boards {:?}", cache.boards.len(),);
     println!("score: {:?}", score);
     println!("board:\n{}", board);
 

@@ -192,10 +192,10 @@ impl Board {
     self.data.len()
   }
 
-  pub fn hash(&self) -> i128 {
+  pub fn hash(&self) -> u128 {
     self.data.iter().flatten().fold(0, |total, tile| {
       let hash = total + tile.map_or(0, |player| if player { 1 } else { 2 });
-      if hash >= i128::MAX / 3 {
+      if hash >= u128::MAX / 3 {
         hash / 10 * 3
       } else {
         hash * 3
@@ -218,13 +218,14 @@ impl fmt::Display for Board {
     let mut string = String::from("  0123456789\n");
     let board_size = self.get_size();
     for i in 0..board_size {
-      let row = &self.data[i];
       let tmp = if i < 10 && board_size >= 10 {
         format!(" {:?}", i)
       } else {
         format!("{:?}", i)
       };
       string.push_str(&tmp);
+
+      let row = &self.data[i];
       string.push_str(
         &(row
           .iter()

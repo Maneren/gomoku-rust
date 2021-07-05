@@ -5,20 +5,11 @@ use rand::thread_rng;
 pub mod board;
 use board::{Board, TilePointer};
 
-pub type Move = (TilePointer, i128);
-
-// #[derive(Debug)]
-// pub struct EvalTimes {
-//   pub board: Vec<u128>,
-// }
-
 #[derive(Debug)]
 pub struct Stats {
   pub boards_evaluated: u32,
   pub pruned: u32,
   pub cached_boards_used: u32,
-  pub cached_sequences_used: u32,
-  // pub eval_times: EvalTimes,
 }
 impl Stats {
   pub fn new() -> Stats {
@@ -26,24 +17,19 @@ impl Stats {
       boards_evaluated: 0,
       pruned: 0,
       cached_boards_used: 0,
-      cached_sequences_used: 0,
       // eval_times: EvalTimes { board: Vec::new() },
     }
   }
 }
 
 use std::collections::HashMap;
-type SequencesCache = HashMap<(u32, bool, bool), i128>;
-
 pub struct Cache {
-  pub boards: HashMap<(i128, bool), i128>,
-  pub sequences: SequencesCache,
+  pub boards: HashMap<(u128, bool), i128>,
 }
 impl Cache {
   pub fn new() -> Cache {
     Cache {
       boards: HashMap::new(),
-      sequences: HashMap::new(),
     }
   }
 }
@@ -55,52 +41,34 @@ fn next_player(current: bool) -> bool {
 fn evaluate_board(
   board: &mut Board,
   stats: &mut Stats,
-  cache: &mut Cache,
+  cached_boards: &mut HashMap<(u128, bool), i128>,
   current_player: bool,
 ) -> i128 {
   stats.boards_evaluated += 1;
 
+  // TODO: cache only based on hash and add sign to the result based on current player
   let board_hash = (board.hash(), current_player);
-  if cache.boards.contains_key(&board_hash) {
+  if cached_boards.contains_key(&board_hash) {
     stats.cached_boards_used += 1;
-    return cache.boards[&board_hash];
+    return cached_boards[&board_hash];
   }
 
-  let tile_sequences = board.get_all_tile_sequences();
-
-  let score_current = tile_sequences
+  let score = board
+    .get_all_tile_sequences()
     .iter()
-    .map(|sequence| eval_sequence(cache, stats, &sequence, current_player, false))
-    .sum::<i128>();
+    .fold(0, |total, sequence| {
+      // total + player - opponent
+      total + eval_sequence(&sequence, current_player, false)
+        - eval_sequence(&sequence, next_player(current_player), true)
+    });
 
-  let score_opponent = tile_sequences
-    .iter()
-    .map(|sequence| eval_sequence(cache, stats, &sequence, next_player(current_player), true))
-    .sum::<i128>();
-
-  let score = score_current - score_opponent;
-
-  cache.boards.insert(board_hash, score);
+  cached_boards.insert(board_hash, score);
 
   score
 }
 
-fn eval_sequence(
-  cache: &mut Cache,
-  stats: &mut Stats,
-  sequence: &[&Option<bool>],
-  evaluate_for: bool,
-  is_on_turn: bool,
-) -> i128 {
-  let sequence_hash = (hash_sequence(sequence), evaluate_for, is_on_turn);
-  let cached_sequences = &mut cache.sequences;
-  if cached_sequences.contains_key(&sequence_hash) {
-    stats.cached_sequences_used += 1;
-    return cached_sequences[&sequence_hash];
-  }
-
-  let mut score: i128 = 0;
-
+fn eval_sequence(sequence: &[&Option<bool>], evaluate_for: bool, is_on_turn: bool) -> i128 {
+  let mut score = 0;
   let mut consecutive = 0;
   let mut open_ends = 0;
   let mut has_hole = false;
@@ -108,130 +76,89 @@ fn eval_sequence(
   for (index, tile) in sequence.iter().enumerate() {
     let tile = *tile;
 
-    match tile {
-      Some(player) => {
-        let player = *player;
-
-        if player == evaluate_for {
-          consecutive += 1
-        } else {
-          if consecutive > 0 {
-            score += shape_score(
-              consecutive,
-              open_ends,
-              has_hole,
-              is_on_turn,
-            );
-          }
-          consecutive = 0;
-          open_ends = 0;
-        }
+    if let Some(player) = tile {
+      if *player == evaluate_for {
+        consecutive += 1
+      } else {
+        score += shape_score(consecutive, open_ends, has_hole, is_on_turn);
+        consecutive = 0;
+        open_ends = 0;
       }
-      None => {
-        if consecutive == 0 {
-          open_ends = 1
-        } else {
-          if !has_hole && index + 1 < sequence.len() && *sequence[index + 1] == Some(evaluate_for) {
-            has_hole = true;
-            consecutive += 1;
-            continue;
-          }
-
-          open_ends += 1;
-          score += shape_score(
-            consecutive,
-            open_ends,
-            has_hole,
-            is_on_turn,
-          );
-          consecutive = 0;
-          open_ends = 1;
-
-          if has_hole {
-            has_hole = false;
-          }
-        }
+    } else if consecutive == 0 {
+      open_ends = 1
+    } else {
+      if !has_hole && index + 1 < sequence.len() && sequence[index + 1] == &Some(evaluate_for) {
+        has_hole = true;
+        consecutive += 1;
+        continue;
       }
-    };
+
+      open_ends += 1;
+
+      score += shape_score(consecutive, open_ends, has_hole, is_on_turn);
+
+      consecutive = 0;
+      open_ends = 1;
+      has_hole = false;
+    }
   }
 
-  if consecutive > 0 {
-    score += shape_score(
-      consecutive,
-      open_ends,
-      has_hole,
-      is_on_turn,
-    );
-  }
-
-  cached_sequences.insert(sequence_hash, score);
+  score += shape_score(consecutive, open_ends, has_hole, is_on_turn);
 
   score
 }
 
-fn hash_sequence(sequence: &[&Option<bool>]) -> u32 {
-  sequence.iter().fold(0, |total, tile| {
-    (total + tile.map_or(0, |player| if player { 1 } else { 2 })) * 3
-  })
-}
+fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> i128 {
+  if consecutive == 0 || open_ends == 0 {
+    return 0;
+  }
 
-fn shape_score(
-  consecutive: u8,
-  open_ends: u8,
-  has_hole: bool,
-  is_on_turn: bool,
-) -> i128 {
   if has_hole {
-    if is_on_turn {
-      match consecutive {
-        5 => 50_000,
-        4 => {
-          if open_ends == 2 {
-            20_000
-          } else {
-            0
-          }
-        }
-        _ => 0,
-      }
+    if !is_on_turn {
+      return 0;
+    }
+    return if consecutive == 5 {
+      50_000
+    } else if consecutive == 4 && open_ends == 2 {
+      20_000
     } else {
       0
-    }
-  } else {
-    match consecutive {
-      5 => 100_000,
-      4 => match open_ends {
-        2 => 50_000,
-        1 => {
-          if is_on_turn {
-            5000
-          } else {
-            50
-          }
+    };
+  }
+
+  match consecutive {
+    5 => 100_000,
+    4 => match open_ends {
+      2 => 50_000,
+      1 => {
+        if is_on_turn {
+          10_000
+        } else {
+          500
         }
-        _ => 0,
-      },
-      3 => match open_ends {
-        2 => {
-          if is_on_turn {
-            500
-          } else {
-            50
-          }
-        }
-        1 => 10,
-        _ => 0,
-      },
-      2 => match open_ends {
-        2 => 5,
-        1 => 3,
-        _ => 0,
-      },
+      }
       _ => 0,
-    }
+    },
+    3 => match open_ends {
+      2 => {
+        if is_on_turn {
+          500
+        } else {
+          50
+        }
+      }
+      1 => 10,
+      _ => 0,
+    },
+    2 => match open_ends {
+      2 => 5,
+      _ => 0,
+    },
+    _ => 0,
   }
 }
 
+pub type Move = (TilePointer, i128);
 fn minimax(
   board: &mut Board,
   stats: &mut Stats,
@@ -251,7 +178,7 @@ fn minimax(
 
     for move_ in &available_moves {
       board.set_tile(move_, Some(current_player));
-      let analysis = evaluate_board(board, stats, cache, current_player);
+      let analysis = evaluate_board(board, stats, &mut cache.boards, current_player);
       board.set_tile(move_, None);
 
       move_results.push((*move_, analysis));
@@ -283,7 +210,7 @@ fn minimax(
       )
       .1
     } else {
-      evaluate_board(board, stats, cache, current_player)
+      evaluate_board(board, stats, &mut cache.boards, current_player)
     };
 
     board.set_tile(move_, None);
@@ -321,11 +248,7 @@ pub fn decide(board: &Board, player: bool, analysis_depth: u8) -> (Board, Move, 
 
   board.set_tile(&move_.0, Some(player));
 
-  println!(
-    "cache: boards {:?}, sequences {:?}",
-    cache.boards.len(),
-    cache.sequences.len()
-  );
+  println!("cache: boards {:?}", cache.boards.len());
 
   (board, move_, stats)
 }
