@@ -28,44 +28,34 @@ pub struct Board {
 }
 
 impl Board {
-  pub fn new(input_data: &[Vec<char>]) -> Result<Board, Error> {
-    if input_data.len() <= 8 {
+  pub fn new(data: Vec<Vec<Option<bool>>>) -> Result<Board, Error> {
+    if data.len() <= 8 {
       return Err(Error {
-        msg: "Invalid board height".into(),
+        msg: "Too small board height".into(),
       });
     }
 
-    let height = input_data.len();
+    let height = data.len();
 
-    for (index, row) in input_data.iter().enumerate() {
+    for (index, row) in data.iter().enumerate() {
       if row.len() != height {
         return Err(Error {
-          msg: format!("Invalid board width on row {}", index + 1),
+          msg: format!("Invalid board width {} on row {}", row.len(), index + 1),
         });
       }
     }
 
-    let data: Vec<Vec<Tile>> = input_data
-      .iter()
-      .map(|row| {
-        row
-          .iter()
-          .map(|tile| {
-            if *tile == 'x' {
-              Some(true)
-            } else if *tile == 'o' {
-              Some(false)
-            } else {
-              None
-            }
-          })
-          .collect()
-      })
-      .collect();
-
     let sequences = Board::get_all_sequences(data.len());
 
     Ok(Board { data, sequences })
+  }
+
+  pub fn empty(size: u8) -> Board {
+    let data = (0..size)
+      .map(|_| (0..size).map(|_| None).collect())
+      .collect();
+
+    Board::new(data).unwrap()
   }
 
   fn get_all_sequences(board_size: usize) -> Vec<Vec<TilePointer>> {
@@ -165,12 +155,25 @@ impl Board {
       .collect::<Vec<Vec<char>>>();
 
     // parse Vec<Vec<char>> into Vec<Vec<Tile>>
-    let parsed_data: Vec<Vec<char>> = rows
+    let parsed_data: Vec<Vec<Tile>> = rows
       .iter()
-      .map(|row| row.iter().map(char::to_owned).collect())
+      .map(|row| {
+        row
+          .iter()
+          .map(|tile| {
+            if *tile == 'x' {
+              Some(true)
+            } else if *tile == 'o' {
+              Some(false)
+            } else {
+              None
+            }
+          })
+          .collect()
+      })
       .collect();
 
-    let board = Board::new(&parsed_data)?;
+    let board = Board::new(parsed_data)?;
 
     Ok(board)
   }
@@ -190,24 +193,14 @@ impl Board {
   }
 
   pub fn hash(&self) -> i128 {
-    let mut hash = 0;
-    for tile in self.data.iter().flatten() {
-      hash += match *tile {
-        Some(player) => {
-          if player {
-            1
-          } else {
-            2
-          }
-        }
-        None => 0,
-      };
+    self.data.iter().flatten().fold(0, |total, tile| {
+      let hash = total + tile.map_or(0, |player| if player { 1 } else { 2 });
       if hash >= i128::MAX / 3 {
-        hash /= 10
+        hash / 10 * 3
+      } else {
+        hash * 3
       }
-      hash *= 3;
-    }
-    hash
+    })
   }
 }
 
@@ -222,10 +215,16 @@ impl std::clone::Clone for Board {
 
 impl fmt::Display for Board {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let mut string = String::from(" 0123456789\n");
-    for i in 0..self.data.len() {
+    let mut string = String::from("  0123456789\n");
+    let board_size = self.get_size();
+    for i in 0..board_size {
       let row = &self.data[i];
-      string.push_str(&format!("{:?}", i));
+      let tmp = if i < 10 && board_size >= 10 {
+        format!(" {:?}", i)
+      } else {
+        format!("{:?}", i)
+      };
+      string.push_str(&tmp);
       string.push_str(
         &(row
           .iter()

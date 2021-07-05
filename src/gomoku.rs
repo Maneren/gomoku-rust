@@ -1,5 +1,3 @@
-// use std::cmp;
-
 // for shuffling
 use rand::seq::SliceRandom;
 use rand::thread_rng;
@@ -9,11 +7,18 @@ use board::{Board, TilePointer};
 
 pub type Move = (TilePointer, i128);
 
+// #[derive(Debug)]
+// pub struct EvalTimes {
+//   pub board: Vec<u128>,
+// }
+
+#[derive(Debug)]
 pub struct Stats {
   pub boards_evaluated: u32,
   pub pruned: u32,
   pub cached_boards_used: u32,
   pub cached_sequences_used: u32,
+  // pub eval_times: EvalTimes,
 }
 impl Stats {
   pub fn new() -> Stats {
@@ -22,24 +27,23 @@ impl Stats {
       pruned: 0,
       cached_boards_used: 0,
       cached_sequences_used: 0,
+      // eval_times: EvalTimes { board: Vec::new() },
     }
   }
 }
 
 use std::collections::HashMap;
 type SequencesCache = HashMap<(u32, bool, bool), i128>;
-type ShapesCache = HashMap<(u8, u8, bool, bool), i128>;
+
 pub struct Cache {
   pub boards: HashMap<(i128, bool), i128>,
   pub sequences: SequencesCache,
-  pub shapes: ShapesCache,
 }
 impl Cache {
   pub fn new() -> Cache {
     Cache {
       boards: HashMap::new(),
       sequences: HashMap::new(),
-      shapes: HashMap::new(),
     }
   }
 }
@@ -113,7 +117,6 @@ fn eval_sequence(
         } else {
           if consecutive > 0 {
             score += shape_score(
-              &mut cache.shapes,
               consecutive,
               open_ends,
               has_hole,
@@ -136,7 +139,6 @@ fn eval_sequence(
 
           open_ends += 1;
           score += shape_score(
-            &mut cache.shapes,
             consecutive,
             open_ends,
             has_hole,
@@ -155,7 +157,6 @@ fn eval_sequence(
 
   if consecutive > 0 {
     score += shape_score(
-      &mut cache.shapes,
       consecutive,
       open_ends,
       has_hole,
@@ -169,36 +170,18 @@ fn eval_sequence(
 }
 
 fn hash_sequence(sequence: &[&Option<bool>]) -> u32 {
-  let mut hash = 0;
-  for tile in sequence {
-    hash += match *tile {
-      Some(player) => {
-        if *player {
-          1
-        } else {
-          2
-        }
-      }
-      None => 0,
-    };
-    hash *= 3;
-  }
-  hash
+  sequence.iter().fold(0, |total, tile| {
+    (total + tile.map_or(0, |player| if player { 1 } else { 2 })) * 3
+  })
 }
 
 fn shape_score(
-  cached_shapes: &mut ShapesCache,
   consecutive: u8,
   open_ends: u8,
   has_hole: bool,
   is_on_turn: bool,
 ) -> i128 {
-  let shape_hash = (consecutive, open_ends, has_hole, is_on_turn);
-  if cached_shapes.contains_key(&shape_hash) {
-    return cached_shapes[&shape_hash];
-  }
-
-  let score: i128 = if has_hole {
+  if has_hole {
     if is_on_turn {
       match consecutive {
         5 => 50_000,
@@ -246,11 +229,7 @@ fn shape_score(
       },
       _ => 0,
     }
-  };
-
-  cached_shapes.insert(shape_hash, score);
-
-  score
+  }
 }
 
 fn minimax(
@@ -258,7 +237,7 @@ fn minimax(
   stats: &mut Stats,
   cache: &mut Cache,
   current_player: bool,
-  remaining_depth: u32,
+  remaining_depth: u8,
   alpha: i128,
   beta: i128,
 ) -> Move {
@@ -281,7 +260,7 @@ fn minimax(
     move_results.sort_unstable_by_key(|move_result| move_result.1);
     move_results.reverse(); // descending order
 
-    moves_to_consider = move_results[0..10].iter().map(|result| result.0).collect();
+    moves_to_consider = move_results[0..5].iter().map(|result| result.0).collect();
   } else {
     moves_to_consider = available_moves;
   }
@@ -322,24 +301,58 @@ fn minimax(
   (best_move, -alpha)
 }
 
-pub fn decide(board: &Board, current_player: bool, analysis_depth: u32) -> (Board, Move, Stats) {
+pub fn decide(board: &Board, player: bool, analysis_depth: u8) -> (Board, Move, Stats) {
   let mut board = board.clone();
   let mut stats = Stats::new();
   let mut cache = Cache::new();
+
+  let alpha = -(10_i128.pow(10));
+  let beta = 10_i128.pow(10);
 
   let move_ = minimax(
     &mut board,
     &mut stats,
     &mut cache,
-    current_player,
+    player,
     analysis_depth,
-    -(10_i128.pow(10)),
-    10_i128.pow(10),
+    alpha,
+    beta,
   );
 
-  println!("cache: {:?}", cache.sequences.len());
+  board.set_tile(&move_.0, Some(player));
 
-  board.set_tile(&move_.0, Some(current_player));
+  println!(
+    "cache: boards {:?}, sequences {:?}",
+    cache.boards.len(),
+    cache.sequences.len()
+  );
+
+  (board, move_, stats)
+}
+
+pub fn decide_with_cache(
+  board: &Board,
+  player: bool,
+  analysis_depth: u8,
+  cache: &mut Cache,
+) -> (Board, Move, Stats) {
+  let mut board = board.clone();
+  let mut stats = Stats::new();
+
+  let alpha = -(10_i128.pow(10));
+  let beta = 10_i128.pow(10);
+
+  let move_ = minimax(
+    &mut board,
+    &mut stats,
+    cache,
+    player,
+    analysis_depth,
+    alpha,
+    beta,
+  );
+
+  board.set_tile(&move_.0, Some(player));
 
   (board, move_, stats)
 }
