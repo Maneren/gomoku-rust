@@ -24,7 +24,7 @@ impl Stats {
 
 use std::collections::HashMap;
 pub struct Cache {
-  pub boards: HashMap<(u128, bool), i128>,
+  pub boards: HashMap<u128, (i128, bool)>,
 }
 impl Cache {
   pub fn new() -> Cache {
@@ -41,16 +41,21 @@ fn next_player(current: bool) -> bool {
 fn evaluate_board(
   board: &mut Board,
   stats: &mut Stats,
-  cached_boards: &mut HashMap<(u128, bool), i128>,
+  cached_boards: &mut HashMap<u128, (i128, bool)>,
   current_player: bool,
 ) -> i128 {
   stats.boards_evaluated += 1;
 
-  // TODO: cache only based on hash and add sign to the result based on current player
-  let board_hash = (board.hash(), current_player);
+  let board_hash = board.hash();
   if cached_boards.contains_key(&board_hash) {
     stats.cached_boards_used += 1;
-    return cached_boards[&board_hash];
+
+    let (cached_score, owner) = cached_boards[&board_hash];
+    return if current_player == owner {
+      cached_score
+    } else {
+      -cached_score
+    };
   }
 
   let score = board
@@ -62,7 +67,7 @@ fn evaluate_board(
         - eval_sequence(&sequence, next_player(current_player), true)
     });
 
-  cached_boards.insert(board_hash, score);
+  cached_boards.insert(board_hash, (score, current_player));
 
   score
 }
