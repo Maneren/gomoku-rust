@@ -116,50 +116,51 @@ fn eval_sequence(sequence: &[&Option<bool>], evaluate_for: bool, is_on_turn: boo
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> i128 {
   if consecutive == 0 || open_ends == 0 {
     return 0;
-  }
-
+  } 
+  
   if has_hole {
     if !is_on_turn {
       return 0;
     }
-    return if consecutive == 5 {
+    
+    if consecutive == 5 {
       50_000
     } else if consecutive == 4 && open_ends == 2 {
       20_000
     } else {
       0
-    };
-  }
-
-  match consecutive {
-    5 => 100_000,
-    4 => match open_ends {
-      2 => 50_000,
-      1 => {
-        if is_on_turn {
-          10_000
-        } else {
-          500
+    }
+  } else {
+    match consecutive {
+      5 => 100_000,
+      4 => match open_ends {
+        2 => 50_000,
+        1 => {
+          if is_on_turn {
+            10_000
+          } else {
+            500
+          }
         }
-      }
-      _ => 0,
-    },
-    3 => match open_ends {
-      2 => {
-        if is_on_turn {
-          500
-        } else {
-          50
+        _ => 0,
+      },
+      3 => match open_ends {
+        2 => {
+          if is_on_turn {
+            500
+          } else {
+            50
+          }
         }
-      }
-      1 => 10,
+        1 => 10,
+        _ => 0,
+      },
+      2 => match open_ends {
+        2 => 5,
+        _ => 0,
+      },
       _ => 0,
-    },
-    2 => match open_ends {
-      2 => 5,
-      _ => 0,
-    },
-    _ => 0,
+    }
   }
 }
 
