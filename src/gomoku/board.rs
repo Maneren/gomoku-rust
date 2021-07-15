@@ -22,6 +22,7 @@ impl error::Error for Error {
 pub type Tile = Option<bool>;
 pub type TilePointer = (usize, usize);
 
+#[derive(Clone)]
 pub struct Board {
   data: Vec<Vec<Tile>>,
   pub sequences: Vec<Vec<TilePointer>>,
@@ -67,9 +68,6 @@ impl Board {
       for y in 0..board_size {
         temp.push((x, y));
       }
-      if !temp.is_empty() {
-        sequences.push(temp)
-      };
     }
 
     // vertical
@@ -78,9 +76,6 @@ impl Board {
       for x in 0..board_size {
         temp.push((x, y));
       }
-      if !temp.is_empty() {
-        sequences.push(temp)
-      };
     }
 
     // diag1
@@ -131,19 +126,12 @@ impl Board {
   }
 
   pub fn get_empty_tiles(&self) -> Vec<TilePointer> {
-    let mut empty_fields: Vec<TilePointer> = vec![];
     let board_size = self.get_size();
 
-    for y in 0..board_size {
-      for x in 0..board_size {
-        let ptr = (x, y);
-        if self.get_tile(&ptr).is_none() {
-          empty_fields.push(ptr);
-        }
-      }
-    }
-
-    empty_fields
+    (0..board_size)
+      .flat_map(|x| (0..board_size).map(move |y| (x, y)))
+      .filter(|ptr| self.get_tile(ptr).is_none())
+      .collect()
   }
 
   pub fn from_string(input_string: &str) -> Result<Board, Error> {
@@ -192,24 +180,16 @@ impl Board {
     self.data.len()
   }
 
+  // just for caching
   pub fn hash(&self) -> u128 {
     self.data.iter().flatten().fold(0, |total, tile| {
       let hash = total + tile.map_or(0, |player| if player { 1 } else { 2 });
       if hash >= u128::MAX / 3 {
-        hash / 10 * 3
+        hash / 164_986_984 * 3 // random large number without
       } else {
         hash * 3
       }
     })
-  }
-}
-
-impl std::clone::Clone for Board {
-  fn clone(&self) -> Self {
-    Board {
-      data: self.data.clone(),
-      sequences: self.sequences.clone(),
-    }
   }
 }
 

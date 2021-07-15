@@ -1,6 +1,5 @@
 // for shuffling
-use rand::seq::SliceRandom;
-use rand::thread_rng;
+use rand::{prelude::ThreadRng, seq::SliceRandom, thread_rng};
 
 pub mod board;
 use board::{Board, TilePointer};
@@ -8,23 +7,22 @@ use board::{Board, TilePointer};
 #[derive(Debug)]
 pub struct Stats {
   pub boards_evaluated: u32,
-  pub pruned: u32,
   pub cached_boards_used: u32,
+  pub pruned: u32,
 }
 impl Stats {
   pub fn new() -> Stats {
     Stats {
       boards_evaluated: 0,
-      pruned: 0,
       cached_boards_used: 0,
-      // eval_times: EvalTimes { board: Vec::new() },
+      pruned: 0,
     }
   }
 }
 
 use std::collections::HashMap;
 pub struct Cache {
-  pub boards: HashMap<u128, (i128, bool)>,
+  pub boards: HashMap<u128, (i64, bool)>,
 }
 impl Cache {
   pub fn new() -> Cache {
@@ -41,21 +39,23 @@ fn next_player(current: bool) -> bool {
 fn evaluate_board(
   board: &mut Board,
   stats: &mut Stats,
-  cached_boards: &mut HashMap<u128, (i128, bool)>,
+  cached_boards: &mut HashMap<u128, (i64, bool)>,
   current_player: bool,
-) -> i128 {
+) -> i64 {
   stats.boards_evaluated += 1;
 
   let board_hash = board.hash();
-  if cached_boards.contains_key(&board_hash) {
+
+  if let Some(&(cached_score, owner)) = cached_boards.get(&board_hash) {
     stats.cached_boards_used += 1;
 
-    let (cached_score, owner) = cached_boards[&board_hash];
-    return if current_player == owner {
+    let score = if current_player == owner {
       cached_score
     } else {
       -cached_score
     };
+
+    return score;
   }
 
   let score = board
@@ -72,15 +72,13 @@ fn evaluate_board(
   score
 }
 
-fn eval_sequence(sequence: &[&Option<bool>], evaluate_for: bool, is_on_turn: bool) -> i128 {
+fn eval_sequence(sequence: &[&Option<bool>], evaluate_for: bool, is_on_turn: bool) -> i64 {
   let mut score = 0;
   let mut consecutive = 0;
   let mut open_ends = 0;
   let mut has_hole = false;
 
   for (index, tile) in sequence.iter().enumerate() {
-    let tile = *tile;
-
     if let Some(player) = tile {
       if *player == evaluate_for {
         consecutive += 1
@@ -113,18 +111,18 @@ fn eval_sequence(sequence: &[&Option<bool>], evaluate_for: bool, is_on_turn: boo
   score
 }
 
-fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> i128 {
+fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> i64 {
   if consecutive == 0 || open_ends == 0 {
     return 0;
-  } 
-  
+  }
+
   if has_hole {
     if !is_on_turn {
       return 0;
     }
-    
+
     if consecutive == 5 {
-      50_000
+      40_000
     } else if consecutive == 4 && open_ends == 2 {
       20_000
     } else {
@@ -132,14 +130,20 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
     }
   } else {
     match consecutive {
-      5 => 100_000,
+      5 => 500_000,
       4 => match open_ends {
-        2 => 50_000,
+        2 => {
+          if is_on_turn {
+            50_000
+          } else {
+            40_000
+          }
+        }
         1 => {
           if is_on_turn {
-            10_000
+            40_000
           } else {
-            500
+            50
           }
         }
         _ => 0,
@@ -147,7 +151,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
       3 => match open_ends {
         2 => {
           if is_on_turn {
-            500
+            5_000
           } else {
             50
           }
@@ -164,99 +168,119 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
   }
 }
 
-pub type Move = (TilePointer, i128);
+struct AlphaBeta(i64, i64);
+
+#[derive(Debug)]
+pub struct Move {
+  pub tile: TilePointer,
+  pub score: i64,
+}
+
 fn minimax(
   board: &mut Board,
   stats: &mut Stats,
   cache: &mut Cache,
+  rng: &mut ThreadRng,
   current_player: bool,
   remaining_depth: u8,
-  alpha: i128,
-  beta: i128,
+  alpha_beta: &mut AlphaBeta,
 ) -> Move {
   let mut available_moves = board.get_empty_tiles();
-  available_moves.shuffle(&mut thread_rng());
+  available_moves.shuffle(rng);
 
-  let moves_to_consider: Vec<(usize, usize)>;
+  let board_size = board.get_size();
 
-  if remaining_depth > 0 {
-    let mut move_results: Vec<Move> = vec![];
+  #[allow(clippy::cast_precision_loss)]
+  let middle = (board_size - 1) as f64 / 2.0;
 
-    for move_ in &available_moves {
-      board.set_tile(move_, Some(current_player));
-      let analysis = evaluate_board(board, stats, &mut cache.boards, current_player);
-      board.set_tile(move_, None);
+  #[allow(clippy::cast_possible_truncation)]
+  #[allow(clippy::cast_precision_loss)]
+  let dist = |p1: TilePointer| {
+    let raw_dist = (p1.0 as f64 - middle).powi(2) + (p1.1 as f64 - middle).powi(2);
+    raw_dist.round() as i64
+  };
 
-      move_results.push((*move_, analysis));
-    }
+  let tiles_to_consider = if remaining_depth > 0 {
+    // eval each move to depth 0,
+    // sort them based on the result and
+    // return 5 best of them
+    let mut move_results: Vec<Move> = available_moves
+      .iter()
+      .map(|&tile| {
+        board.set_tile(&tile, Some(current_player));
+        let analysis = evaluate_board(board, stats, &mut cache.boards, current_player);
+        board.set_tile(&tile, None);
 
-    move_results.sort_unstable_by_key(|move_result| move_result.1);
+        Move {
+          tile,
+          score: analysis - dist(tile),
+        }
+      })
+      .collect();
+
+    move_results.sort_unstable_by_key(|move_result| move_result.score);
     move_results.reverse(); // descending order
 
-    moves_to_consider = move_results[0..5].iter().map(|result| result.0).collect();
+    move_results
+      .iter()
+      .take(10)
+      .map(|result| result.tile)
+      .collect()
   } else {
-    moves_to_consider = available_moves;
-  }
+    available_moves
+  };
 
-  let mut best_move = moves_to_consider[0];
-  let mut alpha = alpha;
+  let mut best_tile = tiles_to_consider[0];
+  let AlphaBeta(mut alpha, beta) = alpha_beta;
 
-  for move_ in &moves_to_consider {
-    board.set_tile(move_, Some(current_player));
+  for tile in &tiles_to_consider {
+    board.set_tile(tile, Some(current_player));
 
-    let score: i128 = if remaining_depth > 0 {
+    let score = if remaining_depth > 0 {
       minimax(
         board,
         stats,
         cache,
+        rng,
         next_player(current_player),
         remaining_depth - 1,
-        -beta,
-        -alpha,
+        &mut AlphaBeta(-*beta, -alpha),
       )
-      .1
+      .score
     } else {
       evaluate_board(board, stats, &mut cache.boards, current_player)
     };
 
-    board.set_tile(move_, None);
+    board.set_tile(tile, None);
 
-    if score > beta {
+    if score > *beta {
       stats.pruned += 1;
-      return (best_move, beta);
+      return Move {
+        tile: *tile,
+        score: -score,
+      };
     }
+
     if score > alpha {
       alpha = score;
-      best_move = *move_;
+      best_tile = *tile;
     }
   }
 
-  (best_move, -alpha)
+  Move {
+    tile: best_tile,
+    score: -alpha,
+  }
 }
 
 pub fn decide(board: &Board, player: bool, analysis_depth: u8) -> (Board, Move, Stats) {
-  let mut board = board.clone();
-  let mut stats = Stats::new();
   let mut cache = Cache::new();
 
-  let alpha = -(10_i128.pow(10));
-  let beta = 10_i128.pow(10);
-
-  let move_ = minimax(
-    &mut board,
-    &mut stats,
-    &mut cache,
-    player,
-    analysis_depth,
-    alpha,
-    beta,
-  );
-
-  board.set_tile(&move_.0, Some(player));
+  let result = decide_with_cache(board, player, analysis_depth, &mut cache);
 
   println!("cache: boards {:?}", cache.boards.len());
 
-  (board, move_, stats)
+  result
 }
 
 pub fn decide_with_cache(
@@ -268,20 +292,19 @@ pub fn decide_with_cache(
   let mut board = board.clone();
   let mut stats = Stats::new();
 
-  let alpha = -(10_i128.pow(10));
-  let beta = 10_i128.pow(10);
+  let mut alpha_beta = AlphaBeta(-1_000_000_000_000, 1_000_000_000_000);
 
   let move_ = minimax(
     &mut board,
     &mut stats,
     cache,
+    &mut thread_rng(),
     player,
     analysis_depth,
-    alpha,
-    beta,
+    &mut alpha_beta,
   );
 
-  board.set_tile(&move_.0, Some(player));
+  board.set_tile(&move_.tile, Some(player));
 
   (board, move_, stats)
 }

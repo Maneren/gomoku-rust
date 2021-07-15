@@ -5,7 +5,7 @@ use std::{fs::File, io::prelude::*, time::Instant};
 // mod board;
 
 mod gomoku;
-use gomoku::board::Board;
+use gomoku::{board::Board, Move};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -73,7 +73,8 @@ fn run_debug(path_to_input: &str, player: bool, depth: u8) -> Result<(), Error> 
   println!("stats: {:?}", stats);
 
   println!("{}", solved);
-  println!("{:?}", best_move);
+  let Move { tile, score } = best_move;
+  println!("{:?}, {:?}", tile, score);
   if run_time < 5000 {
     println!("Time taken: {} \u{03bc}s", run_time)
   } else if run_time < 5_000_000 {
@@ -152,7 +153,7 @@ fn run(player: bool, depth: u8, start: bool) {
       println!("Time taken: {} s", run_time / 1_000_000);
     }
 
-    let (tile, score) = move_;
+    let Move { tile, score } = move_;
     board.set_tile(&tile, Some(player));
 
     println!("stats: {:?}", stats);
@@ -179,24 +180,17 @@ fn is_game_end(board: &Board, current_player: bool) -> bool {
 fn is_game_end_sequence(sequence: &[&Option<bool>], current_player: bool) -> bool {
   let mut consecutive = 0;
   for tile in sequence {
-    let tile = *tile;
-    match tile {
-      Some(player) => {
-        if *player == current_player {
-          consecutive += 1
-        } else {
-          if consecutive >= 5 {
-            return true;
-          }
-          consecutive = 0;
-        }
-      }
-      None => {
+    if let Some(player) = tile {
+      if *player == current_player {
+        consecutive += 1;
         if consecutive >= 5 {
           return true;
         }
+      } else {
         consecutive = 0;
       }
+    } else {
+      consecutive = 0
     };
   }
 

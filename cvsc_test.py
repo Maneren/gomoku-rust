@@ -35,6 +35,7 @@ while p1.poll() is None and p2.poll() is None:
     print(f"2 {line}")
 
   if line.startswith('$'):
+    print(line)
     break
 
   if line.startswith('!'):
