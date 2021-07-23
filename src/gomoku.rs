@@ -2,7 +2,7 @@
 use rand::{prelude::ThreadRng, seq::SliceRandom, thread_rng};
 
 pub mod board;
-use board::{Board, TilePointer, Tile};
+use board::{Board, Tile, TilePointer};
 
 type Score = i64;
 
@@ -188,6 +188,14 @@ fn minimax(
   alpha_beta: &mut AlphaBeta,
 ) -> Move {
   let mut available_moves = board.get_empty_tiles();
+
+  if available_moves.is_empty() {
+    return Move {
+      tile: TilePointer { x: 0, y: 0 },
+      score: -1_000_000_000_000,
+    };
+  }
+
   available_moves.shuffle(rng);
 
   let board_size = board.get_size();
