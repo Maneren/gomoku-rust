@@ -2,7 +2,9 @@
 use rand::{prelude::ThreadRng, seq::SliceRandom, thread_rng};
 
 pub mod board;
-use board::{Board, TilePointer};
+use board::{Board, TilePointer, Tile};
+
+type Score = i64;
 
 #[derive(Debug)]
 pub struct Stats {
@@ -22,7 +24,7 @@ impl Stats {
 
 use std::collections::HashMap;
 pub struct Cache {
-  pub boards: HashMap<u128, (i64, bool)>,
+  pub boards: HashMap<u128, (Score, bool)>,
 }
 impl Cache {
   pub fn new() -> Cache {
@@ -39,9 +41,9 @@ fn next_player(current: bool) -> bool {
 fn evaluate_board(
   board: &mut Board,
   stats: &mut Stats,
-  cached_boards: &mut HashMap<u128, (i64, bool)>,
+  cached_boards: &mut HashMap<u128, (Score, bool)>,
   current_player: bool,
-) -> i64 {
+) -> Score {
   stats.boards_evaluated += 1;
 
   let board_hash = board.hash();
@@ -72,7 +74,7 @@ fn evaluate_board(
   score
 }
 
-fn eval_sequence(sequence: &[&Option<bool>], evaluate_for: bool, is_on_turn: bool) -> i64 {
+fn eval_sequence(sequence: &[&Tile], evaluate_for: bool, is_on_turn: bool) -> Score {
   let mut score = 0;
   let mut consecutive = 0;
   let mut open_ends = 0;
@@ -111,7 +113,7 @@ fn eval_sequence(sequence: &[&Option<bool>], evaluate_for: bool, is_on_turn: boo
   score
 }
 
-fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> i64 {
+fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> Score {
   if consecutive == 0 || open_ends == 0 {
     return 0;
   }
@@ -168,12 +170,12 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
   }
 }
 
-struct AlphaBeta(i64, i64);
+struct AlphaBeta(Score, Score);
 
 #[derive(Debug)]
 pub struct Move {
   pub tile: TilePointer,
-  pub score: i64,
+  pub score: Score,
 }
 
 fn minimax(
@@ -197,7 +199,7 @@ fn minimax(
   #[allow(clippy::cast_precision_loss)]
   let dist = |p1: TilePointer| {
     let raw_dist = (p1.x as f64 - middle).powi(2) + (p1.y as f64 - middle).powi(2);
-    raw_dist.round() as i64
+    raw_dist.round() as Score
   };
 
   let tiles_to_consider = if remaining_depth > 0 {
