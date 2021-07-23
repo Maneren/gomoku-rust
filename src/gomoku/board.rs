@@ -20,7 +20,12 @@ impl error::Error for Error {
 }
 
 pub type Tile = Option<bool>;
-pub type TilePointer = (usize, usize);
+
+#[derive(Debug, Clone, Copy)]
+pub struct TilePointer {
+  pub x: usize,
+  pub y: usize,
+}
 
 #[derive(Clone)]
 pub struct Board {
@@ -64,13 +69,13 @@ impl Board {
 
     // horizontal
     for x in 0..board_size {
-      let temp = (0..board_size).map(|y| (x, y)).collect();
+      let temp = (0..board_size).map(|y| TilePointer { x, y }).collect();
       sequences.push(temp)
     }
 
     // vertical
     for y in 0..board_size {
-      let temp = (0..board_size).map(|x| (x, y)).collect();
+      let temp = (0..board_size).map(|x| TilePointer { x, y }).collect();
       sequences.push(temp)
     }
 
@@ -80,11 +85,11 @@ impl Board {
       let col = i - row;
       let len = cmp::min(row, board_size - 1 - col) + 1;
 
-      let temp: Vec<(usize, usize)> = (0..len)
+      let temp: Vec<TilePointer> = (0..len)
         .map(|j| {
           let x = row - j;
           let y = col + j;
-          (x, y)
+          TilePointer { x, y }
         })
         .collect();
 
@@ -99,11 +104,11 @@ impl Board {
       let col = i - row;
       let len = cmp::min(row, board_size - 1 - col) + 1;
 
-      let temp: Vec<(usize, usize)> = (0..len)
+      let temp: Vec<TilePointer> = (0..len)
         .map(|j| {
           let x = board_size - (row - j) - 1;
           let y = col + j;
-          (x, y)
+          TilePointer { x, y }
         })
         .collect();
 
@@ -127,7 +132,7 @@ impl Board {
     let board_size = self.get_size();
 
     (0..board_size)
-      .flat_map(|x| (0..board_size).map(move |y| (x, y)))
+      .flat_map(|x| (0..board_size).map(move |y| TilePointer { x, y }))
       .filter(|ptr| self.get_tile(ptr).is_none())
       .collect()
   }
@@ -165,12 +170,12 @@ impl Board {
   }
 
   pub fn get_tile(&self, ptr: &TilePointer) -> &Tile {
-    let (x, y) = *ptr;
+    let TilePointer { x, y } = *ptr;
     &self.data[y][x]
   }
 
   pub fn set_tile(&mut self, ptr: &TilePointer, value: Tile) {
-    let (x, y) = *ptr;
+    let TilePointer { x, y } = *ptr;
     self.data[y][x] = value;
   }
 
@@ -183,7 +188,7 @@ impl Board {
     self.data.iter().flatten().fold(0, |total, tile| {
       let hash = total + tile.map_or(0, |player| if player { 1 } else { 2 });
       if hash >= u128::MAX / 3 {
-        hash / 164_986_984 * 3 // random large number without
+        hash / 164_986_984 * 3 // random large number
       } else {
         hash * 3
       }

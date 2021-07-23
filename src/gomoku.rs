@@ -196,24 +196,25 @@ fn minimax(
   #[allow(clippy::cast_possible_truncation)]
   #[allow(clippy::cast_precision_loss)]
   let dist = |p1: TilePointer| {
-    let raw_dist = (p1.0 as f64 - middle).powi(2) + (p1.1 as f64 - middle).powi(2);
+    let raw_dist = (p1.x as f64 - middle).powi(2) + (p1.y as f64 - middle).powi(2);
     raw_dist.round() as i64
   };
 
   let tiles_to_consider = if remaining_depth > 0 {
     // eval each move to depth 0,
     // sort them based on the result and
-    // return 5 best of them
+    // the distance from middle of the board,
+    // then return 10 best of them
     let mut move_results: Vec<Move> = available_moves
       .iter()
-      .map(|&tile| {
-        board.set_tile(&tile, Some(current_player));
+      .map(|tile| {
+        board.set_tile(tile, Some(current_player));
         let analysis = evaluate_board(board, stats, &mut cache.boards, current_player);
-        board.set_tile(&tile, None);
+        board.set_tile(tile, None);
 
         Move {
-          tile,
-          score: analysis - dist(tile),
+          tile: *tile,
+          score: analysis - dist(*tile),
         }
       })
       .collect();

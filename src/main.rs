@@ -5,7 +5,7 @@ use std::{fs::File, io::prelude::*, time::Instant};
 // mod board;
 
 mod gomoku;
-use gomoku::{board::Board, Move};
+use gomoku::{board::Board, board::TilePointer, Move};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -102,10 +102,14 @@ fn run(player: bool, depth: u8, start: bool) {
 
   let prefix = '!';
   if start {
-    let tile = (board_size as usize / 2, board_size as usize / 2);
+    let middle = board_size as usize / 2;
+    let tile = TilePointer {
+      x: middle,
+      y: middle,
+    };
     board.set_tile(&tile, Some(player));
     println!("board:\n{}", board);
-    println!("{}{},{}", prefix, tile.0, tile.1);
+    println!("{}{},{}", prefix, tile.x, tile.y);
   }
 
   loop {
@@ -134,7 +138,7 @@ fn run(player: bool, depth: u8, start: bool) {
     let x = x.unwrap();
     let y = y.unwrap();
 
-    board.set_tile(&(x, y), Some(!player));
+    board.set_tile(&TilePointer { x, y }, Some(!player));
 
     if is_game_end(&board, !player) {
       println!("Engine loses!\n$");
@@ -166,7 +170,7 @@ fn run(player: bool, depth: u8, start: bool) {
       break;
     }
 
-    println!("{}{},{}", prefix, tile.0, tile.1);
+    println!("{}{},{}", prefix, tile.x, tile.y);
   }
 }
 
