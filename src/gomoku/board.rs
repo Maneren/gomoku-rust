@@ -64,18 +64,14 @@ impl Board {
 
     // horizontal
     for x in 0..board_size {
-      let mut temp = vec![];
-      for y in 0..board_size {
-        temp.push((x, y));
-      }
+      let temp = (0..board_size).map(|y| (x, y)).collect();
+      sequences.push(temp)
     }
 
     // vertical
     for y in 0..board_size {
-      let mut temp = vec![];
-      for x in 0..board_size {
-        temp.push((x, y));
-      }
+      let temp = (0..board_size).map(|x| (x, y)).collect();
+      sequences.push(temp)
     }
 
     // diag1
@@ -84,12 +80,13 @@ impl Board {
       let col = i - row;
       let len = cmp::min(row, board_size - 1 - col) + 1;
 
-      let mut temp = vec![];
-      for j in 0..len {
-        let x = row - j;
-        let y = col + j;
-        temp.push((x, y));
-      }
+      let temp: Vec<(usize, usize)> = (0..len)
+        .map(|j| {
+          let x = row - j;
+          let y = col + j;
+          (x, y)
+        })
+        .collect();
 
       if !temp.is_empty() {
         sequences.push(temp)
@@ -102,12 +99,13 @@ impl Board {
       let col = i - row;
       let len = cmp::min(row, board_size - 1 - col) + 1;
 
-      let mut temp = vec![];
-      for j in 0..len {
-        let x = board_size - (row - j) - 1;
-        let y = col + j;
-        temp.push((x, y));
-      }
+      let temp: Vec<(usize, usize)> = (0..len)
+        .map(|j| {
+          let x = board_size - (row - j) - 1;
+          let y = col + j;
+          (x, y)
+        })
+        .collect();
 
       if !temp.is_empty() {
         sequences.push(temp)
