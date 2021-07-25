@@ -102,12 +102,12 @@ fn run(player: bool, depth: u8, start: bool) {
 
   let prefix = '!';
   if start {
-    let middle = board_size as usize / 2;
+    let middle = board_size / 2;
     let tile = TilePointer {
       x: middle,
       y: middle,
     };
-    board.set_tile(&tile, Some(player));
+    board.set_tile(tile, Some(player));
     println!("board:\n{}", board);
     println!("{}{},{}", prefix, tile.x, tile.y);
   }
@@ -138,7 +138,7 @@ fn run(player: bool, depth: u8, start: bool) {
     let x = x.unwrap();
     let y = y.unwrap();
 
-    board.set_tile(&TilePointer { x, y }, Some(!player));
+    board.set_tile(TilePointer { x, y }, Some(!player));
 
     if is_game_end(&board, !player) {
       println!("Engine loses!\n$");
@@ -158,7 +158,7 @@ fn run(player: bool, depth: u8, start: bool) {
     }
 
     let Move { tile, score } = move_;
-    board.set_tile(&tile, Some(player));
+    board.set_tile(tile, Some(player));
 
     println!("stats: {:?}", stats);
     println!("cache: boards {:?}", cache.boards.len(),);

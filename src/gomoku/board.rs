@@ -23,8 +23,8 @@ pub type Tile = Option<bool>;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TilePointer {
-  pub x: usize,
-  pub y: usize,
+  pub x: u8,
+  pub y: u8,
 }
 
 #[derive(Clone)]
@@ -51,7 +51,8 @@ impl Board {
       }
     }
 
-    let sequences = Board::get_all_sequences(data.len());
+    #[allow(clippy::cast_possible_truncation)]
+    let sequences = Board::get_all_sequences(data.len() as u8);
 
     Ok(Board { data, sequences })
   }
@@ -64,7 +65,7 @@ impl Board {
     Board::new(data).unwrap()
   }
 
-  fn get_all_sequences(board_size: usize) -> Vec<Vec<TilePointer>> {
+  fn get_all_sequences(board_size: u8) -> Vec<Vec<TilePointer>> {
     let mut sequences = Vec::new();
 
     // horizontal
@@ -171,16 +172,19 @@ impl Board {
 
   pub fn get_tile(&self, ptr: &TilePointer) -> &Tile {
     let TilePointer { x, y } = *ptr;
-    &self.data[y][x]
+    &self.data[y as usize][x as usize]
   }
 
-  pub fn set_tile(&mut self, ptr: &TilePointer, value: Tile) {
-    let TilePointer { x, y } = *ptr;
-    self.data[y][x] = value;
+  pub fn set_tile(&mut self, ptr: TilePointer, value: Tile) {
+    let TilePointer { x, y } = ptr;
+    self.data[y as usize][x as usize] = value;
   }
 
-  pub fn get_size(&self) -> usize {
-    self.data.len()
+  pub fn get_size(&self) -> u8 {
+    #[allow(clippy::cast_possible_truncation)]
+    let length = self.data.len() as u8;
+
+    length
   }
 
   // just for caching
@@ -208,20 +212,11 @@ impl fmt::Display for Board {
       };
       string.push_str(&tmp);
 
-      let row = &self.data[i];
+      let row = &self.data[i as usize];
       string.push_str(
         &(row
           .iter()
-          .map(|field| match field {
-            Some(val) => {
-              if *val {
-                'x'
-              } else {
-                'o'
-              }
-            }
-            None => '-',
-          })
+          .map(|field| field.map_or('-', |value| if value { 'x' } else { 'o' }))
           .collect::<String>()
           + "\n"),
       );

@@ -1,6 +1,3 @@
-// for shuffling
-use rand::{prelude::ThreadRng, seq::SliceRandom, thread_rng};
-
 pub mod board;
 use board::{Board, Tile, TilePointer};
 
@@ -178,102 +175,128 @@ pub struct Move {
   pub score: Score,
 }
 
+fn sort_moves_by_shallow_eval(
+  moves: Vec<TilePointer>,
+  board: &mut Board,
+  stats: &mut Stats,
+  cached_boards: &mut HashMap<u128, (Score, bool)>,
+  current_player: bool,
+) -> Vec<Move> {
+  let middle = f32::from(board.get_size() - 1) / 2.0;
+
+  let dist = |p1: TilePointer| {
+    let x = f32::from(p1.x);
+    let y = f32::from(p1.y);
+    let raw_dist = (x - middle).powi(2) + (y - middle).powi(2);
+
+    #[allow(clippy::cast_possible_truncation)]
+    let dist = raw_dist.round() as Score;
+
+    dist
+  };
+
+  let mut move_results: Vec<Move> = moves
+    .into_iter()
+    .map(|tile| {
+      board.set_tile(tile, Some(current_player));
+      let analysis = evaluate_board(board, stats, cached_boards, current_player);
+      board.set_tile(tile, None);
+
+      Move {
+        tile,
+        score: analysis - dist(tile),
+      }
+    })
+    .collect();
+
+  move_results.sort_unstable_by_key(|move_result| -move_result.score); // -score for descending order
+
+  move_results
+}
+
 fn minimax(
   board: &mut Board,
   stats: &mut Stats,
   cache: &mut Cache,
-  rng: &mut ThreadRng,
   current_player: bool,
   remaining_depth: u8,
   alpha_beta: &mut AlphaBeta,
 ) -> Move {
-  let mut available_moves = board.get_empty_tiles();
+  let available_moves = board.get_empty_tiles();
 
   if available_moves.is_empty() {
     return Move {
       tile: TilePointer { x: 0, y: 0 },
-      score: -1_000_000_000_000,
+      score: -1_000_000_000,
     };
   }
 
-  available_moves.shuffle(rng);
+  let mut best_tile = TilePointer { x: 0, y: 0 };
+  let AlphaBeta(mut alpha, beta) = alpha_beta;
+  let beta = *beta;
 
-  let board_size = board.get_size();
+  if remaining_depth > 0 {
+    // eval each move to depth 1,
+    // sort them based on (the result and
+    // the distance from middle of the board)
 
-  #[allow(clippy::cast_precision_loss)]
-  let middle = (board_size - 1) as f64 / 2.0;
+    let presorted_moves = sort_moves_by_shallow_eval(
+      available_moves,
+      board,
+      stats,
+      &mut cache.boards,
+      current_player,
+    );
 
-  #[allow(clippy::cast_possible_truncation)]
-  #[allow(clippy::cast_precision_loss)]
-  let dist = |p1: TilePointer| {
-    let raw_dist = (p1.x as f64 - middle).powi(2) + (p1.y as f64 - middle).powi(2);
-    raw_dist.round() as Score
-  };
-
-  let tiles_to_consider = if remaining_depth > 0 {
-    // eval each move to depth 0,
-    // sort them based on the result and
-    // the distance from middle of the board,
-    // then return 10 best of them
-    let mut move_results: Vec<Move> = available_moves
+    // then use 10 best of them to eval deeper
+    for tile in presorted_moves
       .into_iter()
-      .map(|tile| {
-        board.set_tile(&tile, Some(current_player));
-        let analysis = evaluate_board(board, stats, &mut cache.boards, current_player);
-        board.set_tile(&tile, None);
-
-        Move {
-          tile,
-          score: analysis - dist(tile),
-        }
-      })
-      .collect();
-
-    move_results.sort_unstable_by_key(|move_result| -move_result.score); // -score for descending order
-
-    move_results
-      .iter()
       .take(10)
       .map(|result| result.tile)
-      .collect()
-  } else {
-    available_moves
-  };
-
-  let mut best_tile = tiles_to_consider[0];
-  let AlphaBeta(mut alpha, beta) = alpha_beta;
-
-  for tile in &tiles_to_consider {
-    board.set_tile(tile, Some(current_player));
-
-    let score = if remaining_depth > 0 {
-      minimax(
+    {
+      board.set_tile(tile, Some(current_player));
+      let score = minimax(
         board,
         stats,
         cache,
-        rng,
         next_player(current_player),
         remaining_depth - 1,
-        &mut AlphaBeta(-*beta, -alpha),
+        &mut AlphaBeta(-beta, -alpha),
       )
-      .score
-    } else {
-      evaluate_board(board, stats, &mut cache.boards, current_player)
-    };
+      .score;
+      board.set_tile(tile, None);
 
-    board.set_tile(tile, None);
+      if score > beta {
+        stats.pruned += 1;
+        return Move {
+          tile,
+          score: -score,
+        };
+      }
 
-    if score > *beta {
-      stats.pruned += 1;
-      return Move {
-        tile: *tile,
-        score: -score,
-      };
+      if score > alpha {
+        alpha = score;
+        best_tile = tile;
+      }
     }
+  } else {
+    for tile in available_moves {
+      board.set_tile(tile, Some(current_player));
+      let score = evaluate_board(board, stats, &mut cache.boards, current_player);
+      board.set_tile(tile, None);
 
-    if score > alpha {
-      alpha = score;
-      best_tile = *tile;
+      if score > beta {
+        stats.pruned += 1;
+        return Move {
+          tile,
+          score: -score,
+        };
+      }
+
+      if score > alpha {
+        alpha = score;
+        best_tile = tile;
+      }
     }
   }
 
@@ -308,13 +331,12 @@ pub fn decide_with_cache(
     &mut board,
     &mut stats,
     cache,
-    &mut thread_rng(),
     player,
     analysis_depth,
     &mut alpha_beta,
   );
 
-  board.set_tile(&move_.tile, Some(player));
+  board.set_tile(move_.tile, Some(player));
 
   (board, move_, stats)
 }
