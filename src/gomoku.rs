@@ -216,21 +216,20 @@ fn minimax(
     // the distance from middle of the board,
     // then return 10 best of them
     let mut move_results: Vec<Move> = available_moves
-      .iter()
+      .into_iter()
       .map(|tile| {
-        board.set_tile(tile, Some(current_player));
+        board.set_tile(&tile, Some(current_player));
         let analysis = evaluate_board(board, stats, &mut cache.boards, current_player);
-        board.set_tile(tile, None);
+        board.set_tile(&tile, None);
 
         Move {
-          tile: *tile,
-          score: analysis - dist(*tile),
+          tile,
+          score: analysis - dist(tile),
         }
       })
       .collect();
 
-    move_results.sort_unstable_by_key(|move_result| move_result.score);
-    move_results.reverse(); // descending order
+    move_results.sort_unstable_by_key(|move_result| -move_result.score); // -score for descending order
 
     move_results
       .iter()
