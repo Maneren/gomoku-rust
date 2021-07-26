@@ -21,10 +21,15 @@ impl error::Error for Error {
 
 pub type Tile = Option<bool>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct TilePointer {
   pub x: u8,
   pub y: u8,
+}
+impl fmt::Debug for TilePointer {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "({},{})", self.x, self.y)
+  }
 }
 
 #[derive(Clone)]

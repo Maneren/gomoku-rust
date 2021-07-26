@@ -169,10 +169,14 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
 
 struct AlphaBeta(Score, Score);
 
-#[derive(Debug)]
 pub struct Move {
   pub tile: TilePointer,
   pub score: Score,
+}
+impl fmt::Debug for Move {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "({:?}, {})", self.tile, self.score)
+  }
 }
 
 fn sort_moves_by_shallow_eval(
