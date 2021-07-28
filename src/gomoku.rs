@@ -117,9 +117,13 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
     }
 
     if consecutive == 5 {
-      40_000
-    } else if consecutive == 4 && open_ends == 2 {
-      20_000
+      200_000
+    } else if consecutive == 4 {
+      match open_ends {
+        2 => 100_000,
+        1 => 2_000,
+        _ => 0,
+      }
     } else {
       0
     }
@@ -129,16 +133,16 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
       4 => match open_ends {
         2 => {
           if is_on_turn {
-            50_000
+            100_000
           } else {
             40_000
           }
         }
         1 => {
           if is_on_turn {
-            40_000
+            80_000
           } else {
-            50
+            2_00
           }
         }
         _ => 0,
@@ -146,16 +150,16 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
       3 => match open_ends {
         2 => {
           if is_on_turn {
-            5_000
+            50_000
           } else {
-            50
+            1_000
           }
         }
         1 => 10,
         _ => 0,
       },
       2 => match open_ends {
-        2 => 5,
+        2 => 10,
         _ => 0,
       },
       _ => 0,
