@@ -1,11 +1,14 @@
 #![warn(clippy::pedantic)]
 
-use std::{fs::File, io::prelude::*, time::Instant};
+use std::{fs::File, io::prelude::Read, time::Instant};
 
 // mod board;
 
 mod gomoku;
-use gomoku::{board::Board, board::TilePointer, Move};
+use gomoku::{
+  board::{Board, TilePointer},
+  Cache, Move,
+};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -98,7 +101,7 @@ fn run(player: bool, depth: u8, start: bool) {
 
   let board_size = 15;
   let mut board = Board::empty(board_size);
-  let mut cache = gomoku::Cache::new();
+  let mut cache = Cache::new();
 
   let prefix = '!';
   if start {
@@ -161,7 +164,7 @@ fn run(player: bool, depth: u8, start: bool) {
     board.set_tile(tile, Some(player));
 
     println!("stats: {:?}", stats);
-    println!("cache: boards {:?}", cache.boards.len(),);
+    println!("cache: boards {:?}", cache.len(),);
     println!("score: {:?}", score);
     println!("board:\n{}", board);
 
