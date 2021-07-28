@@ -8,27 +8,99 @@ const BETA_DEFAULT: Score = 1_000_000_000_000;
 #[derive(Debug, Clone)]
 pub struct Stats {
   pub boards_evaluated: u32,
-  pub cached_boards_used: u32,
   pub pruned: u32,
 }
 impl Stats {
   pub fn new() -> Stats {
     Stats {
       boards_evaluated: 0,
-      cached_boards_used: 0,
       pruned: 0,
     }
   }
 }
 
+pub use cache::Cache;
 use std::{
-  collections::HashMap,
   fmt,
   sync::{Arc, Mutex},
   thread,
 };
 
-pub type Cache = HashMap<u128, (Score, bool)>;
+mod cache {
+  type Score = i64;
+
+  use super::board::Board;
+  use rand::Rng;
+  use std::{collections::HashMap, fmt};
+
+  #[derive(Clone)]
+  pub struct Stats {
+    read: u32,
+    write: u32,
+    cache_hit: u32,
+  }
+
+  #[derive(Clone)]
+  pub struct Cache {
+    cache: HashMap<u128, (Score, bool)>,
+    hash_table: Vec<Vec<u128>>,
+    stats: Stats,
+  }
+  impl Cache {
+    pub fn new(board_size: u8) -> Cache {
+      let mut rng = rand::thread_rng();
+      let board_size_sq = board_size * board_size;
+
+      let hash_table = (0..board_size_sq)
+        .map(|_| (0..=2).map(|_| rng.gen::<u128>()).collect())
+        .collect();
+
+      Cache {
+        cache: HashMap::new(),
+        hash_table,
+        stats: Stats {
+          read: 0,
+          write: 0,
+          cache_hit: 0,
+        },
+      }
+    }
+
+    pub fn lookup(&mut self, board: &Board) -> Option<&(Score, bool)> {
+      let hash = board.hash(&self.hash_table);
+
+      let result = self.cache.get(&hash);
+
+      self.stats.read += 1;
+      if result.is_some() {
+        self.stats.cache_hit += 1;
+      }
+
+      result
+    }
+
+    pub fn insert(&mut self, board: &Board, data: (Score, bool)) {
+      let hash = board.hash(&self.hash_table);
+
+      self.stats.write += 1;
+
+      self.cache.insert(hash, data);
+    }
+
+    pub fn stats(&self) -> &Stats {
+      &self.stats
+    }
+  }
+  impl fmt::Debug for Stats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+      write!(
+        f,
+        "reads: {}, writes: {}, used: {}",
+        self.read, self.write, self.cache_hit
+      )
+    }
+  }
+}
 
 fn next_player(current: bool) -> bool {
   !current
@@ -140,15 +212,8 @@ fn evaluate_board(
   stats_lock.boards_evaluated += 1;
   drop(stats_lock);
 
-  let board_hash = board.hash();
-
-  let cache_lock = cache_arc.lock().unwrap();
-
-  if let Some(&(cached_score, owner)) = cache_lock.get(&board_hash) {
-    let mut stats_lock = stats_arc.lock().unwrap();
-    stats_lock.cached_boards_used += 1;
-    drop(stats_lock);
-
+  let mut cache_lock = cache_arc.lock().unwrap();
+  if let Some(&(cached_score, owner)) = cache_lock.lookup(board) {
     let score = if current_player == owner {
       cached_score
     } else {
@@ -171,7 +236,7 @@ fn evaluate_board(
     });
 
   let mut cache_lock = cache_arc.lock().unwrap();
-  cache_lock.insert(board_hash, (score, current_player));
+  cache_lock.insert(board, (score, current_player));
 
   score
 }
@@ -429,11 +494,11 @@ fn minimax_top_level(
 }
 
 pub fn decide(board: &Board, player: bool, analysis_depth: u8) -> (Board, Move, Stats) {
-  let mut cache = Cache::new();
+  let mut cache = Cache::new(board.get_size());
 
   let result = decide_with_cache(board, player, analysis_depth, &mut cache);
 
-  println!("cache: boards {:?}", cache.len());
+  println!("cache: {:?}", cache.stats());
 
   result
 }

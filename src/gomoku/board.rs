@@ -192,16 +192,17 @@ impl Board {
     length
   }
 
-  // just for caching
-  pub fn hash(&self) -> u128 {
-    self.data.iter().flatten().fold(0, |total, tile| {
-      let hash = total + tile.map_or(0, |player| if player { 1 } else { 2 });
-      if hash >= u128::MAX / 3 {
-        hash / 164_986_984 * 3 // random large number
-      } else {
-        hash * 3
-      }
-    })
+  // for caching
+  pub fn hash(&self, hash_table: &[Vec<u128>]) -> u128 {
+    self
+      .data
+      .iter()
+      .flatten()
+      .enumerate()
+      .fold(0, |hash, (index, tile)| {
+        let tile_index = tile.map_or(0, |player| if player { 1 } else { 2 });
+        hash ^ hash_table[index][tile_index]
+      })
   }
 }
 

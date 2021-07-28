@@ -101,7 +101,7 @@ fn run(player: bool, depth: u8, start: bool) {
 
   let board_size = 15;
   let mut board = Board::empty(board_size);
-  let mut cache = Cache::new();
+  let mut cache = Cache::new(board_size);
 
   let prefix = '!';
   if start {
@@ -164,7 +164,7 @@ fn run(player: bool, depth: u8, start: bool) {
     board.set_tile(tile, Some(player));
 
     println!("stats: {:?}", stats);
-    println!("cache: boards {:?}", cache.len(),);
+    println!("cache: {:?}", cache.stats(),);
     println!("score: {:?}", score);
     println!("board:\n{}", board);
 
