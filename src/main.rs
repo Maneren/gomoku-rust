@@ -141,7 +141,14 @@ fn run(player: bool, depth: u8, start: bool) {
     let x = x.unwrap();
     let y = y.unwrap();
 
-    board.set_tile(TilePointer { x, y }, Some(!player));
+    let tile_ptr = TilePointer { x, y };
+
+    if board.get_tile(&tile_ptr).is_some() {
+      println!("Tile already used");
+      continue;
+    }
+
+    board.set_tile(tile_ptr, Some(!player));
 
     if is_game_end(&board, !player) {
       println!("Engine loses!\n$");
