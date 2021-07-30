@@ -35,16 +35,15 @@ mod cache {
 
   #[derive(Clone)]
   pub struct Stats {
-    read: u32,
-    write: u32,
     cache_hit: u32,
+    size: u32,
   }
 
   #[derive(Clone)]
   pub struct Cache {
-    cache: HashMap<u128, (Score, bool)>,
+    cache: HashMap<u128, (Score, bool, bool)>,
     hash_table: Vec<Vec<u128>>,
-    stats: Stats,
+    pub stats: Stats,
   }
   impl Cache {
     pub fn new(board_size: u8) -> Cache {
@@ -59,19 +58,17 @@ mod cache {
         cache: HashMap::new(),
         hash_table,
         stats: Stats {
-          read: 0,
-          write: 0,
           cache_hit: 0,
+          size: 0,
         },
       }
     }
 
-    pub fn lookup(&mut self, board: &Board) -> Option<&(Score, bool)> {
+    pub fn lookup(&mut self, board: &Board) -> Option<&(Score, bool, bool)> {
       let hash = board.hash(&self.hash_table);
 
       let result = self.cache.get(&hash);
 
-      self.stats.read += 1;
       if result.is_some() {
         self.stats.cache_hit += 1;
       }
@@ -79,25 +76,15 @@ mod cache {
       result
     }
 
-    pub fn insert(&mut self, board: &Board, data: (Score, bool)) {
+    pub fn insert(&mut self, board: &Board, data: (Score, bool, bool)) {
       let hash = board.hash(&self.hash_table);
-
-      self.stats.write += 1;
-
+      self.stats.size += 1;
       self.cache.insert(hash, data);
-    }
-
-    pub fn stats(&self) -> &Stats {
-      &self.stats
     }
   }
   impl fmt::Debug for Stats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-      write!(
-        f,
-        "reads: {}, writes: {}, used: {}",
-        self.read, self.write, self.cache_hit
-      )
+      write!(f, "size: {}, hits: {}", self.size, self.cache_hit)
     }
   }
 }
@@ -106,79 +93,84 @@ fn next_player(current: bool) -> bool {
   !current
 }
 
-fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> Score {
+fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> (Score, bool) {
   if consecutive == 0 || open_ends == 0 {
-    return 0;
+    return (0, false);
   }
 
   if has_hole {
     if !is_on_turn {
-      return 0;
+      return (0, false);
     }
 
     if consecutive == 5 {
-      200_000
+      (200_000, false)
     } else if consecutive == 4 {
       match open_ends {
-        2 => 100_000,
-        1 => 2_000,
-        _ => 0,
+        2 => (100_000, false),
+        1 => (2_000, false),
+        _ => (0, false),
       }
     } else {
-      0
+      (0, false)
     }
   } else {
     match consecutive {
-      5 => 500_000,
+      5 => (500_000, true),
       4 => match open_ends {
         2 => {
           if is_on_turn {
-            100_000
+            (100_000, false)
           } else {
-            40_000
+            (40_000, false)
           }
         }
         1 => {
           if is_on_turn {
-            80_000
+            (80_000, false)
           } else {
-            2_00
+            (2_000, false)
           }
         }
-        _ => 0,
+        _ => (0, false),
       },
       3 => match open_ends {
         2 => {
           if is_on_turn {
-            50_000
+            (50_000, false)
           } else {
-            1_000
+            (1_000, false)
           }
         }
-        1 => 10,
-        _ => 0,
+        1 => (10, false),
+        _ => (0, false),
       },
       2 => match open_ends {
-        2 => 10,
-        _ => 0,
+        2 => (10, false),
+        _ => (0, false),
       },
-      _ => 0,
+      _ => (0, false),
     }
   }
 }
 
-fn eval_sequence(sequence: &[&Tile], evaluate_for: bool, is_on_turn: bool) -> Score {
+fn eval_sequence(sequence: &[&Tile], evaluate_for: bool, is_on_turn: bool) -> (Score, bool) {
   let mut score = 0;
   let mut consecutive = 0;
   let mut open_ends = 0;
   let mut has_hole = false;
+
+  let mut is_win = false;
 
   for (index, tile) in sequence.iter().enumerate() {
     if let Some(player) = tile {
       if *player == evaluate_for {
         consecutive += 1
       } else {
-        score += shape_score(consecutive, open_ends, has_hole, is_on_turn);
+        let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole, is_on_turn);
+        is_win |= is_win_shape;
+        score += shape_score;
+
         consecutive = 0;
         open_ends = 0;
       }
@@ -193,7 +185,9 @@ fn eval_sequence(sequence: &[&Tile], evaluate_for: bool, is_on_turn: bool) -> Sc
 
       open_ends += 1;
 
-      score += shape_score(consecutive, open_ends, has_hole, is_on_turn);
+      let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole, is_on_turn);
+      is_win |= is_win_shape;
+      score += shape_score;
 
       consecutive = 0;
       open_ends = 1;
@@ -201,9 +195,11 @@ fn eval_sequence(sequence: &[&Tile], evaluate_for: bool, is_on_turn: bool) -> Sc
     }
   }
 
-  score += shape_score(consecutive, open_ends, has_hole, is_on_turn);
+  let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole, is_on_turn);
+  is_win |= is_win_shape;
+  score += shape_score;
 
-  score
+  (score, is_win)
 }
 
 fn evaluate_board(
@@ -211,38 +207,45 @@ fn evaluate_board(
   stats_arc: &Arc<Mutex<Stats>>,
   cache_arc: &Arc<Mutex<Cache>>,
   current_player: bool,
-) -> Score {
+) -> (Score, bool) {
   let mut stats_lock = stats_arc.lock().unwrap();
   stats_lock.boards_evaluated += 1;
   drop(stats_lock);
 
   let mut cache_lock = cache_arc.lock().unwrap();
-  if let Some(&(cached_score, owner)) = cache_lock.lookup(board) {
+  if let Some(&(cached_score, owner, is_game_end)) = cache_lock.lookup(board) {
     let score = if current_player == owner {
       cached_score
     } else {
       -cached_score
     };
 
-    return score;
+    return (score, is_game_end);
   }
   drop(cache_lock);
+
+  let mut is_game_end = false;
 
   let score = board
     .get_all_tile_sequences()
     .iter()
     .fold(0, |total, sequence| {
-      let my_sequence_score = eval_sequence(&sequence, current_player, false);
-      let opponent_sequence_score = eval_sequence(&sequence, next_player(current_player), true);
+      let (my_sequence_score, is_win) = eval_sequence(&sequence, current_player, false);
+      let (opponent_sequence_score, is_lose) =
+        eval_sequence(&sequence, next_player(current_player), true);
+
+      if is_win || is_lose {
+        is_game_end = true;
+      }
 
       // total + player - opponent
       total + my_sequence_score - opponent_sequence_score
     });
 
   let mut cache_lock = cache_arc.lock().unwrap();
-  cache_lock.insert(board, (score, current_player));
+  cache_lock.insert(board, (score, current_player, is_game_end));
 
-  score
+  (score, is_game_end)
 }
 
 pub struct Move {
@@ -256,12 +259,12 @@ impl fmt::Debug for Move {
 }
 
 fn sort_moves_by_shallow_eval(
-  mut moves: Vec<TilePointer>,
+  moves: &[TilePointer],
   board: &mut Board,
   stats_arc: &Arc<Mutex<Stats>>,
   cache_arc: &Arc<Mutex<Cache>>,
   current_player: bool,
-) -> Vec<TilePointer> {
+) -> Vec<(TilePointer, i64, bool)> {
   let middle = f32::from(board.get_size() - 1) / 2.0;
 
   let dist = |p1: TilePointer| {
@@ -275,13 +278,18 @@ fn sort_moves_by_shallow_eval(
     dist
   };
 
-  moves.sort_by_cached_key(|&tile| {
-    board.set_tile(tile, Some(current_player));
-    let analysis = evaluate_board(board, stats_arc, cache_arc, current_player);
-    board.set_tile(tile, None);
+  let mut moves: Vec<(TilePointer, i64, bool)> = moves
+    .iter()
+    .map(|&tile| {
+      board.set_tile(tile, Some(current_player));
+      let (analysis, is_game_end) = evaluate_board(board, stats_arc, cache_arc, current_player);
+      board.set_tile(tile, None);
 
-    -(analysis - dist(tile))
-  });
+      (tile, -(analysis - dist(tile)), is_game_end)
+    })
+    .collect();
+
+  moves.sort_unstable_by_key(|move_| move_.1);
 
   moves
 }
@@ -299,13 +307,12 @@ fn eval_to_depth_one(
 
   for tile in available_moves {
     board.set_tile(tile, Some(current_player));
-    let score = evaluate_board(board, stats, cache, current_player);
+    let (score, ..) = evaluate_board(board, stats, cache, current_player);
     board.set_tile(tile, None);
 
     if score > beta {
       let mut stats_lock = stats.lock().unwrap();
       stats_lock.pruned += 1;
-      drop(stats_lock);
 
       return Move {
         tile,
@@ -350,27 +357,36 @@ fn minimax(
     // sort them based on (the result and
     // the distance from middle of the board)
 
-    let presorted_moves =
-      sort_moves_by_shallow_eval(available_moves, board, stats_arc, cache_arc, current_player);
+    let presorted_moves = sort_moves_by_shallow_eval(
+      &available_moves,
+      board,
+      stats_arc,
+      cache_arc,
+      current_player,
+    );
 
     // then use 10 best of them to eval deeper
-    for tile in presorted_moves.into_iter().take(10) {
+    for (tile, mut score, is_game_end) in presorted_moves.into_iter().take(10) {
       board.set_tile(tile, Some(current_player));
-      let score = minimax(
-        board,
-        stats_arc,
-        cache_arc,
-        next_player(current_player),
-        remaining_depth - 1,
-        -alpha,
-      )
-      .score;
+      if is_game_end {
+        let mut stats_lock = stats_arc.lock().unwrap();
+        stats_lock.pruned += 1;
+      } else {
+        score = minimax(
+          board,
+          stats_arc,
+          cache_arc,
+          next_player(current_player),
+          remaining_depth - 1,
+          -alpha,
+        )
+        .score;
+      }
       board.set_tile(tile, None);
 
       if score > beta {
         let mut stats_lock = stats_arc.lock().unwrap();
         stats_lock.pruned += 1;
-        drop(stats_lock);
 
         return Move {
           tile,
@@ -431,18 +447,18 @@ fn minimax_top_level(
     // the distance from middle of the board)
 
     let presorted_moves = sort_moves_by_shallow_eval(
-      available_moves,
+      &available_moves,
       board,
       &stats_arc,
       &cache_arc,
       current_player,
     );
 
-    // then use 20 best of them to eval deeper
+    // then use 30 best of them to eval deeper
     let move_results: Vec<Move> = presorted_moves
-      .iter()
-      .take(50)
-      .map(|&tile| {
+      .into_iter()
+      .take(25)
+      .map(|(tile, ..)| {
         board.set_tile(tile, Some(current_player));
 
         let mut board_copy = board.clone();
@@ -486,14 +502,19 @@ fn minimax_top_level(
       score: -alpha,
     }
   } else {
-    eval_to_depth_one(
+    let move_ = eval_to_depth_one(
       available_moves,
       board,
       current_player,
       &stats_arc,
       &cache_arc,
       beta,
-    )
+    );
+
+    *stats_ref = stats_arc.lock().unwrap().to_owned();
+    *cache_ref = cache_arc.lock().unwrap().to_owned();
+
+    move_
   }
 }
 
@@ -502,7 +523,7 @@ pub fn decide(board: &Board, player: bool, analysis_depth: u8) -> (Board, Move, 
 
   let result = decide_with_cache(board, player, analysis_depth, &mut cache);
 
-  println!("cache: {:?}", cache.stats());
+  println!("cache: {:?}", cache.stats);
 
   result
 }

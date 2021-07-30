@@ -57,7 +57,8 @@ impl Board {
     }
 
     #[allow(clippy::cast_possible_truncation)]
-    let sequences = Board::get_all_sequences(data.len() as u8);
+    let board_size = data.len() as u8;
+    let sequences = Board::get_all_sequences(board_size);
 
     Ok(Board { data, sequences })
   }
