@@ -34,8 +34,11 @@ impl fmt::Debug for TilePointer {
 
 #[derive(Clone)]
 pub struct Board {
-  data: Vec<Vec<Tile>>,
-  pub sequences: Vec<Vec<TilePointer>>,
+  data: Vec<Tile>,
+  size: u8,
+
+  tile_ptrs: Vec<TilePointer>,
+  sequences: Vec<Vec<TilePointer>>,
 }
 
 impl Board {
@@ -59,11 +62,19 @@ impl Board {
     #[allow(clippy::cast_possible_truncation)]
     let board_size = data.len() as u8;
     let sequences = Board::get_all_sequences(board_size);
+    let tile_ptrs = Self::get_tile_ptrs(board_size);
 
-    Ok(Board { data, sequences })
+    let flat_data = data.into_iter().flatten().collect();
+
+    Ok(Board {
+      data: flat_data,
+      size: board_size,
+      tile_ptrs,
+      sequences,
+    })
   }
 
-  pub fn empty(size: u8) -> Board {
+  pub fn get_empty_board(size: u8) -> Board {
     let data = (0..size)
       .map(|_| (0..size).map(|_| None).collect())
       .collect();
@@ -127,6 +138,12 @@ impl Board {
     sequences
   }
 
+  fn get_tile_ptrs(size: u8) -> Vec<TilePointer> {
+    (0..size)
+      .flat_map(|x| (0..size).map(move |y| TilePointer { x, y }))
+      .collect()
+  }
+
   pub fn get_all_tile_sequences(&self) -> Vec<Vec<&Option<bool>>> {
     self
       .sequences
@@ -136,11 +153,11 @@ impl Board {
   }
 
   pub fn get_empty_tiles(&self) -> Vec<TilePointer> {
-    let board_size = self.get_size();
-
-    (0..board_size)
-      .flat_map(|x| (0..board_size).map(move |y| TilePointer { x, y }))
+    self
+      .tile_ptrs
+      .iter()
       .filter(|ptr| self.get_tile(ptr).is_none())
+      .map(TilePointer::to_owned)
       .collect()
   }
 
@@ -176,34 +193,33 @@ impl Board {
     Ok(board)
   }
 
+  fn get_index(&self, x: u8, y: u8) -> usize {
+    let index = self.size * y + x;
+    index as usize
+  }
+
   pub fn get_tile(&self, ptr: &TilePointer) -> &Tile {
     let TilePointer { x, y } = *ptr;
-    &self.data[y as usize][x as usize]
+    let index = self.get_index(x, y);
+    &self.data[index]
   }
 
   pub fn set_tile(&mut self, ptr: TilePointer, value: Tile) {
     let TilePointer { x, y } = ptr;
-    self.data[y as usize][x as usize] = value;
+    let index = self.get_index(x, y);
+    self.data[index as usize] = value;
   }
 
   pub fn get_size(&self) -> u8 {
-    #[allow(clippy::cast_possible_truncation)]
-    let length = self.data.len() as u8;
-
-    length
+    self.size
   }
 
   // for caching
   pub fn hash(&self, hash_table: &[Vec<u128>]) -> u128 {
-    self
-      .data
-      .iter()
-      .flatten()
-      .enumerate()
-      .fold(0, |hash, (index, tile)| {
-        let tile_index = tile.map_or(0, |player| if player { 1 } else { 2 });
-        hash ^ hash_table[index][tile_index]
-      })
+    self.data.iter().enumerate().fold(0, |hash, (index, tile)| {
+      let tile_index = tile.map_or(0, |player| if player { 1 } else { 2 });
+      hash ^ hash_table[index][tile_index]
+    })
   }
 }
 
@@ -219,7 +235,9 @@ impl fmt::Display for Board {
       };
       string.push_str(&tmp);
 
-      let row = &self.data[i as usize];
+      let row_rng = (i * board_size) as usize..((i + 1) * board_size) as usize;
+      let row = &self.data[row_rng];
+
       string.push_str(
         &(row
           .iter()

@@ -1,9 +1,14 @@
 pub mod board;
 use board::{Board, Tile, TilePointer};
+use std::{
+  fmt,
+  sync::{Arc, Mutex},
+  thread,
+};
 
-type Score = i64;
-const ALPHA_DEFAULT: Score = -1_000_000_000_000;
-const BETA_DEFAULT: Score = 1_000_000_000_000;
+type Score = i32;
+const ALPHA_DEFAULT: Score = -1_000_000_000;
+const BETA_DEFAULT: Score = 1_000_000_000;
 
 #[derive(Debug, Clone)]
 pub struct Stats {
@@ -20,16 +25,9 @@ impl Stats {
 }
 
 pub use cache::Cache;
-use std::{
-  fmt,
-  sync::{Arc, Mutex},
-  thread,
-};
-
 mod cache {
-  type Score = i64;
 
-  use super::board::Board;
+  use super::{board::Board, Score};
   use rand::Rng;
   use std::{collections::HashMap, fmt};
 
@@ -38,29 +36,38 @@ mod cache {
     cache_hit: u32,
     size: u32,
   }
+  impl Stats {
+    pub fn new() -> Stats {
+      Stats {
+        cache_hit: 0,
+        size: 0,
+      }
+    }
+  }
 
   #[derive(Clone)]
   pub struct Cache {
-    cache: HashMap<u128, (Score, bool, bool)>,
+    cache: HashMap<u128, (Score, bool, bool)>, // (score, player, is_end)
     hash_table: Vec<Vec<u128>>,
     pub stats: Stats,
   }
   impl Cache {
     pub fn new(board_size: u8) -> Cache {
       let mut rng = rand::thread_rng();
-      let board_size_sq = board_size * board_size;
 
-      let hash_table = (0..board_size_sq)
-        .map(|_| (0..=2).map(|_| rng.gen::<u128>()).collect())
-        .collect();
+      let num_of_tiles = board_size * board_size;
+      let num_of_tile_types = 3; // empty, x, o
+
+      // hash_table[x][y]
+      // x is current tile, y is tile_type
+
+      let get_row = |_| (0..num_of_tile_types).map(|_| rng.gen::<u128>()).collect();
+      let hash_table = (0..num_of_tiles).map(get_row).collect();
 
       Cache {
         cache: HashMap::new(),
         hash_table,
-        stats: Stats {
-          cache_hit: 0,
-          size: 0,
-        },
+        stats: Stats::new(),
       }
     }
 
@@ -208,12 +215,9 @@ fn evaluate_board(
   cache_arc: &Arc<Mutex<Cache>>,
   current_player: bool,
 ) -> (Score, bool) {
-  let mut stats_lock = stats_arc.lock().unwrap();
-  stats_lock.boards_evaluated += 1;
-  drop(stats_lock);
+  stats_arc.lock().unwrap().boards_evaluated += 1;
 
-  let mut cache_lock = cache_arc.lock().unwrap();
-  if let Some(&(cached_score, owner, is_game_end)) = cache_lock.lookup(board) {
+  if let Some(&(cached_score, owner, is_game_end)) = cache_arc.lock().unwrap().lookup(board) {
     let score = if current_player == owner {
       cached_score
     } else {
@@ -222,28 +226,26 @@ fn evaluate_board(
 
     return (score, is_game_end);
   }
-  drop(cache_lock);
 
   let mut is_game_end = false;
 
   let score = board
     .get_all_tile_sequences()
-    .iter()
+    .into_iter()
     .fold(0, |total, sequence| {
-      let (my_sequence_score, is_win) = eval_sequence(&sequence, current_player, false);
-      let (opponent_sequence_score, is_lose) =
-        eval_sequence(&sequence, next_player(current_player), true);
+      let (player_score, is_win) = eval_sequence(&sequence, current_player, false);
+      let (opponent_score, is_lose) = eval_sequence(&sequence, next_player(current_player), true);
 
       if is_win || is_lose {
         is_game_end = true;
       }
 
       // total + player - opponent
-      total + my_sequence_score - opponent_sequence_score
+      total + player_score - opponent_score
     });
 
-  let mut cache_lock = cache_arc.lock().unwrap();
-  cache_lock.insert(board, (score, current_player, is_game_end));
+  let cache_data = (score, current_player, is_game_end);
+  cache_arc.lock().unwrap().insert(board, cache_data);
 
   (score, is_game_end)
 }
@@ -258,13 +260,24 @@ impl fmt::Debug for Move {
   }
 }
 
-fn sort_moves_by_shallow_eval(
+pub struct MoveWithEnd {
+  pub tile: TilePointer,
+  pub score: Score,
+  pub is_end: bool,
+}
+impl fmt::Debug for MoveWithEnd {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "({:?}, {}, {})", self.tile, self.score, self.is_end)
+  }
+}
+
+fn moves_sorted_by_shallow_eval(
   moves: &[TilePointer],
   board: &mut Board,
   stats_arc: &Arc<Mutex<Stats>>,
   cache_arc: &Arc<Mutex<Cache>>,
   current_player: bool,
-) -> Vec<(TilePointer, i64, bool)> {
+) -> Vec<MoveWithEnd> {
   let middle = f32::from(board.get_size() - 1) / 2.0;
 
   let dist = |p1: TilePointer| {
@@ -278,18 +291,22 @@ fn sort_moves_by_shallow_eval(
     dist
   };
 
-  let mut moves: Vec<(TilePointer, i64, bool)> = moves
+  let mut moves: Vec<MoveWithEnd> = moves
     .iter()
     .map(|&tile| {
       board.set_tile(tile, Some(current_player));
       let (analysis, is_game_end) = evaluate_board(board, stats_arc, cache_arc, current_player);
       board.set_tile(tile, None);
 
-      (tile, -(analysis - dist(tile)), is_game_end)
+      MoveWithEnd {
+        tile,
+        score: -(analysis - dist(tile)),
+        is_end: is_game_end,
+      }
     })
     .collect();
 
-  moves.sort_unstable_by_key(|move_| move_.1);
+  moves.sort_unstable_by_key(|move_| move_.score);
 
   moves
 }
@@ -311,8 +328,7 @@ fn eval_to_depth_one(
     board.set_tile(tile, None);
 
     if score > beta {
-      let mut stats_lock = stats.lock().unwrap();
-      stats_lock.pruned += 1;
+      stats.lock().unwrap().pruned += 1;
 
       return Move {
         tile,
@@ -357,7 +373,7 @@ fn minimax(
     // sort them based on (the result and
     // the distance from middle of the board)
 
-    let presorted_moves = sort_moves_by_shallow_eval(
+    let presorted_moves = moves_sorted_by_shallow_eval(
       &available_moves,
       board,
       stats_arc,
@@ -366,11 +382,15 @@ fn minimax(
     );
 
     // then use 10 best of them to eval deeper
-    for (tile, mut score, is_game_end) in presorted_moves.into_iter().take(10) {
+    for MoveWithEnd {
+      tile,
+      mut score,
+      is_end,
+    } in presorted_moves.into_iter().take(10)
+    {
       board.set_tile(tile, Some(current_player));
-      if is_game_end {
-        let mut stats_lock = stats_arc.lock().unwrap();
-        stats_lock.pruned += 1;
+      if is_end {
+        stats_arc.lock().unwrap().pruned += 1;
       } else {
         score = minimax(
           board,
@@ -385,8 +405,7 @@ fn minimax(
       board.set_tile(tile, None);
 
       if score > beta {
-        let mut stats_lock = stats_arc.lock().unwrap();
-        stats_lock.pruned += 1;
+        stats_arc.lock().unwrap().pruned += 1;
 
         return Move {
           tile,
@@ -422,7 +441,6 @@ fn minimax_top_level(
   cache_ref: &mut Cache,
   current_player: bool,
   remaining_depth: u8,
-  beta: Score,
 ) -> Move {
   let available_moves = board.get_empty_tiles();
 
@@ -435,6 +453,7 @@ fn minimax_top_level(
 
   let mut best_tile = TilePointer { x: 0, y: 0 };
   let mut alpha = ALPHA_DEFAULT;
+  let beta = BETA_DEFAULT;
 
   let cache = cache_ref.clone();
   let stats = stats_ref.clone();
@@ -446,7 +465,7 @@ fn minimax_top_level(
     // sort them based on (the result and
     // the distance from middle of the board)
 
-    let presorted_moves = sort_moves_by_shallow_eval(
+    let presorted_moves = moves_sorted_by_shallow_eval(
       &available_moves,
       board,
       &stats_arc,
@@ -454,11 +473,11 @@ fn minimax_top_level(
       current_player,
     );
 
-    // then use 30 best of them to eval deeper
+    // then use 20 best of them to eval deeper
     let move_results: Vec<Move> = presorted_moves
       .into_iter()
-      .take(25)
-      .map(|(tile, ..)| {
+      .take(20)
+      .map(|MoveWithEnd { tile, .. }| {
         board.set_tile(tile, Some(current_player));
 
         let mut board_copy = board.clone();
@@ -493,16 +512,8 @@ fn minimax_top_level(
         best_tile = tile;
       }
     }
-
-    *stats_ref = stats_arc.lock().unwrap().to_owned();
-    *cache_ref = cache_arc.lock().unwrap().to_owned();
-
-    Move {
-      tile: best_tile,
-      score: -alpha,
-    }
   } else {
-    let move_ = eval_to_depth_one(
+    let Move { tile, score } = eval_to_depth_one(
       available_moves,
       board,
       current_player,
@@ -511,10 +522,16 @@ fn minimax_top_level(
       beta,
     );
 
-    *stats_ref = stats_arc.lock().unwrap().to_owned();
-    *cache_ref = cache_arc.lock().unwrap().to_owned();
+    best_tile = tile;
+    alpha = -score;
+  }
 
-    move_
+  *stats_ref = stats_arc.lock().unwrap().to_owned();
+  *cache_ref = cache_arc.lock().unwrap().to_owned();
+
+  Move {
+    tile: best_tile,
+    score: -alpha,
   }
 }
 
@@ -537,14 +554,7 @@ pub fn decide_with_cache(
   let mut board = board.clone();
   let mut stats = Stats::new();
 
-  let move_ = minimax_top_level(
-    &mut board,
-    &mut stats,
-    cache,
-    player,
-    analysis_depth,
-    BETA_DEFAULT,
-  );
+  let move_ = minimax_top_level(&mut board, &mut stats, cache, player, analysis_depth);
 
   board.set_tile(move_.tile, Some(player));
 

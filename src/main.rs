@@ -100,7 +100,7 @@ fn run(player: bool, depth: u8, start: bool) {
   use text_io::read;
 
   let board_size = 15;
-  let mut board = Board::empty(board_size);
+  let mut board = Board::get_empty_board(board_size);
   let mut cache = Cache::new(board_size);
 
   let prefix = '!';
