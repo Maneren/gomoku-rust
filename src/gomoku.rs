@@ -531,7 +531,7 @@ fn minimax_top_level(
 
   Move {
     tile: best_tile,
-    score: -alpha,
+    score: alpha,
   }
 }
 
