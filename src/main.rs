@@ -5,10 +5,7 @@ use std::{fs::File, io::prelude::Read, time::Instant};
 // mod board;
 
 mod gomoku;
-use gomoku::{
-  board::{Board, TilePointer},
-  Cache, Move,
-};
+use gomoku::{Board, Cache, Move, TilePointer};
 
 type Error = Box<dyn std::error::Error>;
 

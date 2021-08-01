@@ -21,7 +21,7 @@ impl error::Error for Error {
 
 pub type Tile = Option<bool>;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct TilePointer {
   pub x: u8,
   pub y: u8,
