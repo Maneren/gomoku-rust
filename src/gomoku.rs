@@ -227,7 +227,7 @@ fn eval_to_depth_one(
     board.set_tile(tile, None);
 
     if score > beta {
-      stats.lock().unwrap().pruned += 1;
+      stats.lock().unwrap().prune();
 
       return Move {
         tile,
@@ -254,17 +254,13 @@ fn minimax(
   current_player: bool,
   remaining_depth: u8,
   beta: Score,
-) -> Move {
+) -> Score {
   let available_moves = board.get_empty_tiles();
 
   if available_moves.is_empty() {
-    return Move {
-      tile: TilePointer { x: 0, y: 0 },
-      score: -300_000, // bad but not as bad as losing
-    };
+    return -300_000; // bad but not as bad as losing
   }
 
-  let mut best_tile = TilePointer { x: 0, y: 0 };
   let mut alpha = ALPHA_DEFAULT;
 
   if remaining_depth > 0 {
@@ -290,7 +286,7 @@ fn minimax(
 
       if is_end {
         stats_arc.lock().unwrap().prune();
-        return Move { tile, score };
+        return score;
       }
 
       board.set_tile(tile, Some(current_player));
@@ -301,29 +297,20 @@ fn minimax(
         next_player(current_player),
         remaining_depth - 1,
         -alpha,
-      )
-      .score;
+      );
       board.set_tile(tile, None);
 
       if score > beta {
         stats_arc.lock().unwrap().prune();
-
-        return Move {
-          tile,
-          score: -score,
-        };
+        return -score;
       }
 
       if score > alpha {
         alpha = score;
-        best_tile = tile;
       }
     }
 
-    Move {
-      tile: best_tile,
-      score: -alpha,
-    }
+    -alpha
   } else {
     eval_to_depth_one(
       available_moves,
@@ -333,6 +320,7 @@ fn minimax(
       cache_arc,
       beta,
     )
+    .score
   }
 }
 
@@ -391,7 +379,7 @@ fn minimax_top_level(
       let results_arc_clone = results_arc.clone();
 
       pool.execute(move || {
-        let move_ = minimax(
+        let score = minimax(
           &mut board_clone,
           &stats_arc_clone,
           &cache_arc_clone,
@@ -400,10 +388,7 @@ fn minimax_top_level(
           -alpha,
         );
 
-        let move_ = Move {
-          tile,
-          score: move_.score,
-        };
+        let move_ = Move { tile, score };
 
         let mut results_lock = results_arc_clone.lock().unwrap();
         println!(

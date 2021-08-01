@@ -63,7 +63,6 @@ impl Board {
     let board_size = data.len() as u8;
     let sequences = Board::get_all_sequences(board_size);
     let tile_ptrs = Self::get_tile_ptrs(board_size);
-
     let flat_data = data.into_iter().flatten().collect();
 
     Ok(Board {
@@ -97,13 +96,15 @@ impl Board {
       sequences.push(temp)
     }
 
-    // diag1
-    for i in 0..(2 * board_size - 1) {
-      let row = cmp::min(i, board_size - 1);
-      let col = i - row;
-      let len = cmp::min(row, board_size - 1 - col) + 1;
+    let board_size_minus_one = board_size - 1;
 
-      let temp: Vec<TilePointer> = (0..len)
+    // diag1
+    for i in 0..(2 * board_size_minus_one) {
+      let row = cmp::min(i, board_size_minus_one);
+      let col = i - row;
+      let len = cmp::min(row, board_size_minus_one - col) + 1;
+
+      let temp = (0..len)
         .map(|j| {
           let x = row - j;
           let y = col + j;
@@ -111,28 +112,24 @@ impl Board {
         })
         .collect();
 
-      if !temp.is_empty() {
-        sequences.push(temp)
-      };
+      sequences.push(temp)
     }
 
     // diag2
-    for i in 0..(2 * board_size - 1) {
-      let row = cmp::min(i, board_size - 1);
+    for i in 0..(2 * board_size_minus_one) {
+      let row = cmp::min(i, board_size_minus_one);
       let col = i - row;
-      let len = cmp::min(row, board_size - 1 - col) + 1;
+      let len = cmp::min(row, board_size_minus_one - col) + 1;
 
-      let temp: Vec<TilePointer> = (0..len)
+      let temp = (0..len)
         .map(|j| {
-          let x = board_size - (row - j) - 1;
+          let x = board_size_minus_one - (row - j);
           let y = col + j;
           TilePointer { x, y }
         })
         .collect();
 
-      if !temp.is_empty() {
-        sequences.push(temp)
-      };
+      sequences.push(temp)
     }
 
     sequences
@@ -224,7 +221,6 @@ impl Board {
     })
   }
 }
-
 impl fmt::Display for Board {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let mut string = String::from("  0123456789\n");
