@@ -135,7 +135,7 @@ fn evaluate_board(
   cache_arc: &Arc<Mutex<Cache>>,
   current_player: bool,
 ) -> (Score, bool) {
-  stats_arc.lock().unwrap().boards_evaluated += 1;
+  stats_arc.lock().unwrap().eval();
 
   if let Some(&(cached_score, owner, is_game_end)) = cache_arc.lock().unwrap().lookup(board) {
     let score = if current_player == owner {
@@ -281,16 +281,17 @@ fn minimax(
     );
 
     // then use 10 best of them to eval deeper
-    for MoveWithEnd {
-      tile,
-      mut score,
-      is_end,
-    } in presorted_moves.into_iter().take(10)
-    {
-      board.set_tile(tile, Some(current_player));
+    for move_ in presorted_moves.into_iter().take(10) {
+      let MoveWithEnd {
+        tile,
+        mut score,
+        is_end,
+      } = move_;
+
       if is_end {
-        stats_arc.lock().unwrap().pruned += 1;
+        stats_arc.lock().unwrap().prune();
       } else {
+        board.set_tile(tile, Some(current_player));
         score = minimax(
           board,
           stats_arc,
@@ -300,11 +301,11 @@ fn minimax(
           -alpha,
         )
         .score;
+        board.set_tile(tile, None);
       }
-      board.set_tile(tile, None);
 
       if score > beta {
-        stats_arc.lock().unwrap().pruned += 1;
+        stats_arc.lock().unwrap().prune();
 
         return Move {
           tile,

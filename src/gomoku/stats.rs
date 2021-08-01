@@ -10,4 +10,12 @@ impl Stats {
       pruned: 0,
     }
   }
+
+  pub fn eval(&mut self) {
+    self.boards_evaluated += 1;
+  }
+
+  pub fn prune(&mut self) {
+    self.pruned += 1;
+  }
 }

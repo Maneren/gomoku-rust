@@ -215,10 +215,12 @@ impl Board {
   }
 
   // for caching
+  // in hash_table[x][y]
+  // x is current tile, y is tile_type
   pub fn hash(&self, hash_table: &[Vec<u128>]) -> u128 {
     self.data.iter().enumerate().fold(0, |hash, (index, tile)| {
-      let tile_index = tile.map_or(0, |player| if player { 1 } else { 2 });
-      hash ^ hash_table[index][tile_index]
+      let tile_type = tile.map_or(0, |player| if player { 1 } else { 2 });
+      hash ^ hash_table[index][tile_type]
     })
   }
 }
