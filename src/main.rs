@@ -75,12 +75,12 @@ fn run_debug(path_to_input: &str, player: bool, depth: u8) -> Result<(), Error> 
   println!("{}", solved);
   let Move { tile, score } = best_move;
   println!("{:?}, {:?}", tile, score);
-  if run_time < 5000 {
-    println!("Time taken: {} \u{03bc}s", run_time)
-  } else if run_time < 5_000_000 {
-    println!("Time taken: {} ms", run_time / 1000);
+  if run_time < 10_000 {
+    println!("Time: {} \u{03bc}s", run_time)
+  } else if run_time < 10_000_000 {
+    println!("Time: {} ms", run_time / 1000);
   } else {
-    println!("Time taken: {} s", run_time / 1_000_000);
+    println!("Time: {} s", run_time / 1_000_000);
   }
 
   Ok(())
@@ -156,12 +156,12 @@ fn run(player: bool, depth: u8, start: bool) {
     let (_, move_, stats) = gomoku::decide_with_cache(&board, player, depth, &mut cache);
     let run_time = start.elapsed().as_micros();
 
-    if run_time < 5000 {
-      println!("Time taken: {} \u{03bc}s", run_time)
-    } else if run_time < 5_000_000 {
-      println!("Time taken: {} ms", run_time / 1000);
+    if run_time < 10_000 {
+      println!("Time: {} \u{03bc}s", run_time)
+    } else if run_time < 10_000_000 {
+      println!("Time: {} ms", run_time / 1000);
     } else {
-      println!("Time taken: {} s", run_time / 1_000_000);
+      println!("Time: {} s", run_time / 1_000_000);
     }
 
     let Move { tile, score } = move_;
