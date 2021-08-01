@@ -8,10 +8,8 @@ pub use cache::Cache;
 pub use r#move::{Move, MoveWithEnd}; // r# to allow reserved keyword as name
 pub use stats::Stats;
 
-use std::{
-  sync::{Arc, Mutex},
-  thread,
-};
+use std::sync::{Arc, Mutex};
+use threadpool::ThreadPool;
 
 type Score = i32;
 const ALPHA_DEFAULT: Score = -1_000_000_000;
@@ -352,7 +350,7 @@ fn minimax_top_level(
     };
   }
 
-  let mut best_tile = TilePointer { x: 0, y: 0 };
+  let best_tile;
   let mut alpha = ALPHA_DEFAULT;
   let beta = BETA_DEFAULT;
 
@@ -374,47 +372,53 @@ fn minimax_top_level(
       current_player,
     );
 
-    // println!("{:?}", presorted_moves);
+    let moves_count = 20;
 
-    // then use 20 best of them to eval deeper
-    let Move { tile, score } = presorted_moves
-      .into_iter()
-      .take(20)
-      .map(|MoveWithEnd { tile, .. }| {
-        board.set_tile(tile, Some(current_player));
+    let results = Vec::with_capacity(moves_count);
+    let results_arc = Arc::new(Mutex::new(results));
 
-        let mut board_copy = board.clone();
+    let cores = num_cpus::get() * 2;
+    let pool = ThreadPool::new(cores);
 
-        let cache_arc_clone = cache_arc.clone();
-        let stats_arc_clone = stats_arc.clone();
+    for MoveWithEnd { tile, .. } in presorted_moves.into_iter().take(moves_count) {
+      let mut board_clone = board.clone();
+      board_clone.set_tile(tile, Some(current_player));
 
-        let move_thread = thread::spawn(move || {
-          minimax(
-            &mut board_copy,
-            &stats_arc_clone,
-            &cache_arc_clone,
-            next_player(current_player),
-            remaining_depth - 1,
-            -alpha,
-          )
-        });
+      let cache_arc_clone = cache_arc.clone();
+      let stats_arc_clone = stats_arc.clone();
+      let results_arc_clone = results_arc.clone();
 
-        board.set_tile(tile, None);
+      pool.execute(move || {
+        let move_ = minimax(
+          &mut board_clone,
+          &stats_arc_clone,
+          &cache_arc_clone,
+          next_player(current_player),
+          remaining_depth - 1,
+          -alpha,
+        );
 
-        (tile, move_thread)
-      })
-      .map(|(tile, move_thread)| Move {
-        tile,
-        score: move_thread.join().unwrap().score,
-      })
-      .max()
-      .unwrap_or(Move {
-        score: alpha,
-        tile: best_tile,
+        let move_ = Move {
+          tile,
+          score: move_.score,
+        };
+
+        let mut results_lock = results_arc_clone.lock().unwrap();
+        results_lock.push(move_);
+
+        println!("calculated {}/{}", results_lock.len(), moves_count);
       });
+    }
+    pool.join();
 
-    alpha = score;
-    best_tile = tile;
+    println!();
+
+    let move_results_lock = results_arc.lock().unwrap();
+
+    let Move { tile, score } = move_results_lock.iter().max().unwrap();
+
+    alpha = *score;
+    best_tile = *tile;
   } else {
     let Move { tile, score } = eval_to_depth_one(
       available_moves,
