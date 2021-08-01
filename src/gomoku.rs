@@ -55,7 +55,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
           if is_on_turn {
             (80_000, false)
           } else {
-            (2_000, false)
+            (5_000, false)
           }
         }
         _ => (0, false),
@@ -290,19 +290,20 @@ fn minimax(
 
       if is_end {
         stats_arc.lock().unwrap().prune();
-      } else {
-        board.set_tile(tile, Some(current_player));
-        score = minimax(
-          board,
-          stats_arc,
-          cache_arc,
-          next_player(current_player),
-          remaining_depth - 1,
-          -alpha,
-        )
-        .score;
-        board.set_tile(tile, None);
+        return Move { tile, score };
       }
+
+      board.set_tile(tile, Some(current_player));
+      score = minimax(
+        board,
+        stats_arc,
+        cache_arc,
+        next_player(current_player),
+        remaining_depth - 1,
+        -alpha,
+      )
+      .score;
+      board.set_tile(tile, None);
 
       if score > beta {
         stats_arc.lock().unwrap().prune();
@@ -373,12 +374,12 @@ fn minimax_top_level(
       current_player,
     );
 
-    let moves_count = 20;
+    let moves_count = 30;
 
     let results = Vec::with_capacity(moves_count);
     let results_arc = Arc::new(Mutex::new(results));
 
-    let cores = num_cpus::get() * 2;
+    let cores = num_cpus::get();
     let pool = ThreadPool::new(cores);
 
     for MoveWithEnd { tile, .. } in presorted_moves.into_iter().take(moves_count) {
@@ -405,9 +406,13 @@ fn minimax_top_level(
         };
 
         let mut results_lock = results_arc_clone.lock().unwrap();
+        println!(
+          "calculated {}/{} {:?}",
+          results_lock.len() + 1,
+          moves_count,
+          move_
+        );
         results_lock.push(move_);
-
-        println!("calculated {}/{}", results_lock.len(), moves_count);
       });
     }
     pool.join();
