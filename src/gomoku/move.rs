@@ -6,6 +6,21 @@ pub struct Move {
   pub tile: TilePointer,
   pub score: Score,
 }
+impl From<MoveWithEnd> for Move {
+  fn from(move_with_end: MoveWithEnd) -> Move {
+    let MoveWithEnd { tile, score, .. } = move_with_end;
+    Move { tile, score }
+  }
+}
+impl From<&MoveWithEnd> for Move {
+  fn from(move_with_end: &MoveWithEnd) -> Move {
+    let MoveWithEnd { tile, score, .. } = move_with_end;
+    Move {
+      tile: *tile,
+      score: *score,
+    }
+  }
+}
 impl PartialEq for Move {
   fn eq(&self, other: &Self) -> bool {
     self.score == other.score

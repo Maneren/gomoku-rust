@@ -8,7 +8,10 @@ pub use cache::Cache;
 pub use r#move::{Move, MoveWithEnd}; // r# to allow reserved keyword as name
 pub use stats::Stats;
 
-use std::sync::{Arc, Mutex};
+use std::{
+  sync::{Arc, Mutex},
+  time::Instant,
+};
 use threadpool::ThreadPool;
 
 type Score = i32;
@@ -254,20 +257,12 @@ fn minimax(
   current_player: bool,
   remaining_depth: u8,
   beta: Score,
-) -> Score {
-  let available_moves = board.get_empty_tiles();
-
-  if available_moves.is_empty() {
-    return -300_000; // bad but not as bad as losing
-  }
+) -> Result<Score, board::Error> {
+  let available_moves = board.get_empty_tiles()?;
 
   let mut alpha = ALPHA_DEFAULT;
 
   if remaining_depth > 0 {
-    // eval each move to depth 1,
-    // sort them based on (the result and
-    // the distance from middle of the board)
-
     let presorted_moves = moves_sorted_by_shallow_eval(
       &available_moves,
       board,
@@ -276,7 +271,6 @@ fn minimax(
       current_player,
     );
 
-    // then use 10 best of them to eval deeper
     for move_ in presorted_moves.into_iter().take(10) {
       let MoveWithEnd {
         tile,
@@ -286,11 +280,12 @@ fn minimax(
 
       if is_end {
         stats_arc.lock().unwrap().prune();
-        return score * 10;
+        return Ok(score);
       }
 
       board.set_tile(tile, Some(current_player));
-      score = minimax(
+
+      let move_result = minimax(
         board,
         stats_arc,
         cache_arc,
@@ -298,11 +293,14 @@ fn minimax(
         remaining_depth - 1,
         -alpha,
       );
+
+      score = move_result.unwrap_or(-100_000);
+
       board.set_tile(tile, None);
 
       if score > beta {
         stats_arc.lock().unwrap().prune();
-        return -score;
+        return Ok(-score);
       }
 
       if score > alpha {
@@ -310,9 +308,9 @@ fn minimax(
       }
     }
 
-    -alpha
+    Ok(-alpha)
   } else {
-    eval_to_depth_one(
+    let score = eval_to_depth_one(
       available_moves,
       board,
       current_player,
@@ -320,7 +318,9 @@ fn minimax(
       cache_arc,
       beta,
     )
-    .score
+    .score;
+
+    Ok(score)
   }
 }
 
@@ -330,19 +330,11 @@ fn minimax_top_level(
   cache_ref: &mut Cache,
   current_player: bool,
   remaining_depth: u8,
-) -> Move {
-  let available_moves = board.get_empty_tiles();
-
-  if available_moves.is_empty() {
-    return Move {
-      tile: TilePointer { x: 0, y: 0 },
-      score: -1_000_000_000,
-    };
-  }
+) -> Result<Move, board::Error> {
+  let available_moves = board.get_empty_tiles()?;
 
   let best_tile;
   let mut alpha = ALPHA_DEFAULT;
-  let beta = BETA_DEFAULT;
 
   let cache = cache_ref.clone();
   let stats = stats_ref.clone();
@@ -377,33 +369,38 @@ fn minimax_top_level(
       .filter(|MoveWithEnd { is_end, .. }| *is_end)
       .max();
 
-    if let Some(&MoveWithEnd { tile, score, .. }) = best_winning_move {
+    if let Some(move_) = best_winning_move {
       *stats_ref = stats_arc.lock().unwrap().to_owned();
       *cache_ref = cache_arc.lock().unwrap().to_owned();
-      return Move { tile, score };
+      return Ok(Move::from(move_));
     }
 
-    for MoveWithEnd { tile, .. } in presorted_moves.into_iter().take(moves_count) {
-      let mut board_clone = board.clone();
-      board_clone.set_tile(tile, Some(current_player));
+    presorted_moves
+      .into_iter()
+      .take(moves_count)
+      .for_each(|MoveWithEnd { tile, .. }| {
+        let mut board_clone = board.clone();
+        board_clone.set_tile(tile, Some(current_player));
 
-      let cache_arc_clone = cache_arc.clone();
-      let stats_arc_clone = stats_arc.clone();
-      let results_arc_clone = results_arc.clone();
+        let cache_arc_clone = cache_arc.clone();
+        let stats_arc_clone = stats_arc.clone();
+        let results_arc_clone = results_arc.clone();
 
-      pool.execute(move || {
-        let score = minimax(
-          &mut board_clone,
-          &stats_arc_clone,
-          &cache_arc_clone,
-          next_player(current_player),
-          remaining_depth - 1,
-          -alpha,
-        );
+        pool.execute(move || {
+          let move_result = minimax(
+            &mut board_clone,
+            &stats_arc_clone,
+            &cache_arc_clone,
+            next_player(current_player),
+            remaining_depth - 1,
+            -alpha,
+          );
 
-        results_arc_clone.lock().unwrap().push(Move { tile, score });
+          let score = move_result.unwrap_or(-100_000);
+
+          results_arc_clone.lock().unwrap().push(Move { tile, score });
+        });
       });
-    }
 
     pool.join();
 
@@ -420,7 +417,7 @@ fn minimax_top_level(
       current_player,
       &stats_arc,
       &cache_arc,
-      beta,
+      BETA_DEFAULT,
     );
 
     best_tile = tile;
@@ -430,34 +427,61 @@ fn minimax_top_level(
   *stats_ref = stats_arc.lock().unwrap().to_owned();
   *cache_ref = cache_arc.lock().unwrap().to_owned();
 
-  Move {
+  Ok(Move {
     tile: best_tile,
     score: alpha,
-  }
+  })
 }
 
-pub fn decide(board: &Board, player: bool, analysis_depth: u8) -> (Board, Move, Stats) {
+pub fn decide(
+  board: &Board,
+  player: bool,
+  max_time: u128,
+) -> Result<(Board, Move, Stats), board::Error> {
   let mut cache = Cache::new(board.get_size());
 
-  let result = decide_with_cache(board, player, analysis_depth, &mut cache);
+  let result = decide_with_cache(board, player, max_time, &mut cache)?;
 
   println!("cache: {:?}", cache.stats);
 
-  result
+  Ok(result)
 }
 
 pub fn decide_with_cache(
   board: &Board,
   player: bool,
-  analysis_depth: u8,
+  max_time: u128,
   cache: &mut Cache,
-) -> (Board, Move, Stats) {
+) -> Result<(Board, Move, Stats), board::Error> {
   let mut board = board.clone();
   let mut stats = Stats::new();
 
-  let move_ = minimax_top_level(&mut board, &mut stats, cache, player, analysis_depth);
+  let mut moves = Vec::new();
 
-  board.set_tile(move_.tile, Some(player));
+  let start = Instant::now();
 
-  (board, move_, stats)
+  let mut i = 0;
+  while start.elapsed().as_millis() < max_time && i < 30 {
+    i += 1;
+    moves.push(minimax_top_level(&mut board, &mut stats, cache, player, i));
+    println!(
+      "Calculated depth {} at {} ms",
+      i,
+      start.elapsed().as_millis()
+    );
+  }
+
+  println!("moves: {:?}\n", moves);
+
+  if let Some(move_) = moves.pop() {
+    if let Ok(move_) = move_ {
+      board.set_tile(move_.tile, Some(player));
+
+      Ok((board, move_, stats))
+    } else {
+      Err(move_.err().unwrap())
+    }
+  } else {
+    panic!("No move found");
+  }
 }

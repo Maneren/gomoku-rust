@@ -22,8 +22,8 @@ fn main() {
         .possible_values(&["X", "O", "x", "o"]),
     )
     .arg(
-      Arg::with_name("depth")
-        .help("depth of the minimax; default = 4")
+      Arg::with_name("time")
+        .help("max runtime in milliseconds; default = 1000")
         .index(2),
     )
     .arg(
@@ -43,32 +43,41 @@ fn main() {
 
   let start = value_t!(matches, "start", bool).unwrap_or(false);
 
-  let depth = value_t!(matches, "depth", u8).unwrap_or(4);
+  let max_time = value_t!(matches, "time", u128).unwrap_or(1000);
 
   if let Some(matches) = matches.subcommand_matches("debug") {
     let path_to_input = matches.value_of("path").unwrap();
-    match run_debug(path_to_input, player, depth) {
+    match run_debug(path_to_input, player, max_time) {
       Ok(_) => println!("Done!"),
       Err(msg) => println!("Error: {}", msg),
     }
   } else {
-    run(player, depth, start);
+    run(player, max_time, start);
   }
 }
 
-fn run_debug(path_to_input: &str, player: bool, depth: u8) -> Result<(), Error> {
+fn run_debug(path_to_input: &str, player: bool, max_time: u128) -> Result<(), Error> {
   let input_string = load_input(&path_to_input)?;
   let board = Board::from_string(&input_string)?;
 
   println!("{}", board);
 
-  println!("Searching to depth {}\n", depth);
+  println!("Searching with max time {} ms\n", max_time);
 
   let start = Instant::now();
 
-  let (solved, best_move, stats) = gomoku::decide(&board, player, depth);
-
+  let result = gomoku::decide(&board, player, max_time);
   let run_time = start.elapsed().as_micros();
+
+  let unwrapped;
+  match result {
+    Ok(result) => unwrapped = result,
+    Err(err) => {
+      println!("Error occured: {:?}", err);
+      return Ok(());
+    }
+  }
+  let (solved, best_move, stats) = unwrapped;
 
   println!("stats: {:?}", stats);
 
@@ -93,7 +102,7 @@ fn load_input(path: &str) -> Result<String, Error> {
   Ok(contents)
 }
 
-fn run(player: bool, depth: u8, start: bool) {
+fn run(player: bool, max_time: u128, start: bool) {
   use text_io::read;
 
   let board_size = 15;
@@ -149,12 +158,23 @@ fn run(player: bool, depth: u8, start: bool) {
 
     if is_game_end(&board, !player) {
       println!("Engine loses!\n$");
+      println!("{}", board);
       break;
     }
 
     let start = Instant::now();
-    let (_, move_, stats) = gomoku::decide_with_cache(&board, player, depth, &mut cache);
+    let result = gomoku::decide_with_cache(&board, player, max_time, &mut cache);
     let run_time = start.elapsed().as_micros();
+
+    let unwrapped;
+    match result {
+      Ok(result) => unwrapped = result,
+      Err(err) => {
+        println!("Error occured: {:?}", err);
+        continue;
+      }
+    }
+    let (_, move_, stats) = unwrapped;
 
     if run_time < 10_000 {
       println!("Time: {} \u{03bc}s", run_time)

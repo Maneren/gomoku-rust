@@ -1,8 +1,8 @@
 import subprocess
 from subprocess import PIPE
 
-p1 = subprocess.Popen(('./target/release/gomoku', 'x', '3', 'true'), stdin=PIPE, stdout=PIPE)
-p2 = subprocess.Popen(('./target/release/gomoku', 'o', '3' ), stdin=PIPE, stdout=PIPE)
+p1 = subprocess.Popen(('./target/release/gomoku', 'x', '1000', 'true'), stdin=PIPE, stdout=PIPE)
+p2 = subprocess.Popen(('./target/release/gomoku', 'o', '1000' ), stdin=PIPE, stdout=PIPE)
 
 on_turn = 0
 move = ''

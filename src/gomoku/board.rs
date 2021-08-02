@@ -149,13 +149,21 @@ impl Board {
       .collect()
   }
 
-  pub fn get_empty_tiles(&self) -> Vec<TilePointer> {
-    self
+  pub fn get_empty_tiles(&self) -> Result<Vec<TilePointer>, Error> {
+    let tiles: Vec<_> = self
       .tile_ptrs
       .iter()
       .filter(|ptr| self.get_tile(ptr).is_none())
       .map(TilePointer::to_owned)
-      .collect()
+      .collect();
+
+    if tiles.is_empty() {
+      Err(Error {
+        msg: "No empty tiles found".into(),
+      })
+    } else {
+      Ok(tiles)
+    }
   }
 
   pub fn from_string(input_string: &str) -> Result<Board, Error> {
