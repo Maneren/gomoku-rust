@@ -286,7 +286,7 @@ fn minimax(
 
       if is_end {
         stats_arc.lock().unwrap().prune();
-        return score;
+        return score * 10;
       }
 
       board.set_tile(tile, Some(current_player));
@@ -362,13 +362,26 @@ fn minimax_top_level(
       current_player,
     );
 
-    let moves_count = 30;
+    let moves_count = 25;
 
     let results = Vec::with_capacity(moves_count);
     let results_arc = Arc::new(Mutex::new(results));
 
     let cores = num_cpus::get();
     let pool = ThreadPool::new(cores);
+
+    // if there is winning move, return it
+    let best_winning_move = presorted_moves
+      .iter()
+      .take(moves_count)
+      .filter(|MoveWithEnd { is_end, .. }| *is_end)
+      .max();
+
+    if let Some(&MoveWithEnd { tile, score, .. }) = best_winning_move {
+      *stats_ref = stats_arc.lock().unwrap().to_owned();
+      *cache_ref = cache_arc.lock().unwrap().to_owned();
+      return Move { tile, score };
+    }
 
     for MoveWithEnd { tile, .. } in presorted_moves.into_iter().take(moves_count) {
       let mut board_clone = board.clone();
@@ -388,21 +401,11 @@ fn minimax_top_level(
           -alpha,
         );
 
-        let move_ = Move { tile, score };
-
-        let mut results_lock = results_arc_clone.lock().unwrap();
-        println!(
-          "calculated {}/{} {:?}",
-          results_lock.len() + 1,
-          moves_count,
-          move_
-        );
-        results_lock.push(move_);
+        results_arc_clone.lock().unwrap().push(Move { tile, score });
       });
     }
-    pool.join();
 
-    println!();
+    pool.join();
 
     let move_results_lock = results_arc.lock().unwrap();
 
