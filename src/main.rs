@@ -43,7 +43,7 @@ fn main() {
 
   let start = value_t!(matches, "start", bool).unwrap_or(false);
 
-  let max_time = value_t!(matches, "time", u128).unwrap_or(1000);
+  let max_time = value_t!(matches, "time", u64).unwrap_or(1000);
 
   if let Some(matches) = matches.subcommand_matches("debug") {
     let path_to_input = matches.value_of("path").unwrap();
@@ -56,7 +56,7 @@ fn main() {
   }
 }
 
-fn run_debug(path_to_input: &str, player: bool, max_time: u128) -> Result<(), Error> {
+fn run_debug(path_to_input: &str, player: bool, max_time: u64) -> Result<(), Error> {
   let input_string = load_input(&path_to_input)?;
   let board = Board::from_string(&input_string)?;
 
@@ -102,7 +102,7 @@ fn load_input(path: &str) -> Result<String, Error> {
   Ok(contents)
 }
 
-fn run(player: bool, max_time: u128, start: bool) {
+fn run(player: bool, max_time: u64, start: bool) {
   use text_io::read;
 
   let board_size = 15;
@@ -204,8 +204,8 @@ fn run(player: bool, max_time: u128, start: bool) {
 fn is_game_end(board: &Board, current_player: bool) -> bool {
   board
     .get_all_tile_sequences()
-    .iter()
-    .any(|sequence| is_game_end_sequence(sequence, current_player))
+    .into_iter()
+    .any(|sequence| is_game_end_sequence(&sequence, current_player))
 }
 
 fn is_game_end_sequence(sequence: &[&Option<bool>], current_player: bool) -> bool {
