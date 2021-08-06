@@ -99,23 +99,26 @@ fn minimax_top_level(
     );
   };
 
-  print_status("creating nodes", end_time);
+  print_status("computing depth 1", end_time);
 
-  let moves_count = 4;
+  let moves_count = 30;
 
   let presorted_nodes: Vec<Node> = presorted_nodes.into_iter().take(moves_count).collect();
 
   let mut nodes_generations = vec![presorted_nodes];
 
   let cores = num_cpus::get();
-  let pool = ThreadPool::with_name(String::from("node"), 1 /* cores */);
+  let pool = ThreadPool::with_name(String::from("node"), cores);
 
   let mut nodes;
   let mut nodes_arc = Arc::new(Mutex::new(Vec::new()));
   let mut done = false;
 
+  let mut i = 2;
+
   while time_remaining(end_time) && !done {
-    print_status("deepening", end_time);
+    print_status(&format!("computing depth {}", i), end_time);
+    i += 1;
 
     #[allow(clippy::explicit_into_iter_loop)]
     for node in nodes_generations.last_mut().unwrap() {
@@ -165,8 +168,6 @@ fn minimax_top_level(
     nodes_generations.pop();
   }
 
-  println!("nodes_generations {:#?}", nodes_generations);
-
   if nodes_generations.is_empty() {
     panic!("no generation computed, try increasing time limit")
   }
@@ -212,7 +213,6 @@ pub fn decide_with_cache(
 
   let max_time = Duration::from_millis(max_time);
 
-  // TODO: handle the error
   let end = Instant::now().checked_add(max_time).unwrap();
 
   let move_ = minimax_top_level(&mut board, cache_ref, &mut stats, player, end)?;

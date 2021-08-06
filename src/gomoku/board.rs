@@ -91,7 +91,7 @@ pub struct Board {
   size: u8,
 
   tile_ptrs: Vec<TilePointer>,
-  sequences: Vec<Vec<TilePointer>>, // TODO: change this to use index instead of TilePointer
+  sequences: Vec<Vec<usize>>,
 }
 
 impl Board {
@@ -134,18 +134,22 @@ impl Board {
     Board::new(data).unwrap()
   }
 
-  fn get_all_sequences(board_size: u8) -> Vec<Vec<TilePointer>> {
+  fn get_all_sequences(board_size: u8) -> Vec<Vec<usize>> {
     let mut sequences = Vec::new();
 
     // horizontal
     for y in 0..board_size {
-      let temp = (0..board_size).map(|x| TilePointer { x, y }).collect();
+      let temp = (0..board_size)
+        .map(|x| Self::get_index(board_size, x, y))
+        .collect();
       sequences.push(temp)
     }
 
     // vertical
     for x in 0..board_size {
-      let temp = (0..board_size).map(|y| TilePointer { x, y }).collect();
+      let temp = (0..board_size)
+        .map(|y| Self::get_index(board_size, x, y))
+        .collect();
       sequences.push(temp)
     }
 
@@ -161,7 +165,7 @@ impl Board {
         .map(|j| {
           let x = row - j;
           let y = col + j;
-          TilePointer { x, y }
+          Self::get_index(board_size, x, y)
         })
         .collect();
 
@@ -178,7 +182,7 @@ impl Board {
         .map(|j| {
           let x = board_size_minus_one - (row - j);
           let y = col + j;
-          TilePointer { x, y }
+          Self::get_index(board_size, x, y)
         })
         .collect();
 
@@ -195,12 +199,15 @@ impl Board {
   }
 
   pub fn get_all_tile_sequences(&self) -> Vec<Vec<&Tile>> {
-    let get_tile = |ptr| self.get_tile(ptr);
-
     self
       .sequences
       .iter()
-      .map(|sequence| sequence.iter().map(get_tile).collect::<Vec<_>>())
+      .map(|sequence| {
+        sequence
+          .iter()
+          .map(|index| self.get_tile_raw(*index))
+          .collect::<Vec<_>>()
+      })
       .collect()
   }
 
@@ -249,14 +256,18 @@ impl Board {
     Ok(board)
   }
 
-  fn get_index(&self, x: u8, y: u8) -> usize {
-    let index = self.size * y + x;
+  fn get_index(size: u8, x: u8, y: u8) -> usize {
+    let index = size * y + x;
     index as usize
   }
 
   pub fn get_tile(&self, ptr: &TilePointer) -> &Tile {
     let TilePointer { x, y } = *ptr;
-    let index = self.get_index(x, y);
+    let index = Self::get_index(self.size, x, y);
+    self.get_tile_raw(index)
+  }
+
+  pub fn get_tile_raw(&self, index: usize) -> &Tile {
     &self.data[index]
   }
 
@@ -272,7 +283,7 @@ impl Board {
       );
     }
 
-    let index = self.get_index(x, y);
+    let index = Self::get_index(self.size, x, y);
     self.data[index] = value;
   }
 
@@ -292,8 +303,15 @@ impl Board {
 }
 impl fmt::Display for Board {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let mut string = String::from("  abcdefghijklmno\n");
-    let board_size = self.get_size();
+    let board_size = self.size;
+
+    let mut string: String = String::new()
+      + if board_size >= 10 { "  " } else { " " }
+      + &"abcdefghijklmnopqrstuvwxyz"
+        .chars()
+        .take(board_size as usize)
+        .collect::<String>()
+      + "\n";
 
     for i in 0..board_size {
       let tmp = if i < 10 && board_size >= 10 {
@@ -303,16 +321,15 @@ impl fmt::Display for Board {
       };
       string.push_str(&tmp);
 
-      let row_rng = (i * board_size) as usize..((i + 1) * board_size) as usize;
-      let row = &self.data[row_rng];
+      let row_start = (i * board_size) as usize;
+      let row_end = ((i + 1) * board_size) as usize;
+      let row = &self.data[row_start..row_end];
+      let row_string: String = row
+        .iter()
+        .map(|field| field.map_or('-', Player::char))
+        .collect();
 
-      string.push_str(
-        &(row
-          .iter()
-          .map(|field| field.map_or('-', Player::char))
-          .collect::<String>()
-          + "\n"),
-      );
+      string.push_str(&(row_string + "\n"));
     }
 
     write!(f, "{}", string)

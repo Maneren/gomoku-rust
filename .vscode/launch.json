@@ -16,7 +16,7 @@
           "kind": "bin"
         }
       },
-      "args": ["test.txt", "x"],
+      "args": ["x", "50000", "debug", "test5.txt"],
       "cwd": "${workspaceFolder}"
     }
   ]

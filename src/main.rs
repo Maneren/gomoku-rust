@@ -118,7 +118,7 @@ fn run(player: Player, max_time: u64, start: bool) {
     };
     board.set_tile(tile, Some(player));
     println!("board:\n{}", board);
-    println!("{}{},{}", prefix, tile.x, tile.y);
+    println!("{}{:?}", prefix, tile);
   }
 
   loop {
@@ -130,21 +130,17 @@ fn run(player: Player, max_time: u64, start: bool) {
       return;
     }
 
-    let splitted: Vec<_> = line.split(',').collect();
-    if splitted.len() != 2 {
-      println!("Invalid input: {:?}", splitted);
+    let mut chars = line.chars();
+
+    let x = chars.next();
+    let y = chars.as_str().parse();
+
+    if x.is_none() || y.is_err() {
+      println!("Invalid input: {:?}", line);
       continue;
     }
 
-    let x = splitted[0].parse();
-    let y = splitted[1].parse();
-
-    if x.is_err() || y.is_err() {
-      println!("Invalid input: {:?}", splitted);
-      continue;
-    }
-
-    let x = x.unwrap();
+    let x = x.unwrap() as u8 - 97;
     let y = y.unwrap();
 
     let tile_ptr = TilePointer { x, y };
@@ -197,7 +193,7 @@ fn run(player: Player, max_time: u64, start: bool) {
       break;
     }
 
-    println!("{}{},{}", prefix, tile.x, tile.y);
+    println!("{}{:?}", prefix, tile);
   }
 }
 
