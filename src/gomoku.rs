@@ -9,7 +9,7 @@ pub use board::{Board, Player, Tile, TilePointer};
 pub use cache::Cache;
 pub use functions::{evaluate_board, get_dist_fn, time_remaining};
 use node::Node;
-pub use r#move::{Move, MoveWithEnd}; // r# to allow reserved keyword as name
+pub use r#move::Move; // r# to allow reserved keyword as name
 use stats::Stats;
 
 use std::{
@@ -120,7 +120,6 @@ fn minimax_top_level(
     print_status(&format!("computing depth {}", i), end_time);
     i += 1;
 
-    #[allow(clippy::explicit_into_iter_loop)]
     for node in nodes_generations.last_mut().unwrap() {
       let mut node = node.clone();
       let mut board_clone = board.clone();
