@@ -1,13 +1,12 @@
-use std::sync::{Arc, Mutex};
+use std::{
+  sync::{Arc, Mutex},
+  time::Instant,
+};
 
-use super::{Board, Cache, Score, Stats, Tile, TilePointer};
-
-pub fn next_player(current: bool) -> bool {
-  !current
-}
+use super::{Board, Cache, Player, Score, Stats, Tile, TilePointer};
 
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> (Score, bool) {
-  if consecutive == 0 || open_ends == 0 {
+  if consecutive == 0 {
     return (0, false);
   }
 
@@ -17,7 +16,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
     }
 
     if consecutive == 5 {
-      (1_000_000, false)
+      (500_000, false)
     } else if consecutive == 4 {
       match open_ends {
         2 => (300_000, false),
@@ -67,7 +66,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
   }
 }
 
-fn eval_sequence(sequence: &[&Tile], evaluate_for: bool, is_on_turn: bool) -> (Score, bool) {
+fn eval_sequence(sequence: &[&Tile], evaluate_for: Player, is_on_turn: bool) -> (Score, bool) {
   let mut score = 0;
   let mut consecutive = 0;
   let mut open_ends = 0;
@@ -80,9 +79,12 @@ fn eval_sequence(sequence: &[&Tile], evaluate_for: bool, is_on_turn: bool) -> (S
       if *player == evaluate_for {
         consecutive += 1
       } else {
-        let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole, is_on_turn);
-        is_win |= is_win_shape;
-        score += shape_score;
+        if consecutive > 0 {
+          let (shape_score, is_win_shape) =
+            shape_score(consecutive, open_ends, has_hole, is_on_turn);
+          is_win |= is_win_shape;
+          score += shape_score;
+        }
 
         consecutive = 0;
         open_ends = 0;
@@ -109,9 +111,11 @@ fn eval_sequence(sequence: &[&Tile], evaluate_for: bool, is_on_turn: bool) -> (S
     }
   }
 
-  let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole, is_on_turn);
-  is_win |= is_win_shape;
-  score += shape_score;
+  if consecutive > 0 {
+    let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole, is_on_turn);
+    is_win |= is_win_shape;
+    score += shape_score;
+  }
 
   (score, is_win)
 }
@@ -120,7 +124,7 @@ pub fn evaluate_board(
   board: &mut Board,
   stats_arc: &Arc<Mutex<Stats>>,
   cache_arc: &Arc<Mutex<Cache>>,
-  current_player: bool,
+  current_player: Player,
 ) -> (Score, bool) {
   stats_arc.lock().unwrap().eval();
 
@@ -141,7 +145,7 @@ pub fn evaluate_board(
     .into_iter()
     .fold(0, |total, sequence| {
       let (player_score, is_win) = eval_sequence(&sequence, current_player, false);
-      let (opponent_score, is_lose) = eval_sequence(&sequence, next_player(current_player), true);
+      let (opponent_score, is_lose) = eval_sequence(&sequence, current_player.next(), true);
 
       if is_win || is_lose {
         is_game_end = true;
@@ -172,4 +176,8 @@ pub fn get_dist_fn(board_size: u8) -> Box<dyn Fn(TilePointer) -> Score> {
   };
 
   Box::new(function)
+}
+
+pub fn time_remaining(end_time: Instant) -> bool {
+  Instant::now().checked_duration_since(end_time).is_none()
 }

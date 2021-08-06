@@ -5,9 +5,9 @@ mod r#move; // r# to allow reserved keyword as name
 mod node;
 mod stats;
 
-pub use board::{Board, Tile, TilePointer};
+pub use board::{Board, Player, Tile, TilePointer};
 pub use cache::Cache;
-use functions::{evaluate_board, get_dist_fn, next_player};
+pub use functions::{evaluate_board, get_dist_fn, time_remaining};
 use node::Node;
 pub use r#move::{Move, MoveWithEnd}; // r# to allow reserved keyword as name
 use stats::Stats;
@@ -23,39 +23,42 @@ type Score = i32;
 const ALPHA_DEFAULT: Score = -1_000_000_000;
 const BETA_DEFAULT: Score = 1_000_000_000;
 
-fn moves_sorted_by_shallow_eval(
+fn nodes_sorted_by_shallow_eval(
   moves: &[TilePointer],
   board: &mut Board,
   stats_arc: &Arc<Mutex<Stats>>,
   cache_arc: &Arc<Mutex<Cache>>,
-  current_player: bool,
-) -> Vec<MoveWithEnd> {
+  current_player: Player,
+  end_time: Instant,
+) -> Vec<Node> {
   let dist = get_dist_fn(board.get_size());
-  let mut moves: Vec<MoveWithEnd> = moves
+  let mut nodes: Vec<_> = moves
     .iter()
     .map(|&tile| {
       board.set_tile(tile, Some(current_player));
       let (analysis, is_game_end) = evaluate_board(board, stats_arc, cache_arc, current_player);
       board.set_tile(tile, None);
 
-      MoveWithEnd {
+      Node::new(
         tile,
-        score: -(analysis - dist(tile)),
-        is_end: is_game_end,
-      }
+        current_player,
+        analysis - dist(tile),
+        is_game_end,
+        end_time,
+      )
     })
     .collect();
 
-  moves.sort_unstable();
+  nodes.sort_unstable_by_key(|node| -node.score);
 
-  moves
+  nodes
 }
 
 fn minimax_top_level(
   board: &mut Board,
   cache_ref: &mut Cache,
   stats_ref: &mut Stats,
-  current_player: bool,
+  current_player: Player,
   end_time: Instant,
 ) -> Result<Move, board::Error> {
   let available_moves = board.get_empty_tiles()?;
@@ -65,86 +68,58 @@ fn minimax_top_level(
   let cache_arc = Arc::new(Mutex::new(cache));
   let stats_arc = Arc::new(Mutex::new(stats));
 
-  let presorted_moves = moves_sorted_by_shallow_eval(
+  let presorted_nodes = nodes_sorted_by_shallow_eval(
     &available_moves,
     board,
     &stats_arc,
     &cache_arc,
     current_player,
+    end_time,
   );
-
-  let moves_count = 25;
-
-  let nodes = Vec::with_capacity(moves_count);
-  let nodes_arc = Arc::new(Mutex::new(nodes));
-
-  let cores = num_cpus::get();
-  let pool = ThreadPool::new(cores);
 
   // if there is winning move, return it
-  let best_winning_move = presorted_moves
+  let best_winning_node = presorted_nodes
     .iter()
-    .take(moves_count)
-    .filter(|MoveWithEnd { is_end, .. }| *is_end)
+    .filter(|Node { is_end, .. }| *is_end)
     .max();
 
-  if let Some(move_) = best_winning_move {
+  if let Some(node) = best_winning_node {
     *stats_ref = stats_arc.lock().unwrap().to_owned();
     *cache_ref = cache_arc.lock().unwrap().to_owned();
-    return Ok(move_.into());
+    return Ok(node.to_move());
   }
 
-  presorted_moves.into_iter().take(moves_count).for_each(
-    |MoveWithEnd {
-       tile,
-       score,
-       is_end,
-     }| {
-      let mut board_clone = board.clone();
-      board_clone.set_tile(tile, Some(current_player));
-
-      let cache_arc_clone = cache_arc.clone();
-      let stats_arc_clone = stats_arc.clone();
-      let nodes_arc_clone = nodes_arc.clone();
-
-      pool.execute(move || {
-        let mut node = Node::new(
-          tile,
-          next_player(current_player),
-          -score,
-          is_end,
-          end_time,
-          1,
-        );
-
-        node.eval(
-          &mut board_clone,
-          &stats_arc_clone,
-          &cache_arc_clone,
-          BETA_DEFAULT,
-        );
-
-        nodes_arc_clone.lock().unwrap().push(node);
-      });
-    },
-  );
-
-  pool.join();
-
-  // get the value from the Arc
-  let mut nodes = Arc::try_unwrap(nodes_arc).unwrap().into_inner().unwrap();
-  let mut nodes_arc = Arc::new(Mutex::new(Vec::new()));
-
-  while check_time(end_time) {
+  let print_status = |msg: &str, end_time: Instant| {
     println!(
-      "deepening {:?} remaining",
+      "{} ({:?} remaining)",
+      msg,
       end_time
         .checked_duration_since(Instant::now())
         .unwrap_or_else(|| Duration::from_millis(0))
     );
+  };
+
+  print_status("creating nodes", end_time);
+
+  let moves_count = 4;
+
+  let presorted_nodes: Vec<Node> = presorted_nodes.into_iter().take(moves_count).collect();
+
+  let mut nodes_generations = vec![presorted_nodes];
+
+  let cores = num_cpus::get();
+  let pool = ThreadPool::with_name(String::from("node"), 1 /* cores */);
+
+  let mut nodes;
+  let mut nodes_arc = Arc::new(Mutex::new(Vec::new()));
+  let mut done = false;
+
+  while time_remaining(end_time) && !done {
+    print_status("deepening", end_time);
 
     #[allow(clippy::explicit_into_iter_loop)]
-    for mut node in nodes.into_iter() {
+    for node in nodes_generations.last_mut().unwrap() {
+      let mut node = node.clone();
       let mut board_clone = board.clone();
 
       let cache_arc_clone = cache_arc.clone();
@@ -163,15 +138,46 @@ fn minimax_top_level(
     }
 
     pool.join();
+    if pool.panic_count() > 0 {
+      panic!("{} subthreads panicked", pool.panic_count());
+    }
 
     let nodes_mutex = Arc::try_unwrap(nodes_arc).unwrap();
-    nodes = nodes_mutex.into_inner().unwrap();
     nodes_arc = Arc::new(Mutex::new(Vec::new()));
+    nodes = nodes_mutex.into_inner().unwrap();
+
+    if nodes.iter().all(|node| node.is_end) {
+      done = true;
+    };
+
+    nodes.sort_unstable_by_key(|node| -node.score);
+    nodes_generations.push(nodes);
   }
 
-  let best_node = nodes.into_iter().max().unwrap();
+  // find latest usable generation
+  while !nodes_generations.is_empty()
+    && nodes_generations
+      .last()
+      .unwrap()
+      .iter()
+      .any(|node| !node.valid)
+  {
+    nodes_generations.pop();
+  }
+
+  println!("nodes_generations {:#?}", nodes_generations);
+
+  if nodes_generations.is_empty() {
+    panic!("no generation computed, try increasing time limit")
+  }
+
+  let last_generation = nodes_generations.last().unwrap();
+
+  let best_node = last_generation.iter().max().unwrap().clone();
 
   println!();
+
+  println!("searched to depth {:?}", nodes_generations.len());
 
   let Node { tile, score, .. } = best_node;
 
@@ -181,13 +187,9 @@ fn minimax_top_level(
   Ok(Move { tile, score })
 }
 
-fn check_time(end_time: Instant) -> bool {
-  Instant::now().checked_duration_since(end_time).is_none()
-}
-
 pub fn decide(
   board: &Board,
-  player: bool,
+  player: Player,
   max_time: u64,
 ) -> Result<(Board, Move, Stats), board::Error> {
   let mut cache = Cache::new(board.get_size());
@@ -201,7 +203,7 @@ pub fn decide(
 
 pub fn decide_with_cache(
   board: &Board,
-  player: bool,
+  player: Player,
   max_time: u64,
   cache_ref: &mut Cache,
 ) -> Result<(Board, Move, Stats), board::Error> {

@@ -19,7 +19,60 @@ impl error::Error for Error {
   }
 }
 
-pub type Tile = Option<bool>;
+#[derive(Clone, PartialEq, Eq, Copy)]
+pub enum Player {
+  X,
+  O,
+}
+
+impl Player {
+  pub fn next(self) -> Player {
+    match self {
+      Player::X => Player::O,
+      Player::O => Player::X,
+    }
+  }
+
+  pub fn value(self) -> usize {
+    match self {
+      Player::X => 1,
+      Player::O => 2,
+    }
+  }
+
+  pub fn char(self) -> char {
+    match self {
+      Player::X => 'x',
+      Player::O => 'o',
+    }
+  }
+}
+impl fmt::Debug for Player {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "{:?}",
+      match *self {
+        Player::X => "Player::X",
+        Player::O => "Player::O",
+      }
+    )
+  }
+}
+impl fmt::Display for Player {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "{:?}",
+      match *self {
+        Player::X => 'x',
+        Player::O => 'o',
+      }
+    )
+  }
+}
+
+pub type Tile = Option<Player>;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct TilePointer {
@@ -28,7 +81,7 @@ pub struct TilePointer {
 }
 impl fmt::Debug for TilePointer {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "({},{})", self.x, self.y)
+    write!(f, "{}{}", (self.x + 97) as char, self.y)
   }
 }
 
@@ -38,11 +91,11 @@ pub struct Board {
   size: u8,
 
   tile_ptrs: Vec<TilePointer>,
-  sequences: Vec<Vec<TilePointer>>,
+  sequences: Vec<Vec<TilePointer>>, // TODO: change this to use index instead of TilePointer
 }
 
 impl Board {
-  pub fn new(data: Vec<Vec<Option<bool>>>) -> Result<Board, Error> {
+  pub fn new(data: Vec<Vec<Tile>>) -> Result<Board, Error> {
     if data.len() <= 8 {
       return Err(Error {
         msg: "Too small board height".into(),
@@ -85,14 +138,14 @@ impl Board {
     let mut sequences = Vec::new();
 
     // horizontal
-    for x in 0..board_size {
-      let temp = (0..board_size).map(|y| TilePointer { x, y }).collect();
+    for y in 0..board_size {
+      let temp = (0..board_size).map(|x| TilePointer { x, y }).collect();
       sequences.push(temp)
     }
 
     // vertical
-    for y in 0..board_size {
-      let temp = (0..board_size).map(|x| TilePointer { x, y }).collect();
+    for x in 0..board_size {
+      let temp = (0..board_size).map(|y| TilePointer { x, y }).collect();
       sequences.push(temp)
     }
 
@@ -137,15 +190,17 @@ impl Board {
 
   fn get_tile_ptrs(size: u8) -> Vec<TilePointer> {
     (0..size)
-      .flat_map(|x| (0..size).map(move |y| TilePointer { x, y }))
+      .flat_map(|y| (0..size).map(move |x| TilePointer { x, y }))
       .collect()
   }
 
-  pub fn get_all_tile_sequences(&self) -> Vec<Vec<&Option<bool>>> {
+  pub fn get_all_tile_sequences(&self) -> Vec<Vec<&Tile>> {
+    let get_tile = |ptr| self.get_tile(ptr);
+
     self
       .sequences
       .iter()
-      .map(|sequence| sequence.iter().map(|ptr| self.get_tile(ptr)).collect())
+      .map(|sequence| sequence.iter().map(get_tile).collect::<Vec<_>>())
       .collect()
   }
 
@@ -180,14 +235,10 @@ impl Board {
       .map(|row| {
         row
           .iter()
-          .map(|tile| {
-            if *tile == 'x' {
-              Some(true)
-            } else if *tile == 'o' {
-              Some(false)
-            } else {
-              None
-            }
+          .map(|tile| match *tile {
+            'x' | 'X' => Some(Player::X),
+            'o' | 'O' => Some(Player::O),
+            _ => None,
           })
           .collect()
       })
@@ -211,28 +262,39 @@ impl Board {
 
   pub fn set_tile(&mut self, ptr: TilePointer, value: Tile) {
     let TilePointer { x, y } = ptr;
+
+    if (value.is_some() && self.get_tile(&ptr).is_some())
+      || (value.is_none() && self.get_tile(&ptr).is_none())
+    {
+      panic!(
+        "attempted to overwrite tile {:?} with value {:?} at board \n{}",
+        ptr, value, self
+      );
+    }
+
     let index = self.get_index(x, y);
-    self.data[index as usize] = value;
+    self.data[index] = value;
   }
 
   pub fn get_size(&self) -> u8 {
     self.size
   }
 
-  // for caching
-  // in hash_table[x][y]
-  // x is current tile, y is tile_type
   pub fn hash(&self, hash_table: &[Vec<u128>]) -> u128 {
+    // for caching
+    // in hash_table[x][y]
+    // x is current tile, y is tile_type
     self.data.iter().enumerate().fold(0, |hash, (index, tile)| {
-      let tile_type = tile.map_or(0, |player| if player { 1 } else { 2 });
+      let tile_type = tile.map_or(0, Player::value);
       hash ^ hash_table[index][tile_type]
     })
   }
 }
 impl fmt::Display for Board {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let mut string = String::from("  0123456789\n");
+    let mut string = String::from("  abcdefghijklmno\n");
     let board_size = self.get_size();
+
     for i in 0..board_size {
       let tmp = if i < 10 && board_size >= 10 {
         format!(" {:?}", i)
@@ -247,7 +309,7 @@ impl fmt::Display for Board {
       string.push_str(
         &(row
           .iter()
-          .map(|field| field.map_or('-', |value| if value { 'x' } else { 'o' }))
+          .map(|field| field.map_or('-', Player::char))
           .collect::<String>()
           + "\n"),
       );

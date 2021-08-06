@@ -1,5 +1,4 @@
-
-use super::{board::Board, Score};
+use super::{board::Board, Player, Score};
 use rand::Rng;
 use std::{collections::HashMap, fmt};
 
@@ -19,7 +18,7 @@ impl Stats {
 
 #[derive(Clone)]
 pub struct Cache {
-  cache: HashMap<u128, (Score, bool, bool)>, // (score, player, is_end)
+  cache: HashMap<u128, (Score, Player, bool)>,
   hash_table: Vec<Vec<u128>>,
   pub stats: Stats,
 }
@@ -43,7 +42,7 @@ impl Cache {
     }
   }
 
-  pub fn lookup(&mut self, board: &Board) -> Option<&(Score, bool, bool)> {
+  pub fn lookup(&mut self, board: &Board) -> Option<&(Score, Player, bool)> {
     let hash = board.hash(&self.hash_table);
 
     let result = self.cache.get(&hash);
@@ -55,7 +54,7 @@ impl Cache {
     result
   }
 
-  pub fn insert(&mut self, board: &Board, data: (Score, bool, bool)) {
+  pub fn insert(&mut self, board: &Board, data: (Score, Player, bool)) {
     let hash = board.hash(&self.hash_table);
     self.stats.size += 1;
     self.cache.insert(hash, data);

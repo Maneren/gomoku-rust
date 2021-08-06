@@ -5,7 +5,7 @@ use std::{fs::File, io::prelude::Read, time::Instant};
 // mod board;
 
 mod gomoku;
-use gomoku::{Board, Cache, Move, TilePointer};
+use gomoku::{Board, Cache, Move, Player, Tile, TilePointer};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -36,8 +36,8 @@ fn main() {
     .get_matches();
 
   let player = match matches.value_of("player").unwrap_or("o") {
-    "x" | "X" => true,
-    "o" | "O" => false,
+    "x" | "X" => Player::X,
+    "o" | "O" => Player::O,
     _ => panic!("Invalid player"),
   };
 
@@ -56,7 +56,7 @@ fn main() {
   }
 }
 
-fn run_debug(path_to_input: &str, player: bool, max_time: u64) -> Result<(), Error> {
+fn run_debug(path_to_input: &str, player: Player, max_time: u64) -> Result<(), Error> {
   let input_string = load_input(&path_to_input)?;
   let board = Board::from_string(&input_string)?;
 
@@ -102,7 +102,7 @@ fn load_input(path: &str) -> Result<String, Error> {
   Ok(contents)
 }
 
-fn run(player: bool, max_time: u64, start: bool) {
+fn run(player: Player, max_time: u64, start: bool) {
   use text_io::read;
 
   let board_size = 15;
@@ -154,9 +154,9 @@ fn run(player: bool, max_time: u64, start: bool) {
       continue;
     }
 
-    board.set_tile(tile_ptr, Some(!player));
+    board.set_tile(tile_ptr, Some(player.next()));
 
-    if is_game_end(&board, !player) {
+    if is_game_end(&board, player.next()) {
       println!("Engine loses!\n$");
       println!("{}", board);
       break;
@@ -201,14 +201,14 @@ fn run(player: bool, max_time: u64, start: bool) {
   }
 }
 
-fn is_game_end(board: &Board, current_player: bool) -> bool {
+fn is_game_end(board: &Board, current_player: Player) -> bool {
   board
     .get_all_tile_sequences()
     .into_iter()
     .any(|sequence| is_game_end_sequence(&sequence, current_player))
 }
 
-fn is_game_end_sequence(sequence: &[&Option<bool>], current_player: bool) -> bool {
+fn is_game_end_sequence(sequence: &[&Tile], current_player: Player) -> bool {
   let mut consecutive = 0;
   for tile in sequence {
     if let Some(player) = tile {

@@ -3,9 +3,7 @@
 ## Description
 
 simple gomoku engine written in Rust  
-uses AlphaBeta pruning, caching with zobrist hashing and multithreading
-
-TODO: iterative deepening
+uses AlphaBeta pruning, caching with zobrist hashing, multithreading and iterative deepening
 
 ## Modes
 
