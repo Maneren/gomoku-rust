@@ -1,6 +1,6 @@
 use super::{
   evaluate_board, get_dist_fn, time_remaining, Board, Cache, Move, Player, Score, Stats,
-  TilePointer, ALPHA_DEFAULT,
+  TilePointer,
 };
 use std::{
   cmp::Ordering,
@@ -9,7 +9,7 @@ use std::{
   time::Instant,
 };
 
-#[derive(Eq, Clone)]
+#[derive(Clone)]
 pub struct Node {
   pub tile: TilePointer,
   pub score: Score,
@@ -17,170 +17,153 @@ pub struct Node {
   pub valid: bool,
 
   player: Player,
-  end_time: Instant,
   child_nodes: Vec<Node>,
-  remaining_depth: u8,
+  depth: u8,
+
+  end_time: Instant,
+  stats_arc: Arc<Mutex<Stats>>,
+  cache_arc: Arc<Mutex<Cache>>,
 }
 impl Node {
   pub fn new(
     tile: TilePointer,
     player: Player,
     score: Score,
-    is_end: bool,
-    end_time: Instant,
+    is_win: bool,
+    end_time: Instant, // TODO: try using Arc
+    stats_arc: Arc<Mutex<Stats>>,
+    cache_arc: Arc<Mutex<Cache>>,
   ) -> Node {
+    stats_arc.lock().unwrap().create_node();
     Node {
       tile,
       score,
-      is_end,
+      is_end: is_win,
       valid: true,
       player,
-      end_time,
       child_nodes: Vec::new(),
-      remaining_depth: 0,
+      depth: 0,
+      end_time,
+      stats_arc,
+      cache_arc,
     }
   }
 
-  pub fn compute_next(
-    &mut self,
-    board: &mut Board,
-    stats_arc: &Arc<Mutex<Stats>>,
-    cache_arc: &Arc<Mutex<Cache>>,
-    beta: Score,
-  ) -> Score {
+  pub fn compute_next(&mut self, board: &mut Board) {
     if !time_remaining(self.end_time) {
       self.valid = false;
-      return self.score;
+      return;
     }
 
     if self.is_end {
-      return self.score;
+      return;
     }
 
-    self.remaining_depth += 1;
-
-    if !self.child_nodes.is_empty() {
-      board.set_tile(self.tile, Some(self.player));
-      self.child_nodes.iter_mut().for_each(|node| {
-        node.compute_next(board, stats_arc, cache_arc, beta);
-      });
-      board.set_tile(self.tile, None);
-    }
-
-    -self.eval(board, stats_arc, cache_arc, beta)
-  }
-
-  pub fn eval(
-    &mut self,
-    board: &mut Board,
-    stats_arc: &Arc<Mutex<Stats>>,
-    cache_arc: &Arc<Mutex<Cache>>,
-    beta: Score,
-  ) -> Score {
-    if !time_remaining(self.end_time) {
-      self.valid = false;
-      self.delete_children();
-      return -self.score;
-    }
-
-    if self.remaining_depth == 0 || self.is_end {
-      return -self.score;
-    }
+    self.depth += 1;
 
     board.set_tile(self.tile, Some(self.player));
 
     if self.child_nodes.is_empty() {
-      if let Ok(available_tiles) = board.get_empty_tiles() {
-        self.child_nodes = self.get_child_nodes(available_tiles, board, stats_arc, cache_arc);
-      } else {
-        self.is_end = true;
-        self.score = -100_000;
-
-        board.set_tile(self.tile, None);
-        return -self.score;
-      };
+      self.init_child_nodes(board);
+    } else {
+      self.child_nodes.iter_mut().for_each(|node| {
+        node.compute_next(board);
+      });
+      self.eval();
     }
 
-    let mut best_score = ALPHA_DEFAULT;
-
-    for node in &mut self.child_nodes {
-      let Node { score, is_end, .. } = *node;
-
-      if is_end {
-        stats_arc.lock().unwrap().prune();
-        best_score = score;
-        self.is_end = true;
-        self.delete_children();
-        break;
-      }
-
-      let score = -node.eval(board, stats_arc, cache_arc, beta);
-
-      if !node.valid {
-        self.valid = false;
-        self.delete_children();
-        break;
-      }
-
-      if score > beta {
-        stats_arc.lock().unwrap().prune();
-        best_score = score;
-        self.is_end = true;
-        break;
-      }
-
-      if score > best_score {
-        best_score = score;
-      }
+    if self.is_end {
+      board.set_tile(self.tile, None);
+      return;
     }
 
     board.set_tile(self.tile, None);
-
-    self.score = -best_score;
-
-    -self.score
   }
 
-  fn delete_children(&mut self) {
-    self.child_nodes.resize(0, self.clone());
+  pub fn eval(&mut self) {
+    if self.is_end || self.depth == 0 {
+      return;
+    }
+
+    if !time_remaining(self.end_time) {
+      self.valid = false;
+      return;
+    }
+
+    if self.child_nodes.iter().any(|node| !node.valid) {
+      self.valid = false;
+      return;
+    }
+
+    self.child_nodes.sort_unstable_by(|a, b| a.cmp(b).reverse());
+    let Node { score, is_end, .. } = self.child_nodes.get(0).unwrap();
+
+    self.score += -score;
+    self.is_end = *is_end;
   }
 
-  fn get_child_nodes(
-    &self,
-    available_tiles: Vec<TilePointer>,
-    board: &mut Board,
-    stats_arc: &Arc<Mutex<Stats>>,
-    cache_arc: &Arc<Mutex<Cache>>,
-  ) -> Vec<Node> {
+  fn init_child_nodes(&mut self, board: &mut Board) {
+    let available_tiles;
+    if let Ok(tiles) = board.get_empty_tiles() {
+      available_tiles = tiles;
+    } else {
+      // no empty tiles
+      self.is_end = true;
+      self.score = -100_000;
+      return;
+    }
+
     let dist = get_dist_fn(board.get_size());
 
-    let mut nodes: Vec<_> = available_tiles
+    let mut nodes: Vec<Node> = available_tiles
       .into_iter()
       .map(|tile| {
         let next_player = self.player.next();
+
         board.set_tile(tile, Some(next_player));
-        let (analysis, is_game_end) = evaluate_board(board, stats_arc, cache_arc, next_player);
+        let (analysis, is_win) = evaluate_board(board, &self.cache_arc, next_player);
         board.set_tile(tile, None);
 
         Node::new(
           tile,
           next_player,
           analysis - dist(tile),
-          is_game_end,
+          is_win,
           self.end_time,
+          self.stats_arc.clone(),
+          self.cache_arc.clone(),
         )
       })
       .collect();
 
-    nodes.sort_unstable_by_key(|node| -node.score);
+    nodes.sort_unstable_by(|a, b| a.cmp(b).reverse());
 
-    nodes.into_iter().take(10).collect()
+    self.child_nodes = nodes.into_iter().take(10).collect();
+
+    let Node { score, is_end, .. } = self.child_nodes.get(0).unwrap();
+    self.score += -score;
+    self.is_end = *is_end;
   }
 
   pub fn to_move(&self) -> Move {
     Move {
       tile: self.tile,
       score: self.score,
+    }
+  }
+
+  pub fn shallow_clone(&self) -> Node {
+    Node {
+      tile: self.tile,
+      score: self.score,
+      is_end: self.is_end,
+      valid: self.valid,
+      player: self.player,
+      child_nodes: Vec::new(),
+      depth: self.depth,
+      end_time: self.end_time,
+      stats_arc: self.stats_arc.clone(),
+      cache_arc: self.cache_arc.clone(),
     }
   }
 }
@@ -191,12 +174,17 @@ impl PartialEq for Node {
 }
 impl PartialOrd for Node {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    self.score.partial_cmp(&other.score)
+    Some(self.cmp(&other))
   }
 }
+impl Eq for Node {}
 impl Ord for Node {
   fn cmp(&self, other: &Self) -> Ordering {
-    self.score.cmp(&other.score)
+    if self.is_end && other.is_end && self.depth != other.depth {
+      self.depth.cmp(&other.depth).reverse()
+    } else {
+      self.score.cmp(&other.score)
+    }
   }
 }
 impl fmt::Debug for Node {
@@ -204,7 +192,12 @@ impl fmt::Debug for Node {
     write!(
       f,
       "({:?}, {}, {}, {}, {}, {})",
-      self.tile, self.score, self.remaining_depth, self.player, self.is_end, self.valid
+      self.tile,
+      self.score,
+      self.depth,
+      self.player,
+      self.is_end,
+      if self.valid { "valid" } else { "invalid" }
     )
   }
 }

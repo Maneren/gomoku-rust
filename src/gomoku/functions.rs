@@ -1,26 +1,30 @@
 use std::{
   sync::{Arc, Mutex},
-  time::Instant,
+  time::{Duration, Instant},
 };
 
-use super::{Board, Cache, Player, Score, Stats, Tile, TilePointer};
+use super::{board, node::Node, Board, Cache, Player, Score, Stats, Tile, TilePointer};
 
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> (Score, bool) {
   if consecutive == 0 {
     return (0, false);
   }
-
+  // TODO: thorough check
   if has_hole {
     if !is_on_turn {
-      return (0, false);
+      return if consecutive >= 4 {
+        (1_000, false)
+      } else {
+        (0, false)
+      };
     }
 
     if consecutive == 5 {
       (500_000, false)
     } else if consecutive == 4 {
       match open_ends {
-        2 => (300_000, false),
-        1 => (2_000, false),
+        2 => (100_000, false),
+        1 => (5_000, false),
         _ => (0, false),
       }
     } else {
@@ -32,14 +36,14 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
       4 => match open_ends {
         2 => {
           if is_on_turn {
-            (500_000, false)
+            (600_000, false)
           } else {
-            (150_000, false)
+            (200_000, false)
           }
         }
         1 => {
           if is_on_turn {
-            (80_000, false)
+            (400_000, false)
           } else {
             (5_000, false)
           }
@@ -122,43 +126,39 @@ fn eval_sequence(sequence: &[&Tile], evaluate_for: Player, is_on_turn: bool) -> 
 
 pub fn evaluate_board(
   board: &mut Board,
-  stats_arc: &Arc<Mutex<Stats>>,
   cache_arc: &Arc<Mutex<Cache>>,
   current_player: Player,
 ) -> (Score, bool) {
-  stats_arc.lock().unwrap().eval();
-
-  if let Some(&(cached_score, owner, is_game_end)) = cache_arc.lock().unwrap().lookup(board) {
+  if let Some(&(cached_score, owner, is_end)) = cache_arc.lock().unwrap().lookup(board) {
     let score = if current_player == owner {
       cached_score
     } else {
       -cached_score
     };
 
-    return (score, is_game_end);
+    return (score, is_end);
   }
 
-  let mut is_game_end = false;
+  let mut is_win = false;
 
   let score = board
     .get_all_tile_sequences()
     .into_iter()
     .fold(0, |total, sequence| {
-      let (player_score, is_win) = eval_sequence(&sequence, current_player, false);
-      let (opponent_score, is_lose) = eval_sequence(&sequence, current_player.next(), true);
+      let (player_score, is_winning_sequence) = eval_sequence(&sequence, current_player, false);
+      let (opponent_score, _) = eval_sequence(&sequence, current_player.next(), true);
 
-      if is_win || is_lose {
-        is_game_end = true;
+      if is_winning_sequence {
+        is_win = true;
       }
 
-      // total + player - opponent
       total + player_score - opponent_score
     });
 
-  let cache_data = (score, current_player, is_game_end);
+  let cache_data = (score, current_player, is_win);
   cache_arc.lock().unwrap().insert(board, cache_data);
 
-  (score, is_game_end)
+  (score, is_win)
 }
 
 pub fn get_dist_fn(board_size: u8) -> Box<dyn Fn(TilePointer) -> Score> {
@@ -180,4 +180,52 @@ pub fn get_dist_fn(board_size: u8) -> Box<dyn Fn(TilePointer) -> Score> {
 
 pub fn time_remaining(end_time: Instant) -> bool {
   Instant::now().checked_duration_since(end_time).is_none()
+}
+
+pub fn nodes_sorted_by_shallow_eval(
+  board: &mut Board,
+  stats_arc: &Arc<Mutex<Stats>>,
+  cache_arc: &Arc<Mutex<Cache>>,
+  current_player: Player,
+  end_time: Instant,
+) -> Result<Vec<Node>, board::Error> {
+  let dist = get_dist_fn(board.get_size());
+
+  let empty_tiles = board.get_empty_tiles()?;
+  let mut nodes: Vec<_> = empty_tiles
+    .into_iter()
+    .map(|tile| {
+      board.set_tile(tile, Some(current_player));
+      let (analysis, is_win) = evaluate_board(board, cache_arc, current_player);
+      board.set_tile(tile, None);
+
+      Node::new(
+        tile,
+        current_player,
+        analysis - dist(tile),
+        is_win,
+        end_time,
+        stats_arc.clone(),
+        cache_arc.clone(),
+      )
+    })
+    .collect();
+
+  nodes.sort_unstable_by(|a, b| a.cmp(b).reverse());
+
+  Ok(nodes)
+}
+
+pub fn print_status(msg: &str, end_time: Instant) {
+  println!(
+    "{} ({:?} remaining)",
+    msg,
+    end_time
+      .checked_duration_since(Instant::now())
+      .unwrap_or_else(|| Duration::from_millis(0))
+  );
+}
+
+pub fn shallow_clone_nodes(nodes: &[Node]) -> Vec<Node> {
+  nodes.iter().map(Node::shallow_clone).collect()
 }

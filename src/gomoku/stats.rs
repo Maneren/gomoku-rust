@@ -1,21 +1,13 @@
 #[derive(Debug, Clone)]
 pub struct Stats {
-  pub boards_evaluated: u32,
-  pub pruned: u32,
+  pub nodes_created: u32,
 }
 impl Stats {
   pub fn new() -> Stats {
-    Stats {
-      boards_evaluated: 0,
-      pruned: 0,
-    }
+    Stats { nodes_created: 0 }
   }
 
-  pub fn eval(&mut self) {
-    self.boards_evaluated += 1;
-  }
-
-  pub fn prune(&mut self) {
-    self.pruned += 1;
+  pub fn create_node(&mut self) {
+    self.nodes_created += 1;
   }
 }
