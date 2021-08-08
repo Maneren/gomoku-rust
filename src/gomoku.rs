@@ -30,12 +30,12 @@ fn minimax_top_level(
   cache_ref: &mut Cache,
   stats_ref: &mut Stats,
   current_player: Player,
-  end_time: Instant,
+  end_time: &Arc<Instant>,
 ) -> Result<Move, board::Error> {
   let cache_arc = Arc::new(Mutex::new(cache_ref.clone()));
   let stats_arc = Arc::new(Mutex::new(stats_ref.clone()));
 
-  print_status("computing depth 1", end_time);
+  print_status("computing depth 1", **end_time);
 
   let presorted_nodes =
     nodes_sorted_by_shallow_eval(board, &stats_arc, &cache_arc, current_player, end_time)?;
@@ -68,7 +68,7 @@ fn minimax_top_level(
 
   while time_remaining(end_time) {
     i += 1;
-    print_status(&format!("computing depth {}", i), end_time);
+    print_status(&format!("computing depth {}", i), **end_time);
 
     let nodes_arc = Arc::new(Mutex::new(Vec::new()));
 
@@ -146,9 +146,9 @@ pub fn decide_with_cache(
 
   let max_time = Duration::from_millis(max_time);
 
-  let end = Instant::now().checked_add(max_time).unwrap();
+  let end = Arc::new(Instant::now().checked_add(max_time).unwrap());
 
-  let move_ = minimax_top_level(&mut board, cache_ref, &mut stats, player, end)?;
+  let move_ = minimax_top_level(&mut board, cache_ref, &mut stats, player, &end)?;
 
   board.set_tile(move_.tile, Some(player));
 

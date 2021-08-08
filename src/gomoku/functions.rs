@@ -178,8 +178,8 @@ pub fn get_dist_fn(board_size: u8) -> Box<dyn Fn(TilePointer) -> Score> {
   Box::new(function)
 }
 
-pub fn time_remaining(end_time: Instant) -> bool {
-  Instant::now().checked_duration_since(end_time).is_none()
+pub fn time_remaining(end_time: &Arc<Instant>) -> bool {
+  Instant::now().checked_duration_since(**end_time).is_none()
 }
 
 pub fn nodes_sorted_by_shallow_eval(
@@ -187,7 +187,7 @@ pub fn nodes_sorted_by_shallow_eval(
   stats_arc: &Arc<Mutex<Stats>>,
   cache_arc: &Arc<Mutex<Cache>>,
   current_player: Player,
-  end_time: Instant,
+  end_time: &Arc<Instant>,
 ) -> Result<Vec<Node>, board::Error> {
   let dist = get_dist_fn(board.get_size());
 
@@ -204,7 +204,7 @@ pub fn nodes_sorted_by_shallow_eval(
         current_player,
         analysis - dist(tile),
         is_win,
-        end_time,
+        end_time.clone(),
         stats_arc.clone(),
         cache_arc.clone(),
       )

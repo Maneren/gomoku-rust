@@ -20,7 +20,7 @@ pub struct Node {
   child_nodes: Vec<Node>,
   depth: u8,
 
-  end_time: Instant,
+  end_time: Arc<Instant>,
   stats_arc: Arc<Mutex<Stats>>,
   cache_arc: Arc<Mutex<Cache>>,
 }
@@ -30,7 +30,7 @@ impl Node {
     player: Player,
     score: Score,
     is_win: bool,
-    end_time: Instant, // TODO: try using Arc
+    end_time: Arc<Instant>,
     stats_arc: Arc<Mutex<Stats>>,
     cache_arc: Arc<Mutex<Cache>>,
   ) -> Node {
@@ -50,7 +50,7 @@ impl Node {
   }
 
   pub fn compute_next(&mut self, board: &mut Board) {
-    if !time_remaining(self.end_time) {
+    if !time_remaining(&self.end_time) {
       self.valid = false;
       return;
     }
@@ -85,7 +85,7 @@ impl Node {
       return;
     }
 
-    if !time_remaining(self.end_time) {
+    if !time_remaining(&self.end_time) {
       self.valid = false;
       return;
     }
@@ -129,7 +129,7 @@ impl Node {
           next_player,
           analysis - dist(tile),
           is_win,
-          self.end_time,
+          self.end_time.clone(),
           self.stats_arc.clone(),
           self.cache_arc.clone(),
         )
@@ -161,7 +161,7 @@ impl Node {
       player: self.player,
       child_nodes: Vec::new(),
       depth: self.depth,
-      end_time: self.end_time,
+      end_time: self.end_time.clone(),
       stats_arc: self.stats_arc.clone(),
       cache_arc: self.cache_arc.clone(),
     }
