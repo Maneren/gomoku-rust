@@ -92,7 +92,7 @@ fn minimax_top_level(
     let nodes_mutex = Arc::try_unwrap(nodes_arc).unwrap();
     nodes = nodes_mutex.into_inner().unwrap();
 
-    nodes.sort_unstable_by(|a, b| a.cmp(b).reverse());
+    nodes.sort_unstable_by(|a, b| b.cmp(a));
 
     if !is_generation_valid(&nodes) {
       break;

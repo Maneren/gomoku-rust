@@ -135,7 +135,7 @@ impl Node {
       return;
     }
 
-    self.child_nodes.sort_unstable_by(|a, b| a.cmp(b).reverse());
+    self.child_nodes.sort_unstable_by(|a, b| b.cmp(a));
     let Node { score, state, .. } = self.child_nodes.get(0).unwrap();
 
     self.score += -score;
@@ -178,7 +178,7 @@ impl Node {
       })
       .collect();
 
-    nodes.sort_unstable_by(|a, b| a.cmp(b).reverse());
+    nodes.sort_unstable_by(|a, b| b.cmp(a));
 
     self.child_nodes = nodes.into_iter().take(10).collect();
 
