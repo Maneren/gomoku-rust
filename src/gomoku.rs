@@ -94,11 +94,12 @@ fn minimax_top_level(
 
     nodes.sort_unstable_by(|a, b| a.cmp(b).reverse());
 
-    nodes_generations.push(shallow_clone_nodes(&nodes));
-
     if !is_generation_valid(&nodes) {
       break;
     }
+
+    nodes_generations.push(shallow_clone_nodes(&nodes));
+    nodes.retain(|child| !child.state.is_lose());
 
     if nodes[0].state.is_win() || nodes.iter().all(|node| node.state.is_lose()) {
       break;

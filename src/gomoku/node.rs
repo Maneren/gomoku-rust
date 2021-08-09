@@ -140,6 +140,8 @@ impl Node {
 
     self.score += -score;
     self.state = state.inversed();
+
+    self.child_nodes.retain(|child| !child.state.is_lose());
   }
 
   fn init_child_nodes(&mut self, board: &mut Board) {
@@ -196,11 +198,11 @@ impl PartialOrd for Node {
 impl Eq for Node {}
 impl Ord for Node {
   fn cmp(&self, other: &Self) -> Ordering {
-    if self.state.is_end() && other.state.is_end() && self.depth != other.depth {
-      self.depth.cmp(&other.depth).reverse()
-    } else {
-      self.score.cmp(&other.score)
+    if self.state == other.state && self.depth != other.depth {
+      return self.depth.cmp(&other.depth).reverse();
     }
+
+    self.score.cmp(&other.score)
   }
 }
 impl fmt::Debug for Node {
