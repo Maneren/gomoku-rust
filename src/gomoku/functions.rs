@@ -6,7 +6,7 @@ use std::{
 use super::{
   board,
   node::{Node, State},
-  Board, Cache, Player, Score, Stats, Tile, TilePointer,
+  Board, Player, Score, Stats, Tile, TilePointer,
 };
 
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> (Score, bool) {
@@ -128,27 +128,7 @@ fn eval_sequence(sequence: &[&Tile], evaluate_for: Player, is_on_turn: bool) -> 
   (score, is_win)
 }
 
-pub fn evaluate_board(
-  board: &mut Board,
-  cache_arc: &Arc<Mutex<Cache>>,
-  current_player: Player,
-) -> (Score, State) {
-  if let Some(&(cached_score, owner, is_end)) = cache_arc.lock().unwrap().lookup(board) {
-    let mut state = State::NotEnded;
-    let score;
-
-    if current_player == owner {
-      score = cached_score;
-      if is_end {
-        state = State::Win
-      }
-    } else {
-      score = -cached_score;
-    };
-
-    return (score, state);
-  }
-
+pub fn evaluate_board(board: &mut Board, current_player: Player) -> (Score, State) {
   let mut is_win = false;
 
   let score = board
@@ -164,9 +144,6 @@ pub fn evaluate_board(
 
       total + player_score - opponent_score
     });
-
-  let cache_data = (score, current_player, is_win);
-  cache_arc.lock().unwrap().insert(board, cache_data);
 
   let state = if is_win { State::Win } else { State::NotEnded };
 
@@ -197,7 +174,6 @@ pub fn time_remaining(end_time: &Arc<Instant>) -> bool {
 pub fn nodes_sorted_by_shallow_eval(
   board: &mut Board,
   stats_arc: &Arc<Mutex<Stats>>,
-  cache_arc: &Arc<Mutex<Cache>>,
   current_player: Player,
   end_time: &Arc<Instant>,
 ) -> Result<Vec<Node>, board::Error> {
@@ -208,7 +184,7 @@ pub fn nodes_sorted_by_shallow_eval(
     .into_iter()
     .map(|tile| {
       board.set_tile(tile, Some(current_player));
-      let (analysis, state) = evaluate_board(board, cache_arc, current_player);
+      let (analysis, state) = evaluate_board(board, current_player);
       board.set_tile(tile, None);
 
       Node::new(
@@ -218,7 +194,6 @@ pub fn nodes_sorted_by_shallow_eval(
         state,
         end_time.clone(),
         stats_arc.clone(),
-        cache_arc.clone(),
       )
     })
     .collect();

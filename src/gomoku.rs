@@ -1,12 +1,10 @@
 mod board;
-mod cache;
 mod functions;
 mod r#move; // r# to allow reserved keyword as name
 mod node;
 mod stats;
 
 pub use board::{Board, Player, Tile, TilePointer};
-pub use cache::Cache;
 pub use r#move::Move; // r# to allow reserved keyword as name
 
 use functions::{
@@ -27,18 +25,15 @@ type Score = i32;
 
 fn minimax_top_level(
   board: &mut Board,
-  cache_ref: &mut Cache,
   stats_ref: &mut Stats,
   current_player: Player,
   end_time: &Arc<Instant>,
 ) -> Result<Move, board::Error> {
-  let cache_arc = Arc::new(Mutex::new(cache_ref.clone()));
   let stats_arc = Arc::new(Mutex::new(stats_ref.clone()));
 
   print_status("computing depth 1", **end_time);
 
-  let presorted_nodes =
-    nodes_sorted_by_shallow_eval(board, &stats_arc, &cache_arc, current_player, end_time)?;
+  let presorted_nodes = nodes_sorted_by_shallow_eval(board, &stats_arc, current_player, end_time)?;
 
   // if there is winning move, return it
   let best_winning_node = presorted_nodes
@@ -48,7 +43,6 @@ fn minimax_top_level(
 
   if let Some(node) = best_winning_node {
     *stats_ref = stats_arc.lock().unwrap().to_owned();
-    *cache_ref = cache_arc.lock().unwrap().to_owned();
     return Ok(node.to_move());
   }
 
@@ -114,7 +108,6 @@ fn minimax_top_level(
   println!("searched to depth {:?}!", nodes_generations.len());
 
   *stats_ref = stats_arc.lock().unwrap().to_owned();
-  *cache_ref = cache_arc.lock().unwrap().to_owned();
 
   Ok(best_node.to_move())
 }
@@ -123,28 +116,14 @@ pub fn decide(
   board: &mut Board,
   player: Player,
   max_time: u64,
-) -> Result<(Move, Stats, Cache), board::Error> {
-  let mut cache = Cache::new(board.get_size());
-
-  let (move_, stats) = decide_with_cache(board, player, max_time, &mut cache)?;
-
-  Ok((move_, stats, cache))
-}
-
-pub fn decide_with_cache(
-  board: &mut Board,
-  player: Player,
-  max_time: u64,
-  cache_ref: &mut Cache,
 ) -> Result<(Move, Stats), board::Error> {
-  // let mut board = board.clone();
   let mut stats = Stats::new();
 
   let max_time = Duration::from_millis(max_time);
 
   let end = Arc::new(Instant::now().checked_add(max_time).unwrap());
 
-  let move_ = minimax_top_level(board, cache_ref, &mut stats, player, &end)?;
+  let move_ = minimax_top_level(board, &mut stats, player, &end)?;
 
   board.set_tile(move_.tile, Some(player));
 

@@ -1,6 +1,5 @@
 use super::{
-  evaluate_board, get_dist_fn, time_remaining, Board, Cache, Move, Player, Score, Stats,
-  TilePointer,
+  evaluate_board, get_dist_fn, time_remaining, Board, Move, Player, Score, Stats, TilePointer,
 };
 use std::{
   cmp::Ordering,
@@ -50,7 +49,6 @@ pub struct Node {
 
   end_time: Arc<Instant>,
   stats_arc: Arc<Mutex<Stats>>,
-  cache_arc: Arc<Mutex<Cache>>,
 }
 impl Node {
   pub fn new(
@@ -60,7 +58,6 @@ impl Node {
     state: State,
     end_time: Arc<Instant>,
     stats_arc: Arc<Mutex<Stats>>,
-    cache_arc: Arc<Mutex<Cache>>,
   ) -> Node {
     stats_arc.lock().unwrap().create_node();
     Node {
@@ -73,7 +70,6 @@ impl Node {
       depth: 0,
       end_time,
       stats_arc,
-      cache_arc,
     }
   }
 
@@ -95,7 +91,6 @@ impl Node {
       depth: self.depth,
       end_time: self.end_time.clone(),
       stats_arc: self.stats_arc.clone(),
-      cache_arc: self.cache_arc.clone(),
     }
   }
 
@@ -163,7 +158,7 @@ impl Node {
         let next_player = self.player.next();
 
         board.set_tile(tile, Some(next_player));
-        let (analysis, is_win) = evaluate_board(board, &self.cache_arc, next_player);
+        let (analysis, is_win) = evaluate_board(board, next_player);
         board.set_tile(tile, None);
 
         Node::new(
@@ -173,7 +168,6 @@ impl Node {
           is_win,
           self.end_time.clone(),
           self.stats_arc.clone(),
-          self.cache_arc.clone(),
         )
       })
       .collect();

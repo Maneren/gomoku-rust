@@ -33,13 +33,6 @@ impl Player {
     }
   }
 
-  pub fn value(self) -> usize {
-    match self {
-      Player::X => 1,
-      Player::O => 2,
-    }
-  }
-
   pub fn char(self) -> char {
     match self {
       Player::X => 'x',
@@ -289,16 +282,6 @@ impl Board {
 
   pub fn get_size(&self) -> u8 {
     self.size
-  }
-
-  pub fn hash(&self, hash_table: &[Vec<u128>]) -> u128 {
-    // for caching
-    // in hash_table[x][y]
-    // x is current tile, y is tile_type
-    self.data.iter().enumerate().fold(0, |hash, (index, tile)| {
-      let tile_type = tile.map_or(0, Player::value);
-      hash ^ hash_table[index][tile_type]
-    })
   }
 }
 impl fmt::Display for Board {

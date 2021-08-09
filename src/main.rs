@@ -5,7 +5,7 @@ use std::{fs::File, io::prelude::Read, time::Instant};
 // mod board;
 
 mod gomoku;
-use gomoku::{Board, Cache, Move, Player, Tile, TilePointer};
+use gomoku::{Board, Move, Player, Tile, TilePointer};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -78,11 +78,10 @@ fn run_debug(path_to_input: &str, player: Player, max_time: u64) -> Result<(), E
     }
   }
 
-  let (best_move, stats, cache) = unwrapped;
+  let (best_move, stats) = unwrapped;
 
   println!();
   println!("stats: {}", stats);
-  println!("cache: {:?}", cache.stats);
   println!();
   println!("{}", board);
   let Move { tile, score } = best_move;
@@ -105,7 +104,7 @@ fn run(player: Player, max_time: u64, start: bool) {
 
   let board_size = 15;
   let mut board = Board::get_empty_board(board_size);
-  let mut cache = Cache::new(board_size);
+  // let mut cache = Cache::new(board_size);
 
   let prefix = '!';
   if start {
@@ -157,7 +156,7 @@ fn run(player: Player, max_time: u64, start: bool) {
     }
 
     let start = Instant::now();
-    let result = gomoku::decide_with_cache(&mut board, player, max_time, &mut cache);
+    let result = gomoku::decide(&mut board, player, max_time);
     let run_time = start.elapsed().as_micros();
 
     let unwrapped;
@@ -173,11 +172,9 @@ fn run(player: Player, max_time: u64, start: bool) {
     print_runtime(run_time);
 
     let Move { tile, score } = move_;
-    board.set_tile(tile, Some(player));
 
     println!();
     println!("stats: {}", stats);
-    println!("cache: {:?}", cache.stats);
     println!("score: {:?}", score);
     println!();
     println!("board:\n{}", board);
