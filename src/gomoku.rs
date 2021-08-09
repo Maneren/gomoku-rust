@@ -106,14 +106,11 @@ fn minimax_top_level(
     };
   }
 
-  println!("nodes_generations: {:#?}", nodes_generations);
-
   let last_generation = nodes_generations.last().unwrap();
 
   let best_node = last_generation.iter().max().unwrap().clone();
 
   println!();
-
   println!("searched to depth {:?}!", nodes_generations.len());
 
   *stats_ref = stats_arc.lock().unwrap().to_owned();
@@ -123,35 +120,33 @@ fn minimax_top_level(
 }
 
 pub fn decide(
-  board: &Board,
+  board: &mut Board,
   player: Player,
   max_time: u64,
-) -> Result<(Board, Move, Stats), board::Error> {
+) -> Result<(Move, Stats, Cache), board::Error> {
   let mut cache = Cache::new(board.get_size());
 
-  let result = decide_with_cache(board, player, max_time, &mut cache)?;
+  let (move_, stats) = decide_with_cache(board, player, max_time, &mut cache)?;
 
-  println!("cache: {:?}", cache.stats);
-
-  Ok(result)
+  Ok((move_, stats, cache))
 }
 
 pub fn decide_with_cache(
-  board: &Board,
+  board: &mut Board,
   player: Player,
   max_time: u64,
   cache_ref: &mut Cache,
-) -> Result<(Board, Move, Stats), board::Error> {
-  let mut board = board.clone();
+) -> Result<(Move, Stats), board::Error> {
+  // let mut board = board.clone();
   let mut stats = Stats::new();
 
   let max_time = Duration::from_millis(max_time);
 
   let end = Arc::new(Instant::now().checked_add(max_time).unwrap());
 
-  let move_ = minimax_top_level(&mut board, cache_ref, &mut stats, player, &end)?;
+  let move_ = minimax_top_level(board, cache_ref, &mut stats, player, &end)?;
 
   board.set_tile(move_.tile, Some(player));
 
-  Ok((board, move_, stats))
+  Ok((move_, stats))
 }

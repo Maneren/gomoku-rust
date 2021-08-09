@@ -234,7 +234,7 @@ pub fn print_status(msg: &str, end_time: Instant) {
     msg,
     end_time
       .checked_duration_since(Instant::now())
-      .unwrap_or_else(|| Duration::from_millis(0))
+      .unwrap_or(Duration::ZERO)
   );
 }
 

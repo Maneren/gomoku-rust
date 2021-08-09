@@ -58,7 +58,7 @@ fn main() {
 
 fn run_debug(path_to_input: &str, player: Player, max_time: u64) -> Result<(), Error> {
   let input_string = load_input(&path_to_input)?;
-  let board = Board::from_string(&input_string)?;
+  let mut board = Board::from_string(&input_string)?;
 
   println!("{}", board);
 
@@ -66,7 +66,7 @@ fn run_debug(path_to_input: &str, player: Player, max_time: u64) -> Result<(), E
 
   let start = Instant::now();
 
-  let result = gomoku::decide(&board, player, max_time);
+  let result = gomoku::decide(&mut board, player, max_time);
   let run_time = start.elapsed().as_micros();
 
   let unwrapped;
@@ -77,20 +77,18 @@ fn run_debug(path_to_input: &str, player: Player, max_time: u64) -> Result<(), E
       return Ok(());
     }
   }
-  let (solved, best_move, stats) = unwrapped;
 
-  println!("stats: {:?}", stats);
+  let (best_move, stats, cache) = unwrapped;
 
-  println!("{}", solved);
+  println!();
+  println!("stats: {}", stats);
+  println!("cache: {:?}", cache.stats);
+  println!();
+  println!("{}", board);
   let Move { tile, score } = best_move;
   println!("{:?}, {:?}", tile, score);
-  if run_time < 10_000 {
-    println!("Time: {} \u{03bc}s", run_time)
-  } else if run_time < 10_000_000 {
-    println!("Time: {} ms", run_time / 1000);
-  } else {
-    println!("Time: {} s", run_time / 1_000_000);
-  }
+
+  print_runtime(run_time);
 
   Ok(())
 }
@@ -159,7 +157,7 @@ fn run(player: Player, max_time: u64, start: bool) {
     }
 
     let start = Instant::now();
-    let result = gomoku::decide_with_cache(&board, player, max_time, &mut cache);
+    let result = gomoku::decide_with_cache(&mut board, player, max_time, &mut cache);
     let run_time = start.elapsed().as_micros();
 
     let unwrapped;
@@ -170,22 +168,18 @@ fn run(player: Player, max_time: u64, start: bool) {
         continue;
       }
     }
-    let (_, move_, stats) = unwrapped;
+    let (move_, stats) = unwrapped;
 
-    if run_time < 10_000 {
-      println!("Time: {} \u{03bc}s", run_time)
-    } else if run_time < 10_000_000 {
-      println!("Time: {} ms", run_time / 1000);
-    } else {
-      println!("Time: {} s", run_time / 1_000_000);
-    }
+    print_runtime(run_time);
 
     let Move { tile, score } = move_;
     board.set_tile(tile, Some(player));
 
-    println!("stats: {:?}", stats);
+    println!();
+    println!("stats: {}", stats);
     println!("cache: {:?}", cache.stats);
     println!("score: {:?}", score);
+    println!();
     println!("board:\n{}", board);
 
     if is_game_end(&board, player) {
@@ -194,6 +188,16 @@ fn run(player: Player, max_time: u64, start: bool) {
     }
 
     println!("{}{:?}", prefix, tile);
+  }
+}
+
+fn print_runtime(run_time: u128) {
+  if run_time < 10_000 {
+    println!("Time: {} \u{03bc}s", run_time)
+  } else if run_time < 10_000_000 {
+    println!("Time: {} ms", run_time / 1000);
+  } else {
+    println!("Time: {} s", run_time / 1_000_000);
   }
 }
 
