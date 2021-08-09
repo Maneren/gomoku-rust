@@ -10,10 +10,10 @@ use super::{
 };
 
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> (Score, bool) {
-  if consecutive == 0 {
+  if consecutive <= 1 {
     return (0, false);
   }
-  // TODO: thorough check
+
   if has_hole {
     if !is_on_turn {
       return if consecutive >= 4 {
@@ -23,7 +23,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
       };
     }
 
-    if consecutive == 5 {
+    return if consecutive == 5 {
       (500_000, false)
     } else if consecutive == 4 {
       match open_ends {
@@ -33,44 +33,44 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
       }
     } else {
       (0, false)
-    }
-  } else {
-    match consecutive {
-      5 => (10_000_000, true),
-      4 => match open_ends {
-        2 => {
-          if is_on_turn {
-            (600_000, false)
-          } else {
-            (200_000, false)
-          }
+    };
+  }
+
+  match consecutive {
+    5 => (10_000_000, true),
+    4 => match open_ends {
+      2 => {
+        if is_on_turn {
+          (1_000_000, false)
+        } else {
+          (200_000, false)
         }
-        1 => {
-          if is_on_turn {
-            (400_000, false)
-          } else {
-            (5_000, false)
-          }
+      }
+      1 => {
+        if is_on_turn {
+          (500_000, false)
+        } else {
+          (5_000, false)
         }
-        _ => (0, false),
-      },
-      3 => match open_ends {
-        2 => {
-          if is_on_turn {
-            (50_000, false)
-          } else {
-            (1_000, false)
-          }
-        }
-        1 => (10, false),
-        _ => (0, false),
-      },
-      2 => match open_ends {
-        2 => (10, false),
-        _ => (0, false),
-      },
+      }
       _ => (0, false),
-    }
+    },
+    3 => match open_ends {
+      2 => {
+        if is_on_turn {
+          (50_000, false)
+        } else {
+          (1_000, false)
+        }
+      }
+      1 => (10, false),
+      _ => (0, false),
+    },
+    2 => match open_ends {
+      2 => (10, false),
+      _ => (0, false),
+    },
+    _ => (0, false),
   }
 }
 
