@@ -191,7 +191,7 @@ pub fn get_dist_fn(board_size: u8) -> Box<dyn Fn(TilePointer) -> Score> {
 }
 
 pub fn time_remaining(end_time: &Arc<Instant>) -> bool {
-  Instant::now().checked_duration_since(**end_time).is_none()
+  end_time.checked_duration_since(Instant::now()).is_some()
 }
 
 pub fn nodes_sorted_by_shallow_eval(
