@@ -3,7 +3,11 @@ use std::{
   time::{Duration, Instant},
 };
 
-use super::{board, node::Node, Board, Cache, Player, Score, Stats, Tile, TilePointer};
+use super::{
+  board,
+  node::{Node, State},
+  Board, Cache, Player, Score, Stats, Tile, TilePointer,
+};
 
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> (Score, bool) {
   if consecutive == 0 {
@@ -128,15 +132,21 @@ pub fn evaluate_board(
   board: &mut Board,
   cache_arc: &Arc<Mutex<Cache>>,
   current_player: Player,
-) -> (Score, bool) {
+) -> (Score, State) {
   if let Some(&(cached_score, owner, is_end)) = cache_arc.lock().unwrap().lookup(board) {
-    let score = if current_player == owner {
-      cached_score
+    let mut state = State::NotEnded;
+    let score;
+
+    if current_player == owner {
+      score = cached_score;
+      if is_end {
+        state = State::Win
+      }
     } else {
-      -cached_score
+      score = -cached_score;
     };
 
-    return (score, is_end);
+    return (score, state);
   }
 
   let mut is_win = false;
@@ -158,7 +168,9 @@ pub fn evaluate_board(
   let cache_data = (score, current_player, is_win);
   cache_arc.lock().unwrap().insert(board, cache_data);
 
-  (score, is_win)
+  let state = if is_win { State::Win } else { State::NotEnded };
+
+  (score, state)
 }
 
 pub fn get_dist_fn(board_size: u8) -> Box<dyn Fn(TilePointer) -> Score> {
@@ -196,14 +208,14 @@ pub fn nodes_sorted_by_shallow_eval(
     .into_iter()
     .map(|tile| {
       board.set_tile(tile, Some(current_player));
-      let (analysis, is_win) = evaluate_board(board, cache_arc, current_player);
+      let (analysis, state) = evaluate_board(board, cache_arc, current_player);
       board.set_tile(tile, None);
 
       Node::new(
         tile,
         current_player,
         analysis - dist(tile),
-        is_win,
+        state,
         end_time.clone(),
         stats_arc.clone(),
         cache_arc.clone(),

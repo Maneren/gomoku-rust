@@ -43,7 +43,7 @@ fn minimax_top_level(
   // if there is winning move, return it
   let best_winning_node = presorted_nodes
     .iter()
-    .filter(|Node { is_end, .. }| *is_end)
+    .filter(|Node { state, .. }| state.is_win())
     .max();
 
   if let Some(node) = best_winning_node {
@@ -94,13 +94,13 @@ fn minimax_top_level(
 
     nodes.sort_unstable_by(|a, b| a.cmp(b).reverse());
 
+    nodes_generations.push(shallow_clone_nodes(&nodes));
+
     if !is_generation_valid(&nodes) {
       break;
     }
 
-    nodes_generations.push(shallow_clone_nodes(&nodes));
-
-    if nodes.get(0).unwrap().is_end {
+    if nodes[0].state.is_win() || nodes.iter().all(|node| node.state.is_lose()) {
       break;
     };
   }

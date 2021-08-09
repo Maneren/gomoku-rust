@@ -9,11 +9,39 @@ use std::{
   time::Instant,
 };
 
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub enum State {
+  NotEnded,
+  Win,
+  Lose,
+}
+impl State {
+  pub fn is_end(self) -> bool {
+    !matches!(self, Self::NotEnded)
+  }
+
+  pub fn is_win(self) -> bool {
+    matches!(self, Self::Win)
+  }
+
+  pub fn is_lose(self) -> bool {
+    matches!(self, Self::Lose)
+  }
+
+  pub fn inversed(self) -> Self {
+    match self {
+      Self::NotEnded => Self::NotEnded,
+      Self::Win => Self::Lose,
+      Self::Lose => Self::Win,
+    }
+  }
+}
+
 #[derive(Clone)]
 pub struct Node {
   pub tile: TilePointer,
   pub score: Score,
-  pub is_end: bool,
+  pub state: State,
   pub valid: bool,
 
   player: Player,
@@ -29,7 +57,7 @@ impl Node {
     tile: TilePointer,
     player: Player,
     score: Score,
-    is_win: bool,
+    state: State,
     end_time: Arc<Instant>,
     stats_arc: Arc<Mutex<Stats>>,
     cache_arc: Arc<Mutex<Cache>>,
@@ -38,7 +66,7 @@ impl Node {
     Node {
       tile,
       score,
-      is_end: is_win,
+      state,
       valid: true,
       player,
       child_nodes: Vec::new(),
@@ -49,13 +77,35 @@ impl Node {
     }
   }
 
+  pub fn to_move(&self) -> Move {
+    Move {
+      tile: self.tile,
+      score: self.score,
+    }
+  }
+
+  pub fn shallow_clone(&self) -> Node {
+    Node {
+      tile: self.tile,
+      score: self.score,
+      state: self.state,
+      valid: self.valid,
+      player: self.player,
+      child_nodes: Vec::new(),
+      depth: self.depth,
+      end_time: self.end_time.clone(),
+      stats_arc: self.stats_arc.clone(),
+      cache_arc: self.cache_arc.clone(),
+    }
+  }
+
   pub fn compute_next(&mut self, board: &mut Board) {
-    if !time_remaining(&self.end_time) {
-      self.valid = false;
+    if self.state.is_end() {
       return;
     }
 
-    if self.is_end {
+    if !time_remaining(&self.end_time) {
+      self.valid = false;
       return;
     }
 
@@ -66,40 +116,30 @@ impl Node {
     if self.child_nodes.is_empty() {
       self.init_child_nodes(board);
     } else {
-      self.child_nodes.iter_mut().for_each(|node| {
+      for node in &mut self.child_nodes {
+        if !time_remaining(&self.end_time) {
+          self.valid = false;
+          return;
+        }
         node.compute_next(board);
-      });
+      }
       self.eval();
-    }
-
-    if self.is_end {
-      board.set_tile(self.tile, None);
-      return;
     }
 
     board.set_tile(self.tile, None);
   }
 
-  pub fn eval(&mut self) {
-    if self.is_end || self.depth == 0 {
-      return;
-    }
-
-    if !time_remaining(&self.end_time) {
-      self.valid = false;
-      return;
-    }
-
-    if self.child_nodes.iter().any(|node| !node.valid) {
+  fn eval(&mut self) {
+    if !time_remaining(&self.end_time) || self.child_nodes.iter().any(|node| !node.valid) {
       self.valid = false;
       return;
     }
 
     self.child_nodes.sort_unstable_by(|a, b| a.cmp(b).reverse());
-    let Node { score, is_end, .. } = self.child_nodes.get(0).unwrap();
+    let Node { score, state, .. } = self.child_nodes.get(0).unwrap();
 
     self.score += -score;
-    self.is_end = *is_end;
+    self.state = state.inversed();
   }
 
   fn init_child_nodes(&mut self, board: &mut Board) {
@@ -108,7 +148,7 @@ impl Node {
       available_tiles = tiles;
     } else {
       // no empty tiles
-      self.is_end = true;
+      self.state = State::Lose;
       self.score = -100_000;
       return;
     }
@@ -140,31 +180,7 @@ impl Node {
 
     self.child_nodes = nodes.into_iter().take(10).collect();
 
-    let Node { score, is_end, .. } = self.child_nodes.get(0).unwrap();
-    self.score += -score;
-    self.is_end = *is_end;
-  }
-
-  pub fn to_move(&self) -> Move {
-    Move {
-      tile: self.tile,
-      score: self.score,
-    }
-  }
-
-  pub fn shallow_clone(&self) -> Node {
-    Node {
-      tile: self.tile,
-      score: self.score,
-      is_end: self.is_end,
-      valid: self.valid,
-      player: self.player,
-      child_nodes: Vec::new(),
-      depth: self.depth,
-      end_time: self.end_time.clone(),
-      stats_arc: self.stats_arc.clone(),
-      cache_arc: self.cache_arc.clone(),
-    }
+    self.eval()
   }
 }
 impl PartialEq for Node {
@@ -180,7 +196,7 @@ impl PartialOrd for Node {
 impl Eq for Node {}
 impl Ord for Node {
   fn cmp(&self, other: &Self) -> Ordering {
-    if self.is_end && other.is_end && self.depth != other.depth {
+    if self.state.is_end() && other.state.is_end() && self.depth != other.depth {
       self.depth.cmp(&other.depth).reverse()
     } else {
       self.score.cmp(&other.score)
@@ -191,12 +207,12 @@ impl fmt::Debug for Node {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(
       f,
-      "({:?}, {}, {}, {}, {}, {})",
+      "({:?}, {}, {}, {}, {:?}, {})",
       self.tile,
       self.score,
       self.depth,
       self.player,
-      self.is_end,
+      self.state,
       if self.valid { "valid" } else { "invalid" }
     )
   }
