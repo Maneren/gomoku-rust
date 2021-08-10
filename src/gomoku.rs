@@ -93,11 +93,12 @@ fn minimax_top_level(
     }
 
     nodes_generations.push(shallow_clone_nodes(&nodes));
-    nodes.retain(|child| !child.state.is_lose());
 
     if nodes[0].state.is_win() || nodes.iter().all(|node| node.state.is_lose()) {
       break;
     };
+
+    nodes.retain(|child| !child.state.is_lose());
   }
 
   let last_generation = nodes_generations.last().unwrap();
