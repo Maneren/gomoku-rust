@@ -10,13 +10,13 @@ use std::{
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum State {
-  NotEnded,
+  NotEnd,
   Win,
   Lose,
 }
 impl State {
   pub fn is_end(self) -> bool {
-    !matches!(self, Self::NotEnded)
+    !matches!(self, Self::NotEnd)
   }
 
   pub fn is_win(self) -> bool {
@@ -29,7 +29,7 @@ impl State {
 
   pub fn inversed(self) -> Self {
     match self {
-      Self::NotEnded => Self::NotEnded,
+      Self::NotEnd => Self::NotEnd,
       Self::Win => Self::Lose,
       Self::Lose => Self::Win,
     }
@@ -39,10 +39,10 @@ impl State {
 #[derive(Clone)]
 pub struct Node {
   pub tile: TilePointer,
-  pub score: Score,
   pub state: State,
   pub valid: bool,
 
+  score: Score,
   player: Player,
   child_nodes: Vec<Node>,
   depth: u8,
@@ -62,9 +62,9 @@ impl Node {
     stats_arc.lock().unwrap().create_node();
     Node {
       tile,
-      score,
       state,
       valid: true,
+      score,
       player,
       child_nodes: Vec::new(),
       depth: 0,
@@ -80,18 +80,16 @@ impl Node {
     }
   }
 
-  pub fn shallow_clone(&self) -> Node {
-    Node {
-      tile: self.tile,
-      score: self.score,
-      state: self.state,
-      valid: self.valid,
-      player: self.player,
-      child_nodes: Vec::new(),
-      depth: self.depth,
-      end_time: self.end_time.clone(),
-      stats_arc: self.stats_arc.clone(),
+  fn score_and_state(&self) -> (Score, State) {
+    (self.score, self.state)
+  }
+
+  fn get_best_child(&self) -> Option<&Node> {
+    if self.state.is_end() {
+      return None;
     }
+
+    self.child_nodes.get(0)
   }
 
   pub fn compute_next(&mut self, board: &mut Board) {
@@ -131,7 +129,7 @@ impl Node {
     }
 
     self.child_nodes.sort_unstable_by(|a, b| b.cmp(a));
-    let Node { score, state, .. } = self.child_nodes.get(0).unwrap();
+    let (score, state) = self.child_nodes.get(0).unwrap().score_and_state();
 
     self.score += -score;
     self.state = state.inversed();
@@ -201,15 +199,23 @@ impl Ord for Node {
 }
 impl fmt::Debug for Node {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(
-      f,
-      "({:?}, {}, {}, {}, {:?}, {})",
-      self.tile,
-      self.score,
-      self.depth,
-      self.player,
-      self.state,
-      if self.valid { "valid" } else { "invalid" }
-    )
+    if f.alternate() {
+      if let Some(child) = self.get_best_child() {
+        write!(f, "({:?}, {}) => {:#?}", self.tile, self.score, child)
+      } else {
+        write!(f, "({:?}, {})", self.tile, self.score)
+      }
+    } else {
+      write!(
+        f,
+        "({:?}, {}, {}, {}, {:?}, {})",
+        self.tile,
+        self.score,
+        self.depth,
+        self.player,
+        self.state,
+        if self.valid { "valid" } else { "invalid" }
+      )
+    }
   }
 }

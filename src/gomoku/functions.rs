@@ -2,7 +2,6 @@ use std::{
   sync::{Arc, Mutex},
   time::{Duration, Instant},
 };
-
 use super::{
   board,
   node::{Node, State},
@@ -16,7 +15,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
 
   if has_hole {
     if !is_on_turn {
-      return if consecutive >= 4 {
+      return if consecutive >= 5 {
         (1_000, false)
       } else {
         (0, false)
@@ -145,7 +144,7 @@ pub fn evaluate_board(board: &mut Board, current_player: Player) -> (Score, Stat
       total + player_score - opponent_score
     });
 
-  let state = if is_win { State::Win } else { State::NotEnded };
+  let state = if is_win { State::Win } else { State::NotEnd };
 
   (score, state)
 }
@@ -173,13 +172,13 @@ pub fn time_remaining(end_time: &Arc<Instant>) -> bool {
 
 pub fn nodes_sorted_by_shallow_eval(
   board: &mut Board,
+  empty_tiles: Vec<TilePointer>,
   stats_arc: &Arc<Mutex<Stats>>,
   current_player: Player,
   end_time: &Arc<Instant>,
 ) -> Result<Vec<Node>, board::Error> {
   let dist = get_dist_fn(board.get_size());
 
-  let empty_tiles = board.get_empty_tiles()?;
   let mut nodes: Vec<_> = empty_tiles
     .into_iter()
     .map(|tile| {
@@ -211,8 +210,4 @@ pub fn print_status(msg: &str, end_time: Instant) {
       .checked_duration_since(Instant::now())
       .unwrap_or(Duration::ZERO)
   );
-}
-
-pub fn shallow_clone_nodes(nodes: &[Node]) -> Vec<Node> {
-  nodes.iter().map(Node::shallow_clone).collect()
 }

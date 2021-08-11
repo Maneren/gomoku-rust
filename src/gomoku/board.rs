@@ -1,6 +1,4 @@
-use std::cmp;
-use std::error;
-use std::fmt;
+use std::{error, fmt, iter};
 
 #[derive(Debug)]
 pub struct Error {
@@ -12,7 +10,6 @@ impl fmt::Display for Error {
     write!(f, "{}", self.msg)
   }
 }
-
 impl error::Error for Error {
   fn source(&self) -> Option<&(dyn error::Error + 'static)> {
     None
@@ -45,7 +42,7 @@ impl fmt::Debug for Player {
     write!(
       f,
       "{:?}",
-      match *self {
+      match self {
         Player::X => "Player::X",
         Player::O => "Player::O",
       }
@@ -54,14 +51,7 @@ impl fmt::Debug for Player {
 }
 impl fmt::Display for Player {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(
-      f,
-      "{:?}",
-      match *self {
-        Player::X => 'x',
-        Player::O => 'o',
-      }
-    )
+    write!(f, "{:?}", self.char())
   }
 }
 
@@ -120,9 +110,9 @@ impl Board {
   }
 
   pub fn get_empty_board(size: u8) -> Board {
-    let data = (0..size)
-      .map(|_| (0..size).map(|_| None).collect())
-      .collect();
+    let size = size as usize;
+    let row = iter::repeat(None).take(size).collect();
+    let data = iter::repeat(row).take(size).collect();
 
     Board::new(data).unwrap()
   }
@@ -146,40 +136,52 @@ impl Board {
       sequences.push(temp)
     }
 
-    let board_size_minus_one = board_size - 1;
-
     // diag1
-    for i in 0..(2 * board_size_minus_one) {
-      let row = cmp::min(i, board_size_minus_one);
-      let col = i - row;
-      let len = cmp::min(row, board_size_minus_one - col) + 1;
+    {
+      let mut start = 0;
+      let mut end = 0;
 
-      let temp = (0..len)
-        .map(|j| {
-          let x = row - j;
-          let y = col + j;
-          Self::get_index(board_size, x, y)
-        })
-        .collect();
+      while start <= board_size {
+        let temp = (0..(end - start))
+          .map(|i| {
+            let x = start + i;
+            let y = end - i - 1;
+            Self::get_index(board_size, x, y)
+          })
+          .collect();
 
-      sequences.push(temp)
+        if end < board_size {
+          end += 1;
+        } else {
+          start += 1;
+        }
+
+        sequences.push(temp)
+      }
     }
 
     // diag2
-    for i in 0..(2 * board_size_minus_one) {
-      let row = cmp::min(i, board_size_minus_one);
-      let col = i - row;
-      let len = cmp::min(row, board_size_minus_one - col) + 1;
+    {
+      let mut start = 0;
+      let mut end = 0;
 
-      let temp = (0..len)
-        .map(|j| {
-          let x = board_size_minus_one - (row - j);
-          let y = col + j;
-          Self::get_index(board_size, x, y)
-        })
-        .collect();
+      while start <= board_size {
+        let temp = (0..(end - start))
+          .map(|i| {
+            let x = board_size - (start + i) - 1;
+            let y = end - i - 1;
+            Self::get_index(board_size, x, y)
+          })
+          .collect();
 
-      sequences.push(temp)
+        if end < board_size {
+          end += 1;
+        } else {
+          start += 1;
+        }
+
+        sequences.push(temp)
+      }
     }
 
     sequences
@@ -261,7 +263,10 @@ impl Board {
   }
 
   pub fn get_tile_raw(&self, index: usize) -> &Tile {
-    &self.data[index]
+    self
+      .data
+      .get(index)
+      .unwrap_or_else(|| panic!("Tile index out of bounds: {}", index))
   }
 
   pub fn set_tile(&mut self, ptr: TilePointer, value: Tile) {

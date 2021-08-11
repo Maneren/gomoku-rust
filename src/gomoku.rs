@@ -8,8 +8,7 @@ pub use board::{Board, Player, Tile, TilePointer};
 pub use r#move::Move; // r# to allow reserved keyword as name
 
 use functions::{
-  evaluate_board, get_dist_fn, nodes_sorted_by_shallow_eval, print_status, shallow_clone_nodes,
-  time_remaining,
+  evaluate_board, get_dist_fn, nodes_sorted_by_shallow_eval, print_status, time_remaining,
 };
 use node::Node;
 use stats::Stats;
@@ -31,9 +30,15 @@ fn minimax_top_level(
 ) -> Result<Move, board::Error> {
   let stats_arc = Arc::new(Mutex::new(stats_ref.clone()));
 
-  print_status("computing depth 1", **end_time);
+  let empty_tiles = board.get_empty_tiles()?;
 
-  let presorted_nodes = nodes_sorted_by_shallow_eval(board, &stats_arc, current_player, end_time)?;
+  print_status(
+    &format!("computing depth 1 for {} nodes", empty_tiles.len()),
+    **end_time,
+  );
+
+  let presorted_nodes =
+    nodes_sorted_by_shallow_eval(board, empty_tiles, &stats_arc, current_player, end_time)?;
 
   // if there is winning move, return it
   let best_winning_node = presorted_nodes
@@ -46,7 +51,12 @@ fn minimax_top_level(
     return Ok(node.to_move());
   }
 
-  let moves_count = presorted_nodes.len() / 10;
+  #[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+  )]
+  let moves_count = 2 * (presorted_nodes.len() as f32).sqrt() as usize;
 
   let presorted_nodes: Vec<Node> = presorted_nodes.into_iter().take(moves_count).collect();
 
@@ -54,17 +64,17 @@ fn minimax_top_level(
   let pool = ThreadPool::with_name(String::from("node"), cores);
 
   let mut nodes = presorted_nodes;
-  let mut nodes_generations: Vec<Vec<Node>> = vec![shallow_clone_nodes(&nodes)];
+  let nodes_arc = Arc::new(Mutex::new(Vec::new()));
+  let mut nodes_generations = vec![nodes.clone()];
 
   let mut i = 1;
 
-  let is_generation_valid = |generation: &[Node]| generation.iter().all(|node| node.valid);
-
-  while time_remaining(end_time) {
+  while time_remaining(end_time) && !nodes.is_empty() {
     i += 1;
-    print_status(&format!("computing depth {}", i), **end_time);
-
-    let nodes_arc = Arc::new(Mutex::new(Vec::new()));
+    print_status(
+      &format!("computing depth {} for {} nodes", i, nodes.len()),
+      **end_time,
+    );
 
     for mut node in nodes {
       let mut board_clone = board.clone();
@@ -80,19 +90,18 @@ fn minimax_top_level(
     pool.join();
     if pool.panic_count() > 0 {
       panic!("{} node threads panicked", pool.panic_count());
-    }
+    };
 
     // get the value from the arc-mutex
-    let nodes_mutex = Arc::try_unwrap(nodes_arc).unwrap();
-    nodes = nodes_mutex.into_inner().unwrap();
+    nodes = nodes_arc.lock().unwrap().drain(..).collect();
 
     nodes.sort_unstable_by(|a, b| b.cmp(a));
 
-    if !is_generation_valid(&nodes) {
+    if nodes.iter().any(|node| !node.valid) {
       break;
     }
 
-    nodes_generations.push(shallow_clone_nodes(&nodes));
+    nodes_generations.push(nodes.clone());
 
     if nodes[0].state.is_win() || nodes.iter().all(|node| node.state.is_lose()) {
       break;
@@ -101,14 +110,15 @@ fn minimax_top_level(
     nodes.retain(|child| !child.state.is_lose());
   }
 
-  let last_generation = nodes_generations.last().unwrap();
-
-  let best_node = last_generation.iter().max().unwrap().clone();
-
   println!();
   println!("searched to depth {:?}!", nodes_generations.len());
 
   *stats_ref = stats_arc.lock().unwrap().to_owned();
+
+  let last_generation = nodes_generations.last().unwrap();
+  let best_node = last_generation.iter().max().unwrap().clone();
+
+  println!("Best moves: {:#?}", best_node);
 
   Ok(best_node.to_move())
 }
@@ -116,13 +126,12 @@ fn minimax_top_level(
 pub fn decide(
   board: &mut Board,
   player: Player,
-  max_time: u64,
+  time_limit: u64,
 ) -> Result<(Move, Stats), board::Error> {
   let mut stats = Stats::new();
 
-  let max_time = Duration::from_millis(max_time);
-
-  let end = Arc::new(Instant::now().checked_add(max_time).unwrap());
+  let time_limit = Duration::from_millis(time_limit);
+  let end = Arc::new(Instant::now().checked_add(time_limit).unwrap());
 
   let move_ = minimax_top_level(board, &mut stats, player, &end)?;
 

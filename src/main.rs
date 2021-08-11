@@ -2,8 +2,6 @@
 
 use std::{fs::File, io::prelude::Read, time::Instant};
 
-// mod board;
-
 mod gomoku;
 use gomoku::{Board, Move, Player, Tile, TilePointer};
 
@@ -81,7 +79,7 @@ fn run_debug(path_to_input: &str, player: Player, max_time: u64) -> Result<(), E
   let (best_move, stats) = unwrapped;
 
   println!();
-  println!("stats: {}", stats);
+  println!("{}", stats);
   println!();
   println!("{}", board);
   let Move { tile, score } = best_move;
@@ -167,14 +165,11 @@ fn run(player: Player, max_time: u64, start: bool) {
         continue;
       }
     }
-    let (move_, stats) = unwrapped;
+    let (Move { tile, score }, stats) = unwrapped;
 
     print_runtime(run_time);
-
-    let Move { tile, score } = move_;
-
     println!();
-    println!("stats: {}", stats);
+    println!("{}", stats);
     println!("score: {:?}", score);
     println!();
     println!("board:\n{}", board);
