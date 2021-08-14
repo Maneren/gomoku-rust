@@ -1,11 +1,11 @@
-use std::{
-  sync::{Arc, Mutex},
-  time::{Duration, Instant},
-};
 use super::{
   board,
   node::{Node, State},
   Board, Player, Score, Stats, Tile, TilePointer,
+};
+use std::{
+  sync::{Arc, Mutex},
+  time::{Duration, Instant},
 };
 
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool) -> (Score, bool) {
@@ -197,7 +197,7 @@ pub fn nodes_sorted_by_shallow_eval(
     })
     .collect();
 
-  nodes.sort_unstable_by(|a, b| a.cmp(b).reverse());
+  nodes.sort_unstable_by(|a, b| b.cmp(a));
 
   Ok(nodes)
 }

@@ -13,6 +13,7 @@ pub enum State {
   NotEnd,
   Win,
   Lose,
+  Draw,
 }
 impl State {
   pub fn is_end(self) -> bool {
@@ -30,6 +31,7 @@ impl State {
   pub fn inversed(self) -> Self {
     match self {
       Self::NotEnd => Self::NotEnd,
+      Self::Draw => Self::Draw,
       Self::Win => Self::Lose,
       Self::Lose => Self::Win,
     }
@@ -43,6 +45,7 @@ pub struct Node {
   pub valid: bool,
 
   score: Score,
+  original_score: Score,
   player: Player,
   child_nodes: Vec<Node>,
   depth: u8,
@@ -65,6 +68,7 @@ impl Node {
       state,
       valid: true,
       score,
+      original_score: score,
       player,
       child_nodes: Vec::new(),
       depth: 0,
@@ -78,10 +82,6 @@ impl Node {
       tile: self.tile,
       score: self.score,
     }
-  }
-
-  fn score_and_state(&self) -> (Score, State) {
-    (self.score, self.state)
   }
 
   fn get_best_child(&self) -> Option<&Node> {
@@ -114,8 +114,10 @@ impl Node {
           self.valid = false;
           return;
         }
+
         node.compute_next(board);
       }
+
       self.eval();
     }
 
@@ -123,16 +125,19 @@ impl Node {
   }
 
   fn eval(&mut self) {
-    if !time_remaining(&self.end_time) || self.child_nodes.iter().any(|node| !node.valid) {
+    if self.child_nodes.iter().any(|node| !node.valid) {
       self.valid = false;
       return;
     }
 
     self.child_nodes.sort_unstable_by(|a, b| b.cmp(a));
-    let (score, state) = self.child_nodes.get(0).unwrap().score_and_state();
+    let best = self
+      .child_nodes
+      .get(0)
+      .unwrap_or_else(|| panic!("no children in eval"));
 
-    self.score += -score;
-    self.state = state.inversed();
+    self.score = self.original_score + -best.score;
+    self.state = best.state.inversed();
 
     self.child_nodes.retain(|child| !child.state.is_lose());
   }
@@ -143,8 +148,8 @@ impl Node {
       available_tiles = tiles;
     } else {
       // no empty tiles
-      self.state = State::Lose;
-      self.score = -100_000;
+      self.state = State::Draw;
+      self.score = 0;
       return;
     }
 
@@ -171,8 +176,7 @@ impl Node {
       .collect();
 
     nodes.sort_unstable_by(|a, b| b.cmp(a));
-
-    self.child_nodes = nodes.into_iter().take(10).collect();
+    self.child_nodes = nodes.into_iter().take(15).collect();
 
     self.eval()
   }

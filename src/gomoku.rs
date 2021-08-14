@@ -56,7 +56,7 @@ fn minimax_top_level(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
   )]
-  let moves_count = 2 * (presorted_nodes.len() as f32).sqrt() as usize;
+  let moves_count = (1.5 * (presorted_nodes.len() as f32).sqrt()) as usize;
 
   let presorted_nodes: Vec<Node> = presorted_nodes.into_iter().take(moves_count).collect();
 
@@ -64,8 +64,8 @@ fn minimax_top_level(
   let pool = ThreadPool::with_name(String::from("node"), cores);
 
   let mut nodes = presorted_nodes;
-  let nodes_arc = Arc::new(Mutex::new(Vec::new()));
   let mut nodes_generations = vec![nodes.clone()];
+  let nodes_arc = Arc::new(Mutex::new(Vec::new()));
 
   let mut i = 1;
 
@@ -78,7 +78,6 @@ fn minimax_top_level(
 
     for mut node in nodes {
       let mut board_clone = board.clone();
-
       let nodes_arc_clone = nodes_arc.clone();
 
       pool.execute(move || {
@@ -116,7 +115,7 @@ fn minimax_top_level(
   *stats_ref = stats_arc.lock().unwrap().to_owned();
 
   let last_generation = nodes_generations.last().unwrap();
-  let best_node = last_generation.iter().max().unwrap().clone();
+  let best_node = last_generation.iter().max().unwrap();
 
   println!("Best moves: {:#?}", best_node);
 
