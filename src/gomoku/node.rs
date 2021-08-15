@@ -176,7 +176,7 @@ impl Node {
       .collect();
 
     nodes.sort_unstable_by(|a, b| b.cmp(a));
-    self.child_nodes = nodes.into_iter().take(15).collect();
+    self.child_nodes = nodes.into_iter().take(10).collect();
 
     self.eval()
   }
