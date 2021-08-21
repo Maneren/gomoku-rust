@@ -125,7 +125,7 @@ impl Board {
       let temp = (0..board_size)
         .map(|x| Self::get_index(board_size, x, y))
         .collect();
-      sequences.push(temp)
+      sequences.push(temp);
     }
 
     // vertical
@@ -133,7 +133,7 @@ impl Board {
       let temp = (0..board_size)
         .map(|y| Self::get_index(board_size, x, y))
         .collect();
-      sequences.push(temp)
+      sequences.push(temp);
     }
 
     // diag1
@@ -156,7 +156,7 @@ impl Board {
           start += 1;
         }
 
-        sequences.push(temp)
+        sequences.push(temp);
       }
     }
 
@@ -180,7 +180,7 @@ impl Board {
           start += 1;
         }
 
-        sequences.push(temp)
+        sequences.push(temp);
       }
     }
 

@@ -55,7 +55,7 @@ fn main() {
 }
 
 fn run_debug(path_to_input: &str, player: Player, max_time: u64) -> Result<(), Error> {
-  let input_string = load_input(&path_to_input)?;
+  let input_string = load_input(path_to_input)?;
   let mut board = Board::from_string(&input_string)?;
 
   println!("{}", board);
@@ -185,7 +185,7 @@ fn run(player: Player, max_time: u64, start: bool) {
 
 fn print_runtime(run_time: u128) {
   if run_time < 10_000 {
-    println!("Time: {} \u{03bc}s", run_time)
+    println!("Time: {} \u{03bc}s", run_time);
   } else if run_time < 10_000_000 {
     println!("Time: {} ms", run_time / 1000);
   } else {
@@ -213,7 +213,7 @@ fn is_game_end_sequence(sequence: &[&Tile], current_player: Player) -> bool {
         consecutive = 0;
       }
     } else {
-      consecutive = 0
+      consecutive = 0;
     };
   }
 

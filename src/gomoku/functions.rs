@@ -1,5 +1,4 @@
 use super::{
-  board,
   node::{Node, State},
   Board, Player, Score, Stats, Tile, TilePointer,
 };
@@ -84,7 +83,7 @@ fn eval_sequence(sequence: &[&Tile], evaluate_for: Player, is_on_turn: bool) -> 
   for (index, tile) in sequence.iter().enumerate() {
     if let Some(player) = tile {
       if *player == evaluate_for {
-        consecutive += 1
+        consecutive += 1;
       } else {
         if consecutive > 0 {
           let (shape_score, is_win_shape) =
@@ -134,10 +133,10 @@ pub fn evaluate_board(board: &mut Board, current_player: Player) -> (Score, Stat
     .get_all_tile_sequences()
     .into_iter()
     .fold(0, |total, sequence| {
-      let (player_score, is_winning_sequence) = eval_sequence(&sequence, current_player, false);
+      let (player_score, is_winning) = eval_sequence(&sequence, current_player, false);
       let (opponent_score, _) = eval_sequence(&sequence, current_player.next(), true);
 
-      if is_winning_sequence {
+      if is_winning {
         is_win = true;
       }
 
@@ -176,7 +175,7 @@ pub fn nodes_sorted_by_shallow_eval(
   stats_arc: &Arc<Mutex<Stats>>,
   current_player: Player,
   end_time: &Arc<Instant>,
-) -> Result<Vec<Node>, board::Error> {
+) -> Vec<Node> {
   let dist = get_dist_fn(board.get_size());
 
   let mut nodes: Vec<_> = empty_tiles
@@ -199,7 +198,7 @@ pub fn nodes_sorted_by_shallow_eval(
 
   nodes.sort_unstable_by(|a, b| b.cmp(a));
 
-  Ok(nodes)
+  nodes
 }
 
 pub fn print_status(msg: &str, end_time: Instant) {

@@ -34,7 +34,7 @@ fn minimax_top_level(
     **end_time,
   );
   let presorted_nodes =
-    nodes_sorted_by_shallow_eval(board, empty_tiles, &stats_arc, current_player, end_time)?;
+    nodes_sorted_by_shallow_eval(board, empty_tiles, &stats_arc, current_player, end_time);
 
   // if there is winning move, return it
   let best_winning_node = presorted_nodes

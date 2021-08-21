@@ -178,7 +178,7 @@ impl Node {
     nodes.sort_unstable_by(|a, b| b.cmp(a));
     self.child_nodes = nodes.into_iter().take(10).collect();
 
-    self.eval()
+    self.eval();
   }
 }
 impl PartialEq for Node {
@@ -188,7 +188,7 @@ impl PartialEq for Node {
 }
 impl PartialOrd for Node {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    Some(self.cmp(&other))
+    Some(self.cmp(other))
   }
 }
 impl Eq for Node {}
