@@ -7,7 +7,7 @@ use gomoku::{Board, Move, Player, Tile, TilePointer};
 
 type Error = Box<dyn std::error::Error>;
 
-use clap::{value_t, App, Arg, SubCommand};
+use clap::{value_t, App, Arg};
 
 fn main() {
   let matches = App::new("Gomoku")
@@ -30,7 +30,13 @@ fn main() {
         .index(3)
         .possible_values(&["true", "false"]),
     )
-    .subcommand(SubCommand::with_name("debug").arg(Arg::with_name("path").index(1).required(true)))
+    .arg(
+      Arg::with_name("debug")
+        .short("d")
+        .long("debug")
+        .help("Specify debug file")
+        .takes_value(true),
+    )
     .get_matches();
 
   let player = match matches.value_of("player").unwrap_or("o") {
@@ -43,9 +49,8 @@ fn main() {
 
   let max_time = value_t!(matches, "time", u64).unwrap_or(1000);
 
-  if let Some(matches) = matches.subcommand_matches("debug") {
-    let path_to_input = matches.value_of("path").unwrap();
-    match run_debug(path_to_input, player, max_time) {
+  if let Some(path) = matches.value_of("debug") {
+    match run_debug(path, player, max_time) {
       Ok(_) => println!("Done!"),
       Err(msg) => println!("Error: {}", msg),
     }
