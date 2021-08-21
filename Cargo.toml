@@ -5,8 +5,8 @@ authors = ["Maneren <49210777+Maneren@users.noreply.github.com>"]
 edition = "2018"
 
 [dependencies]
-clap = "2.33"
-num_cpus = "1.13"
-rand = "0.8"
-text_io = "0.1"
-threadpool = "1.0"
+clap = "2"
+num_cpus = "1"
+rand = "0"
+text_io = "0"
+threadpool = "1"
