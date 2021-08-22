@@ -25,6 +25,7 @@ fn minimax_top_level(
   board: &mut Board,
   current_player: Player,
   end_time: &Arc<Instant>,
+  threads: usize,
 ) -> Result<(Move, Stats), board::Error> {
   let stats_arc = Arc::new(Mutex::new(Stats::new()));
 
@@ -56,8 +57,7 @@ fn minimax_top_level(
 
   let presorted_nodes: Vec<_> = presorted_nodes.into_iter().take(moves_count).collect();
 
-  let cores = num_cpus::get();
-  let pool = ThreadPool::with_name(String::from("node"), cores);
+  let pool = ThreadPool::with_name(String::from("node"), threads);
 
   let mut nodes = presorted_nodes;
   let mut nodes_generations = vec![nodes.clone()];
@@ -121,11 +121,12 @@ pub fn decide(
   board: &mut Board,
   player: Player,
   time_limit: u64,
+  threads: usize,
 ) -> Result<(Move, Stats), board::Error> {
   let time_limit = Duration::from_millis(time_limit);
   let end = Arc::new(Instant::now().checked_add(time_limit).unwrap());
 
-  let (move_, stats) = minimax_top_level(board, player, &end)?;
+  let (move_, stats) = minimax_top_level(board, player, &end, threads)?;
 
   board.set_tile(move_.tile, Some(player));
 

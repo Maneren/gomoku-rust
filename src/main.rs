@@ -34,7 +34,11 @@ fn main() {
       Arg::with_name("debug")
         .short("d")
         .long("debug")
-        .help("Specify debug file")
+    .arg(
+      Arg::with_name("threads")
+        .short("t")
+        .long("threads")
+        .help("How many threads to use (default is ")
         .takes_value(true),
     )
     .get_matches();
@@ -48,14 +52,15 @@ fn main() {
   let start = value_t!(matches, "start", bool).unwrap_or(false);
 
   let max_time = value_t!(matches, "time", u64).unwrap_or(1000);
+  let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
 
   if let Some(path) = matches.value_of("debug") {
-    match run_debug(path, player, max_time) {
+    match run_debug(path, player, max_time, threads) {
       Ok(_) => println!("Done!"),
       Err(msg) => println!("Error: {}", msg),
     }
   } else {
-    run(player, max_time, start);
+    run(player, max_time, start, threads);
   }
 }
 
@@ -102,7 +107,7 @@ fn load_input(path: &str) -> Result<String, Error> {
   Ok(contents)
 }
 
-fn run(player: Player, max_time: u64, start: bool) {
+fn run(player: Player, max_time: u64, start: bool, threads: usize) {
   use text_io::read;
 
   let board_size = 15;
@@ -159,7 +164,7 @@ fn run(player: Player, max_time: u64, start: bool) {
     }
 
     let start = Instant::now();
-    let result = gomoku::decide(&mut board, player, max_time);
+    let result = gomoku::decide(&mut board, player, max_time, threads);
     let run_time = start.elapsed().as_micros();
 
     let unwrapped;
