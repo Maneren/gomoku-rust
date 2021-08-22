@@ -3,7 +3,7 @@ use super::{
   Board, Player, Score, Stats, Tile, TilePointer,
 };
 use std::{
-  sync::{Arc, Mutex},
+  sync::Arc,
   time::{Duration, Instant},
 };
 
@@ -172,7 +172,7 @@ pub fn time_remaining(end_time: &Arc<Instant>) -> bool {
 pub fn nodes_sorted_by_shallow_eval(
   board: &mut Board,
   empty_tiles: Vec<TilePointer>,
-  stats_arc: &Arc<Mutex<Stats>>,
+  stats: &mut Stats,
   current_player: Player,
   end_time: &Arc<Instant>,
 ) -> Vec<Node> {
@@ -191,7 +191,7 @@ pub fn nodes_sorted_by_shallow_eval(
         analysis - dist(tile),
         state,
         end_time.clone(),
-        stats_arc.clone(),
+        stats,
       )
     })
     .collect();

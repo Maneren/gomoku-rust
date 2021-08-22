@@ -1,6 +1,6 @@
-use std::fmt;
+use std::{fmt, ops::Add};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Stats {
   pub nodes_evaluated: u32,
 }
@@ -16,5 +16,14 @@ impl Stats {
 impl fmt::Display for Stats {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "Nodes evaluated: {}", self.nodes_evaluated)
+  }
+}
+impl Add for Stats {
+  type Output = Stats;
+
+  fn add(self, other: Stats) -> Self::Output {
+    Stats {
+      nodes_evaluated: self.nodes_evaluated + other.nodes_evaluated,
+    }
   }
 }

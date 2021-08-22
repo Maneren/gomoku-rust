@@ -1,4 +1,5 @@
 #![warn(clippy::pedantic)]
+#![allow(clippy::similar_names)]
 
 use std::{fs::File, io::prelude::Read, time::Instant};
 

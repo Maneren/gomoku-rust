@@ -1,12 +1,7 @@
 use super::{
   evaluate_board, get_dist_fn, time_remaining, Board, Move, Player, Score, Stats, TilePointer,
 };
-use std::{
-  cmp::Ordering,
-  fmt,
-  sync::{Arc, Mutex},
-  time::Instant,
-};
+use std::{cmp::Ordering, fmt, sync::Arc, time::Instant};
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum State {
@@ -66,41 +61,9 @@ pub struct Node {
   depth: u8,
 
   end_time: Arc<Instant>,
-  stats_arc: Arc<Mutex<Stats>>,
 }
 impl Node {
-  pub fn new(
-    tile: TilePointer,
-    player: Player,
-    score: Score,
-    state: State,
-    end_time: Arc<Instant>,
-    stats_arc: Arc<Mutex<Stats>>,
-  ) -> Node {
-    stats_arc.lock().unwrap().create_node();
-    Node {
-      tile,
-      state,
-      valid: true,
-      score,
-      original_score: score,
-      player,
-      child_nodes: Vec::new(),
-      best_child: None,
-      depth: 0,
-      end_time,
-      stats_arc,
-    }
-  }
-
-  pub fn to_move(&self) -> Move {
-    Move {
-      tile: self.tile,
-      score: self.score,
-    }
-  }
-
-  pub fn compute_next(&mut self, board: &mut Board) {
+  pub fn compute_next(&mut self, board: &mut Board, stats: &mut Stats) {
     if self.state.is_end() {
       return;
     }
@@ -115,15 +78,15 @@ impl Node {
     board.set_tile(self.tile, Some(self.player));
 
     if self.child_nodes.is_empty() {
-      self.init_child_nodes(board);
+      self.init_child_nodes(board, stats);
     } else {
       for node in &mut self.child_nodes {
-        if !time_remaining(&self.end_time) {
+        node.compute_next(board, stats);
+
+        if !node.valid {
           self.valid = false;
           return;
         }
-
-        node.compute_next(board);
       }
 
       self.eval();
@@ -133,26 +96,26 @@ impl Node {
   }
 
   fn eval(&mut self) {
-    if self.child_nodes.iter().any(|node| !node.valid) {
-      self.valid = false;
-      return;
-    }
-
     self.child_nodes.sort_unstable_by(|a, b| b.cmp(a));
+
+    self.analyze_child_nodes();
+  }
+
+  fn analyze_child_nodes(&mut self) {
     let best = self
       .child_nodes
       .get(0)
       .unwrap_or_else(|| panic!("no children in eval"));
 
+    self.best_child = Some(Box::new(best.clone()));
+
     self.score = self.original_score + -best.score;
     self.state = best.state.inversed();
-
-    self.best_child = Some(Box::new(best.clone()));
 
     self.child_nodes.retain(|child| !child.state.is_lose());
   }
 
-  fn init_child_nodes(&mut self, board: &mut Board) {
+  fn init_child_nodes(&mut self, board: &mut Board, stats: &mut Stats) {
     let available_tiles;
     if let Ok(tiles) = board.get_empty_tiles() {
       available_tiles = tiles;
@@ -180,7 +143,7 @@ impl Node {
           analysis - dist(tile),
           state,
           self.end_time.clone(),
-          self.stats_arc.clone(),
+          stats,
         )
       })
       .collect();
@@ -188,7 +151,37 @@ impl Node {
     nodes.sort_unstable_by(|a, b| b.cmp(a));
     self.child_nodes = nodes.into_iter().take(10).collect();
 
-    self.eval();
+    self.analyze_child_nodes();
+  }
+
+  pub fn new(
+    tile: TilePointer,
+    player: Player,
+    score: Score,
+    state: State,
+    end_time: Arc<Instant>,
+    stats: &mut Stats,
+  ) -> Node {
+    stats.create_node();
+    Node {
+      tile,
+      state,
+      valid: true,
+      score,
+      original_score: score,
+      player,
+      child_nodes: Vec::new(),
+      best_child: None,
+      depth: 0,
+      end_time,
+    }
+  }
+
+  pub fn to_move(&self) -> Move {
+    Move {
+      tile: self.tile,
+      score: self.score,
+    }
   }
 }
 impl PartialEq for Node {

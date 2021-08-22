@@ -13,6 +13,7 @@ use functions::{
 use stats::Stats;
 
 use std::{
+  ops::Add,
   sync::{Arc, Mutex},
   time::{Duration, Instant},
 };
@@ -27,7 +28,7 @@ fn minimax_top_level(
   end_time: &Arc<Instant>,
   threads: usize,
 ) -> Result<(Move, Stats), board::Error> {
-  let stats_arc = Arc::new(Mutex::new(Stats::new()));
+  let mut stats = Stats::new();
 
   let empty_tiles = board.get_empty_tiles()?;
   print_status(
@@ -35,16 +36,15 @@ fn minimax_top_level(
     **end_time,
   );
   let presorted_nodes =
-    nodes_sorted_by_shallow_eval(board, empty_tiles, &stats_arc, current_player, end_time);
+    nodes_sorted_by_shallow_eval(board, empty_tiles, &mut stats, current_player, end_time);
 
   // if there is winning move, return it
-  let best_winning_node = presorted_nodes
+  let winning_node = presorted_nodes
     .iter()
     .filter(|node| node.state.is_win())
     .max();
 
-  if let Some(node) = best_winning_node {
-    let stats = stats_arc.lock().unwrap().to_owned();
+  if let Some(node) = winning_node {
     return Ok((node.to_move(), stats));
   }
 
@@ -62,6 +62,7 @@ fn minimax_top_level(
   let mut nodes = presorted_nodes;
   let mut nodes_generations = vec![nodes.clone()];
   let nodes_arc = Arc::new(Mutex::new(Vec::new()));
+  let stats_arc = Arc::new(Mutex::new(Vec::new()));
 
   let mut i = 1;
 
@@ -74,11 +75,14 @@ fn minimax_top_level(
 
     for mut node in nodes {
       let mut board_clone = board.clone();
+      let mut stats_clone = Stats::new();
       let nodes_arc_clone = nodes_arc.clone();
+      let stats_arc_clone = stats_arc.clone();
 
       pool.execute(move || {
-        node.compute_next(&mut board_clone);
+        node.compute_next(&mut board_clone, &mut stats_clone);
         nodes_arc_clone.lock().unwrap().push(node);
+        stats_arc_clone.lock().unwrap().push(stats_clone);
       });
     }
 
@@ -117,7 +121,11 @@ fn minimax_top_level(
 
   println!();
 
-  let stats = stats_arc.lock().unwrap().to_owned();
+  let stats = stats_arc
+    .lock()
+    .unwrap()
+    .iter()
+    .fold(Stats::new(), |total, stats| total.add(*stats));
 
   let last_generation = nodes_generations.last().unwrap();
   let best_node = last_generation.iter().max().unwrap();
