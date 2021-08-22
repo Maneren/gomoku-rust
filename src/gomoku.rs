@@ -97,15 +97,25 @@ fn minimax_top_level(
     nodes.sort_unstable_by(|a, b| b.cmp(a));
     nodes_generations.push(nodes.clone());
 
-    if nodes[0].state.is_win() || nodes.iter().all(|node| node.state.is_lose()) {
+    if nodes.iter().any(|node| node.state.is_win()) || nodes.iter().all(|node| node.state.is_lose())
+    {
       break;
-    };
+    }
 
     nodes.retain(|child| !child.state.is_lose());
   }
 
   println!();
-  println!("searched to depth {:?}!", nodes_generations.len());
+
+  if nodes.iter().any(|node| node.state.is_win()) {
+    println!("Winning move found!",);
+  } else if nodes.iter().all(|node| node.state.is_lose()) {
+    println!("All moves are losing :(");
+  }
+
+  println!("Searched to depth {:?}!", nodes_generations.len());
+
+  println!();
 
   let stats = stats_arc.lock().unwrap().to_owned();
 
