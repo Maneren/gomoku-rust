@@ -37,6 +37,20 @@ impl State {
     }
   }
 }
+impl fmt::Display for State {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "{}",
+      match self {
+        Self::NotEnd => "Not an end",
+        Self::Draw => "Draw",
+        Self::Win => "Win",
+        Self::Lose => "Lose",
+      }
+    )
+  }
+}
 
 #[derive(Clone)]
 pub struct Node {
@@ -48,6 +62,7 @@ pub struct Node {
   original_score: Score,
   player: Player,
   child_nodes: Vec<Node>,
+  best_child: Option<Box<Node>>,
   depth: u8,
 
   end_time: Arc<Instant>,
@@ -71,6 +86,7 @@ impl Node {
       original_score: score,
       player,
       child_nodes: Vec::new(),
+      best_child: None,
       depth: 0,
       end_time,
       stats_arc,
@@ -82,14 +98,6 @@ impl Node {
       tile: self.tile,
       score: self.score,
     }
-  }
-
-  fn get_best_child(&self) -> Option<&Node> {
-    if self.state.is_end() {
-      return None;
-    }
-
-    self.child_nodes.get(0)
   }
 
   pub fn compute_next(&mut self, board: &mut Board) {
@@ -139,6 +147,8 @@ impl Node {
     self.score = self.original_score + -best.score;
     self.state = best.state.inversed();
 
+    self.best_child = Some(Box::new(best.clone()));
+
     self.child_nodes.retain(|child| !child.state.is_lose());
   }
 
@@ -161,14 +171,14 @@ impl Node {
         let next_player = self.player.next();
 
         board.set_tile(tile, Some(next_player));
-        let (analysis, is_win) = evaluate_board(board, next_player);
+        let (analysis, state) = evaluate_board(board, next_player);
         board.set_tile(tile, None);
 
         Node::new(
           tile,
           next_player,
           analysis - dist(tile),
-          is_win,
+          state,
           self.end_time.clone(),
           self.stats_arc.clone(),
         )
@@ -204,10 +214,10 @@ impl Ord for Node {
 impl fmt::Debug for Node {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     if f.alternate() {
-      if let Some(child) = self.get_best_child() {
+      if let Some(child) = &self.best_child {
         write!(f, "({:?}, {}) => {:#?}", self.tile, self.score, child)
       } else {
-        write!(f, "({:?}, {})", self.tile, self.score)
+        write!(f, "({:?}, {}, {})", self.tile, self.score, self.state)
       }
     } else {
       write!(
