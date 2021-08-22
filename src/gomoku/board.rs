@@ -197,11 +197,11 @@ impl Board {
     self
       .sequences
       .iter()
-      .map(|sequence| {
+      .map(|sequence| -> Vec<_> {
         sequence
           .iter()
           .map(|index| self.get_tile_raw(*index))
-          .collect::<Vec<_>>()
+          .collect()
       })
       .collect()
   }

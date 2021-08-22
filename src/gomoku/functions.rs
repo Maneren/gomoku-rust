@@ -13,22 +13,18 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
   }
 
   if has_hole {
-    if !is_on_turn {
-      return if consecutive >= 5 {
-        (1_000, false)
-      } else {
-        (0, false)
-      };
-    }
-
-    return if consecutive == 5 {
-      (500_000, false)
-    } else if consecutive == 4 {
-      match open_ends {
-        2 => (100_000, false),
-        1 => (5_000, false),
+    return if is_on_turn {
+      match consecutive {
+        5 => (500_000, false),
+        4 => match open_ends {
+          2 => (100_000, false),
+          1 => (5_000, false),
+          _ => (0, false),
+        },
         _ => (0, false),
       }
+    } else if consecutive >= 5 {
+      (1_000, false)
     } else {
       (0, false)
     };
