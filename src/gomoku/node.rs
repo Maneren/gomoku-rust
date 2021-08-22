@@ -216,8 +216,10 @@ impl fmt::Debug for Node {
     if f.alternate() {
       if let Some(child) = &self.best_child {
         write!(f, "({:?}, {}) => {:#?}", self.tile, self.score, child)
-      } else {
+      } else if self.state.is_end() {
         write!(f, "({:?}, {}, {})", self.tile, self.score, self.state)
+      } else {
+        write!(f, "({:?}, {})", self.tile, self.score)
       }
     } else {
       write!(
