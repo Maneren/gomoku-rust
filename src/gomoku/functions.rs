@@ -82,24 +82,31 @@ fn eval_sequence(sequence: &[&Tile], evaluate_for: Player, is_on_turn: bool) -> 
 
   for (index, tile) in sequence.iter().enumerate() {
     if let Some(player) = tile {
-      if *player == evaluate_for {
+      if player == &evaluate_for {
         consecutive += 1;
-      } else {
-        if consecutive > 0 {
-          let (shape_score, is_win_shape) =
-            shape_score(consecutive, open_ends, has_hole, is_on_turn);
-          is_win |= is_win_shape;
-          score += shape_score;
-        }
-
-        consecutive = 0;
-        open_ends = 0;
+        continue;
       }
-    } else if consecutive == 0 {
-      open_ends = 1;
-      has_hole = false;
+
+      // opponent's tile
+      if consecutive > 0 {
+        let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole, is_on_turn);
+        score += shape_score;
+        if is_win_shape {
+          is_win = true;
+        }
+      }
+
+      consecutive = 0;
+      open_ends = 0;
     } else {
-      if !has_hole && index + 1 < sequence.len() && *sequence[index + 1] == Some(evaluate_for) {
+      // empty tile
+      if consecutive == 0 {
+        open_ends = 1;
+        has_hole = false;
+        continue;
+      }
+
+      if !has_hole && index + 1 < sequence.len() && sequence[index + 1] == &Some(evaluate_for) {
         has_hole = true;
         consecutive += 1;
         continue;
@@ -108,8 +115,10 @@ fn eval_sequence(sequence: &[&Tile], evaluate_for: Player, is_on_turn: bool) -> 
       open_ends += 1;
 
       let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole, is_on_turn);
-      is_win |= is_win_shape;
       score += shape_score;
+      if is_win_shape {
+        is_win = true;
+      }
 
       consecutive = 0;
       open_ends = 1;
@@ -119,8 +128,10 @@ fn eval_sequence(sequence: &[&Tile], evaluate_for: Player, is_on_turn: bool) -> 
 
   if consecutive > 0 {
     let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole, is_on_turn);
-    is_win |= is_win_shape;
     score += shape_score;
+    if is_win_shape {
+      is_win = true;
+    }
   }
 
   (score, is_win)
@@ -137,7 +148,7 @@ pub fn evaluate_board(board: &mut Board, current_player: Player) -> (Score, Stat
       let (opponent_score, _) = eval_sequence(&sequence, current_player.next(), true);
 
       if is_winning {
-        is_win = true;
+        is_win |= is_winning;
       }
 
       total + player_score - opponent_score
