@@ -66,7 +66,7 @@ fn minimax_top_level(
 
   let mut i = 1;
 
-  while time_remaining(end_time) && !nodes.is_empty() {
+  while time_remaining(end_time) {
     i += 1;
     print_status(
       &format!("computing depth {} for {} nodes", i, nodes.len()),
