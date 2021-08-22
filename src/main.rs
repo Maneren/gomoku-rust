@@ -21,12 +21,12 @@ fn main() {
     )
     .arg(
       Arg::with_name("time")
-        .help("max runtime in milliseconds; default = 1000")
+        .help("Time limit in milliseconds (default is 1000)")
         .index(2),
     )
     .arg(
       Arg::with_name("start")
-        .help("is this player starting")
+        .help("Is this player starting")
         .index(3)
         .possible_values(&["true", "false"]),
     )
@@ -34,6 +34,10 @@ fn main() {
       Arg::with_name("debug")
         .short("d")
         .long("debug")
+        .help("Run in debug mode")
+        .takes_value(true)
+        .value_name("FILE"),
+    )
     .arg(
       Arg::with_name("threads")
         .short("t")
@@ -64,7 +68,12 @@ fn main() {
   }
 }
 
-fn run_debug(path_to_input: &str, player: Player, max_time: u64) -> Result<(), Error> {
+fn run_debug(
+  path_to_input: &str,
+  player: Player,
+  max_time: u64,
+  threads: usize,
+) -> Result<(), Error> {
   let input_string = load_input(path_to_input)?;
   let mut board = Board::from_string(&input_string)?;
 
@@ -74,7 +83,7 @@ fn run_debug(path_to_input: &str, player: Player, max_time: u64) -> Result<(), E
 
   let start = Instant::now();
 
-  let result = gomoku::decide(&mut board, player, max_time);
+  let result = gomoku::decide(&mut board, player, max_time, threads);
   let run_time = start.elapsed().as_micros();
 
   let unwrapped;
@@ -112,7 +121,6 @@ fn run(player: Player, max_time: u64, start: bool, threads: usize) {
 
   let board_size = 15;
   let mut board = Board::get_empty_board(board_size);
-  // let mut cache = Cache::new(board_size);
 
   let prefix = '!';
   if start {
