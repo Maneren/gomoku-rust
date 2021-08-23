@@ -64,7 +64,7 @@ pub struct TilePointer {
 }
 impl fmt::Debug for TilePointer {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}{}", (self.x + 97) as char, self.y)
+    write!(f, "{}{}", (self.x + 0x61) as char, self.y + 1)
   }
 }
 
@@ -302,10 +302,10 @@ impl fmt::Display for Board {
       + "\n";
 
     for i in 0..board_size {
-      let tmp = if i < 10 && board_size >= 10 {
-        format!(" {:?}", i)
+      let tmp = if i + 1 < 10 && board_size >= 10 {
+        format!(" {:?}", i + 1)
       } else {
-        format!("{:?}", i)
+        format!("{:?}", i + 1)
       };
       string.push_str(&tmp);
 

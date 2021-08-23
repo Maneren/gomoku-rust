@@ -155,15 +155,15 @@ fn run(player: Player, max_time: u64, start: bool, threads: usize, board_size: u
     let mut chars = line.chars();
 
     let x = chars.next();
-    let y = chars.as_str().parse();
+    let y = chars.as_str().parse::<u8>();
 
     if x.is_none() || y.is_err() {
       println!("Invalid input: {:?}", line);
       continue;
     }
 
-    let x = x.unwrap() as u8 - 97;
-    let y = y.unwrap();
+    let x = x.unwrap() as u8 - 0x61;
+    let y = y.unwrap() - 1;
 
     let tile_ptr = TilePointer { x, y };
 
