@@ -46,6 +46,15 @@ fn main() {
         .help("How many threads to use (default is ")
         .takes_value(true),
     )
+    .arg(
+      Arg::with_name("board")
+        .short("b")
+        .long("board")
+        .value_name("SIZE")
+        .conflicts_with("debug")
+        .help("Size of game board")
+        .takes_value(true),
+    )
     .get_matches();
 
   let player = match matches.value_of("player").unwrap_or("o") {
@@ -54,10 +63,11 @@ fn main() {
     _ => panic!("Invalid player"),
   };
 
+  let max_time = value_t!(matches, "time", u64).unwrap_or(1000);
   let start = value_t!(matches, "start", bool).unwrap_or(false);
 
-  let max_time = value_t!(matches, "time", u64).unwrap_or(1000);
   let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
+  let board_size = value_t!(matches, "board", u8).unwrap_or(15);
 
   if let Some(path) = matches.value_of("debug") {
     match run_debug(path, player, max_time, threads) {
@@ -65,7 +75,7 @@ fn main() {
       Err(msg) => println!("Error: {}", msg),
     }
   } else {
-    run(player, max_time, start, threads);
+    run(player, max_time, start, threads, board_size);
   }
 }
 
@@ -117,10 +127,8 @@ fn load_input(path: &str) -> Result<String, Error> {
   Ok(contents)
 }
 
-fn run(player: Player, max_time: u64, start: bool, threads: usize) {
+fn run(player: Player, max_time: u64, start: bool, threads: usize, board_size: u8) {
   use text_io::read;
-
-  let board_size = 15;
   let mut board = Board::get_empty_board(board_size);
 
   let prefix = '!';
