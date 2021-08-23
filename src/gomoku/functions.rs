@@ -18,7 +18,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
         5 => (500_000, false),
         4 => match open_ends {
           2 => (100_000, false),
-          1 => (5_000, false),
+          1 => (1_000, false),
           _ => (0, false),
         },
         _ => (0, false),
@@ -52,7 +52,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
     3 => match open_ends {
       2 => {
         if is_on_turn {
-          (50_000, false)
+          (80_000, false)
         } else {
           (1_000, false)
         }
