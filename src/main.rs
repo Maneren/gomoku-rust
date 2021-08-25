@@ -152,10 +152,14 @@ fn run(player: Player, max_time: u64, start: bool, threads: usize, board_size: u
       return;
     }
 
-    let mut chars = line.chars();
+    let mut chars = line.chars().peekable();
+
+    if chars.peek() == Some(&prefix) {
+      chars.next();
+    }
 
     let x = chars.next();
-    let y = chars.as_str().parse::<u8>();
+    let y = chars.collect::<String>().parse::<u8>();
 
     if x.is_none() || y.is_err() {
       println!("Invalid input: {:?}", line);
