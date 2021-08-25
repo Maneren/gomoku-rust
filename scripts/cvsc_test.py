@@ -1,8 +1,8 @@
 import subprocess
 from subprocess import PIPE
 
-p1 = subprocess.Popen(('./target/release/gomoku', 'x', '1000', 'true'), stdin=PIPE, stdout=PIPE)
-p2 = subprocess.Popen(('./target/release/gomoku', 'o', '1000' ), stdin=PIPE, stdout=PIPE)
+p1 = subprocess.Popen(('./rust', 'x', '1000', 'true'), stdin=PIPE, stdout=PIPE)
+p2 = subprocess.Popen(('python', './gomoku/__init__.py' ), stdin=PIPE, stdout=PIPE)
 
 on_turn = 0
 move = ''
@@ -15,20 +15,20 @@ def write_to_stdin(p, msg):
 def readline(p):
   return p.stdout.readline().decode('utf-8').rstrip()
 
-while p1.poll() is None and p2.poll() is None:
+while p1.poll() is None or p2.poll() is None:
   line = ''
   if on_turn == 0:
     if not written:
       print("\n")
       write_to_stdin(p1, move)
       written = True
-    
+
     line = readline(p1)
     print(f"1 {line}")
   else:
     if not written:
       print("\n")
-      write_to_stdin(p2, move)
+      write_to_stdin(p2, '!'+move)
       written = True
 
     line = readline(p2)
