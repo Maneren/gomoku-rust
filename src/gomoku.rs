@@ -10,6 +10,7 @@ pub use r#move::Move; // r# to allow reserved keyword as name
 use functions::{
   evaluate_board, get_dist_fn, nodes_sorted_by_shallow_eval, print_status, time_remaining,
 };
+use node::Node;
 use stats::Stats;
 
 use std::{
@@ -69,7 +70,11 @@ fn minimax_top_level(
   while time_remaining(end_time) {
     i += 1;
     print_status(
-      &format!("computing depth {} for {} nodes", i, nodes.len()),
+      &format!(
+        "computing depth {} for {} nodes",
+        i,
+        nodes.len() + nodes.iter().map(Node::node_count).sum::<usize>()
+      ),
       **end_time,
     );
 
@@ -107,6 +112,10 @@ fn minimax_top_level(
     }
 
     nodes.retain(|child| !child.state.is_lose());
+
+    if i >= 4 {
+      nodes.truncate(threads);
+    }
   }
 
   println!();

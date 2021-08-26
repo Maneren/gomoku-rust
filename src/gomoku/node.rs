@@ -1,7 +1,12 @@
 use super::{
   evaluate_board, get_dist_fn, time_remaining, Board, Move, Player, Score, Stats, TilePointer,
 };
-use std::{cmp::Ordering, fmt, sync::Arc, time::Instant};
+use std::{
+  cmp::{max, Ordering},
+  fmt,
+  sync::Arc,
+  time::Instant,
+};
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum State {
@@ -48,16 +53,49 @@ impl fmt::Display for State {
 }
 
 #[derive(Clone)]
+struct MoveSequence {
+  tile: TilePointer,
+  score: Score,
+  state: State,
+  next: Option<Box<Self>>,
+}
+impl MoveSequence {
+  fn new(node: &Node) -> Self {
+    MoveSequence {
+      tile: node.tile,
+      score: node.score,
+      state: node.state,
+      next: node
+        .child_nodes
+        .get(0)
+        .map(|node| Box::new(Self::new(node))),
+    }
+  }
+}
+
+impl fmt::Debug for MoveSequence {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    if let Some(child) = &self.next {
+      write!(f, "({:?}, {}) => {:#?}", self.tile, self.score, child)
+    } else if self.state.is_end() {
+      write!(f, "({:?}, {}, {})", self.tile, self.score, self.state)
+    } else {
+      write!(f, "({:?}, {})", self.tile, self.score)
+    }
+  }
+}
+
+#[derive(Clone)]
 pub struct Node {
   pub tile: TilePointer,
   pub state: State,
   pub valid: bool,
+  pub child_nodes: Vec<Node>,
 
   score: Score,
   original_score: Score,
   player: Player,
-  child_nodes: Vec<Node>,
-  best_child: Option<Box<Node>>,
+  best_moves: MoveSequence,
   depth: u8,
 
   end_time: Arc<Instant>,
@@ -75,29 +113,42 @@ impl Node {
 
     self.depth += 1;
 
-    board.set_tile(self.tile, Some(self.player));
-
-    if self.child_nodes.is_empty() {
+    if self.depth <= 1 {
+      board.set_tile(self.tile, Some(self.player));
       self.init_child_nodes(board, stats);
-    } else {
+      board.set_tile(self.tile, None);
+
+      return;
+    }
+
+    let limit = max(10 / self.depth, 1);
+    while self.child_nodes.len() > limit.into() && self.child_nodes.last().unwrap().score < 0 {
+      self.child_nodes.pop();
+    }
+    self.child_nodes.shrink_to_fit();
+
+    if !self.child_nodes.is_empty() {
+      board.set_tile(self.tile, Some(self.player));
+
       for node in &mut self.child_nodes {
         node.compute_next(board, stats);
 
         if !node.valid {
           self.valid = false;
-          return;
+          break;
         }
       }
 
-      self.eval();
-    }
+      board.set_tile(self.tile, None);
 
-    board.set_tile(self.tile, None);
+      if self.valid {
+        self.eval();
+      }
+    }
   }
 
   fn eval(&mut self) {
     self.child_nodes.sort_unstable_by(|a, b| b.cmp(a));
-
     self.analyze_child_nodes();
   }
 
@@ -107,10 +158,10 @@ impl Node {
       .get(0)
       .unwrap_or_else(|| panic!("no children in eval"));
 
-    self.best_child = Some(Box::new(best.clone()));
-
     self.score = self.original_score + -best.score;
     self.state = best.state.inversed();
+
+    self.best_moves = MoveSequence::new(&*self);
 
     self.child_nodes.retain(|child| !child.state.is_lose());
   }
@@ -171,10 +222,22 @@ impl Node {
       original_score: score,
       player,
       child_nodes: Vec::new(),
-      best_child: None,
+      best_moves: MoveSequence {
+        tile,
+        score,
+        state,
+        next: None,
+      },
       depth: 0,
       end_time,
     }
+  }
+
+  pub fn node_count(&self) -> usize {
+    1 + self
+      .child_nodes
+      .iter()
+      .fold(0, |total, n| total + n.node_count())
   }
 
   pub fn to_move(&self) -> Move {
@@ -207,23 +270,18 @@ impl Ord for Node {
 impl fmt::Debug for Node {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     if f.alternate() {
-      if let Some(child) = &self.best_child {
-        write!(f, "({:?}, {}) => {:#?}", self.tile, self.score, child)
-      } else if self.state.is_end() {
-        write!(f, "({:?}, {}, {})", self.tile, self.score, self.state)
-      } else {
-        write!(f, "({:?}, {})", self.tile, self.score)
-      }
+      write!(f, "{:?}", self.best_moves)
     } else {
       write!(
         f,
-        "({:?}, {}, {}, {}, {:?}, {})",
+        "({:?}, {}, {}, {}, {:?}, {}, {})",
         self.tile,
         self.score,
         self.depth,
         self.player,
         self.state,
-        if self.valid { "valid" } else { "invalid" }
+        if self.valid { "valid" } else { "invalid" },
+        self.node_count()
       )
     }
   }
