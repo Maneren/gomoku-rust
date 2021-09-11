@@ -2,10 +2,8 @@ import subprocess
 from subprocess import PIPE
 import time
 
-time_limit = 10
-
-p1 = subprocess.Popen(('python3', './gomoku/__init__.py' ), stdin=PIPE, stdout=PIPE)
-p2 = subprocess.Popen(('./rust', 'x', str(time_limit * 1000), 'false', '-b', '15'), stdin=PIPE, stdout=PIPE)
+p1 = subprocess.Popen(('./rust', 'x', '1000', 'true'), stdin=PIPE, stdout=PIPE)
+p2 = subprocess.Popen(('python', './gomoku/__init__.py' ), stdin=PIPE, stdout=PIPE)
 
 on_turn = 0
 move = '.'
@@ -36,7 +34,7 @@ while p1.poll() is None or p2.poll() is None:
   else:
     if not written:
       print("\n")
-      write_to_stdin(p2, move)
+      write_to_stdin(p2, '!'+move)
       written = True
       # time.sleep(time_limit + 2)
       # write_to_stdin(p2, '')
