@@ -1,12 +1,7 @@
 use super::{
   evaluate_board, get_dist_fn, time_remaining, Board, Move, Player, Score, Stats, TilePointer,
 };
-use std::{
-  cmp::{max, Ordering},
-  fmt,
-  sync::Arc,
-  time::Instant,
-};
+use std::{cmp::Ordering, fmt, sync::Arc, time::Instant};
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum State {
@@ -68,7 +63,7 @@ impl MoveSequence {
       next: node
         .child_nodes
         .get(0)
-        .map(|node| Box::new(Self::new(node))),
+        .map(|node| Box::new(node.best_moves.clone())),
     }
   }
 }
@@ -121,11 +116,15 @@ impl Node {
       return;
     }
 
-    let limit = max(10 / self.depth, 1);
-    while self.child_nodes.len() > limit.into() && self.child_nodes.last().unwrap().score < 0 {
+    let limit = match self.depth {
+      0 | 1 | 2 => 10,
+      3 | 4 | 5 => 5,
+      6 | 7 => 2,
+      _ => 1,
+    };
+    while self.child_nodes.len() > limit && self.child_nodes.last().unwrap().score < 0 {
       self.child_nodes.pop();
     }
-    self.child_nodes.shrink_to_fit();
 
     if !self.child_nodes.is_empty() {
       board.set_tile(self.tile, Some(self.player));
@@ -158,7 +157,7 @@ impl Node {
       .get(0)
       .unwrap_or_else(|| panic!("no children in eval"));
 
-    self.score = self.original_score + -best.score;
+    self.score = self.original_score / 10 + -best.score;
     self.state = best.state.inversed();
 
     self.best_moves = MoveSequence::new(&*self);

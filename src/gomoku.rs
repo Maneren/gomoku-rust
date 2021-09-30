@@ -159,3 +159,69 @@ pub fn decide(
 
   Ok((move_, stats))
 }
+
+#[allow(
+  clippy::cast_precision_loss,
+  clippy::cast_possible_truncation,
+  clippy::cast_sign_loss
+)]
+pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
+  let end = Arc::new(
+    Instant::now()
+      .checked_add(Duration::from_secs(time_limit))
+      .unwrap(),
+  );
+
+  let board = Board::get_empty_board(board_size);
+  let counter_arc = Arc::new(Mutex::new(0));
+  let tile = TilePointer { x: 8, y: 8 };
+
+  let pool = ThreadPool::with_name(String::from("node"), threads);
+  for _ in 0..threads {
+    let mut board_clone = board.clone();
+    let counter_arc_clone = counter_arc.clone();
+    let end_clone = end.clone();
+
+    pool.execute(move || {
+      let mut i = 0;
+      while time_remaining(&end_clone) {
+        board_clone.set_tile(tile, Some(Player::X));
+        let (..) = evaluate_board(&board_clone, Player::O);
+        board_clone.set_tile(tile, None);
+        i += 1;
+      }
+      *counter_arc_clone.lock().unwrap() += i;
+    });
+  }
+
+  pool.join();
+  if pool.panic_count() > 0 {
+    panic!("{} node threads panicked", pool.panic_count());
+  };
+
+  let format_number = |number: f32| {
+    let sizes = [' ', 'k', 'M', 'G', 'T'];
+
+    let base = 1000.0;
+    let i = number.log(base).floor();
+    let number = format!("{:.2}", number / base.powi(i as i32));
+    if i > 1.0 {
+      format!("{}{}", number, sizes[i as usize])
+    } else {
+      number
+    }
+  };
+
+  let counter = *counter_arc.lock().unwrap();
+  let per_second = counter / time_limit as u64;
+  println!(
+    "total evals = {} ({})",
+    counter,
+    format_number(counter as f32)
+  );
+  println!(
+    "evals/s = {} ({})",
+    per_second,
+    format_number(per_second as f32),
+  );
+}

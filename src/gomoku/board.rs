@@ -123,7 +123,7 @@ impl Board {
     // horizontal
     for y in 0..board_size {
       let temp = (0..board_size)
-        .map(|x| Self::get_index(board_size, x, y))
+        .map(|x| Self::get_index_raw(board_size, x, y))
         .collect();
       sequences.push(temp);
     }
@@ -131,7 +131,7 @@ impl Board {
     // vertical
     for x in 0..board_size {
       let temp = (0..board_size)
-        .map(|y| Self::get_index(board_size, x, y))
+        .map(|y| Self::get_index_raw(board_size, x, y))
         .collect();
       sequences.push(temp);
     }
@@ -146,7 +146,7 @@ impl Board {
           .map(|i| {
             let x = start + i;
             let y = end - i - 1;
-            Self::get_index(board_size, x, y)
+            Self::get_index_raw(board_size, x, y)
           })
           .collect();
 
@@ -170,7 +170,7 @@ impl Board {
           .map(|i| {
             let x = board_size - (start + i) - 1;
             let y = end - i - 1;
-            Self::get_index(board_size, x, y)
+            Self::get_index_raw(board_size, x, y)
           })
           .collect();
 
@@ -193,8 +193,7 @@ impl Board {
       .collect()
   }
 
-  //FIXME: This is very ugly code
-  pub fn get_all_tile_sequences(&self) -> &[Vec<usize>] {
+  pub fn sequences(&self) -> &[Vec<usize>] {
     &self.sequences
   }
 
@@ -243,14 +242,18 @@ impl Board {
     Ok(board)
   }
 
-  fn get_index(size: u8, x: u8, y: u8) -> usize {
+  fn get_index(size: u8, ptr: TilePointer) -> usize {
+    let TilePointer { x, y } = ptr;
+    Self::get_index_raw(size, x, y)
+  }
+
+  fn get_index_raw(size: u8, x: u8, y: u8) -> usize {
     let index = size * y + x;
     index as usize
   }
 
   pub fn get_tile(&self, ptr: &TilePointer) -> &Tile {
-    let TilePointer { x, y } = *ptr;
-    let index = Self::get_index(self.size, x, y);
+    let index = Self::get_index(self.size, *ptr);
     self.get_tile_raw(index)
   }
 
@@ -262,10 +265,10 @@ impl Board {
   }
 
   pub fn set_tile(&mut self, ptr: TilePointer, value: Tile) {
-    let TilePointer { x, y } = ptr;
+    let index = Self::get_index(self.size, ptr);
 
-    if (value.is_some() && self.get_tile(&ptr).is_some())
-      || (value.is_none() && self.get_tile(&ptr).is_none())
+    if (value.is_some() && self.get_tile_raw(index).is_some())
+      || (value.is_none() && self.get_tile_raw(index).is_none())
     {
       panic!(
         "attempted to overwrite tile {:?} with value {:?} at board \n{}",
@@ -273,7 +276,6 @@ impl Board {
       );
     }
 
-    let index = Self::get_index(self.size, x, y);
     self.data[index] = value;
   }
 

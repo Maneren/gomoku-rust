@@ -4,7 +4,7 @@
 use std::{fs::File, io::prelude::Read, time::Instant};
 
 mod gomoku;
-use gomoku::{Board, Move, Player, Tile, TilePointer};
+use gomoku::{Board, Move, Player, TilePointer, perf};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -12,11 +12,34 @@ use clap::{value_t, App, Arg};
 
 fn main() {
   let matches = App::new("Gomoku")
-    .version("1.0")
+    .version("5.0")
+    .subcommand(
+      App::new("perf")
+        .arg(
+          Arg::with_name("threads")
+            .short("t")
+            .long("threads")
+            .help("How many threads to use (default is thread count of your CPU)")
+            .takes_value(true),
+        )
+        .arg(
+          Arg::with_name("time")
+            .short("m")
+            .long("time")
+            .help("Time limit in seconds (default is 10)")
+            .takes_value(true),
+        )
+        .arg(
+          Arg::with_name("board")
+            .short("b")
+            .long("board")
+            .help("Size of game board")
+            .takes_value(true),
+        ),
+    )
     .arg(
       Arg::with_name("player")
         .help("X or O")
-        .required(true)
         .index(1)
         .possible_values(&["X", "O", "x", "o"]),
     )
@@ -24,12 +47,6 @@ fn main() {
       Arg::with_name("time")
         .help("Time limit in milliseconds (default is 1000)")
         .index(2),
-    )
-    .arg(
-      Arg::with_name("start")
-        .help("Is this player starting")
-        .index(3)
-        .possible_values(&["true", "false"]),
     )
     .arg(
       Arg::with_name("debug")
@@ -43,7 +60,7 @@ fn main() {
       Arg::with_name("threads")
         .short("t")
         .long("threads")
-        .help("How many threads to use (default is ")
+        .help("How many threads to use (default is thread count of your CPU)")
         .takes_value(true),
     )
     .arg(
@@ -57,32 +74,39 @@ fn main() {
     )
     .get_matches();
 
+  if let Some(matches) = matches.subcommand_matches("perf") {
+    let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
+    let time_limit = value_t!(matches, "time", u64).unwrap_or(10);
+    let board_size = value_t!(matches, "board", u8).unwrap_or(15);
+    perf(time_limit, threads, board_size);
+    return;
+  }
+
   let player = match matches.value_of("player").unwrap_or("o") {
     "x" | "X" => Player::X,
     "o" | "O" => Player::O,
     _ => panic!("Invalid player"),
   };
 
-  let max_time = value_t!(matches, "time", u64).unwrap_or(1000);
-  let start = value_t!(matches, "start", bool).unwrap_or(false);
+  let time_limit = value_t!(matches, "time", u64).unwrap_or(1000);
 
   let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
   let board_size = value_t!(matches, "board", u8).unwrap_or(15);
 
   if let Some(path) = matches.value_of("debug") {
-    match run_debug(path, player, max_time, threads) {
+    match run_debug(path, player, time_limit, threads) {
       Ok(_) => println!("Done!"),
       Err(msg) => println!("Error: {}", msg),
     }
   } else {
-    run(player, max_time, start, threads, board_size);
+    run(player, time_limit, threads, board_size);
   }
 }
 
 fn run_debug(
   path_to_input: &str,
   player: Player,
-  max_time: u64,
+  time_limit: u64,
   threads: usize,
 ) -> Result<(), Error> {
   let input_string = load_input(path_to_input)?;
@@ -90,11 +114,11 @@ fn run_debug(
 
   println!("{}", board);
 
-  println!("Searching with max time {} ms\n", max_time);
+  println!("Searching with max time {} ms\n", time_limit);
 
   let start = Instant::now();
 
-  let result = gomoku::decide(&mut board, player, max_time, threads);
+  let result = gomoku::decide(&mut board, player, time_limit, threads);
   let run_time = start.elapsed().as_micros();
 
   let unwrapped;
@@ -127,12 +151,12 @@ fn load_input(path: &str) -> Result<String, Error> {
   Ok(contents)
 }
 
-fn run(player: Player, max_time: u64, start: bool, threads: usize, board_size: u8) {
+fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
   use text_io::read;
   let mut board = Board::get_empty_board(board_size);
 
   let prefix = '!';
-  if start {
+  if player == Player::X {
     let middle = board_size / 2;
     let tile = TilePointer {
       x: middle,
@@ -185,7 +209,7 @@ fn run(player: Player, max_time: u64, start: bool, threads: usize, board_size: u
     }
 
     let start = Instant::now();
-    let result = gomoku::decide(&mut board, player, max_time, threads);
+    let result = gomoku::decide(&mut board, player, time_limit, threads);
     let run_time = start.elapsed().as_micros();
 
     let unwrapped;
@@ -226,9 +250,9 @@ fn print_runtime(run_time: u128) {
 
 fn is_game_end(board: &Board, current_player: Player) -> bool {
   board
-    .get_all_tile_sequences()
-    .into_iter()
-    .any(|sequence| is_game_end_sequence(&sequence, current_player, board))
+    .sequences()
+    .iter()
+    .any(|sequence| is_game_end_sequence(sequence, current_player, board))
 }
 
 fn is_game_end_sequence(sequence: &[usize], current_player: Player, board: &Board) -> bool {

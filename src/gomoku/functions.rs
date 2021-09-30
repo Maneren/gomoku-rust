@@ -1,6 +1,6 @@
 use super::{
   node::{Node, State},
-  Board, Player, Score, Stats, Tile, TilePointer,
+  Board, Player, Score, Stats, TilePointer,
 };
 use std::{
   sync::Arc,
@@ -144,19 +144,16 @@ fn eval_sequence(
 pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
   let mut is_win = false;
 
-  let score = board
-    .get_all_tile_sequences()
-    .into_iter()
-    .fold(0, |total, sequence| {
-      let (player_score, is_winning) = eval_sequence(sequence, current_player, false, board);
-      let (opponent_score, _) = eval_sequence(sequence, current_player.next(), true, board);
+  let score = board.sequences().iter().fold(0, |total, sequence| {
+    let (player_score, is_winning) = eval_sequence(sequence, current_player, false, board);
+    let (opponent_score, _) = eval_sequence(sequence, current_player.next(), true, board);
 
-      if is_winning {
-        is_win |= is_winning;
-      }
+    if is_winning {
+      is_win |= is_winning;
+    }
 
-      total + player_score - opponent_score
-    });
+    total + player_score - opponent_score
+  });
 
   let state = if is_win { State::Win } else { State::NotEnd };
 
