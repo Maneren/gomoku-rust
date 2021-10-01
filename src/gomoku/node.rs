@@ -117,9 +117,10 @@ impl Node {
     }
 
     let limit = match self.depth {
-      0 | 1 | 2 => 10,
-      3 | 4 | 5 => 5,
-      6 | 7 => 2,
+      0 => 10,
+      1 | 2 => 5,
+      3 | 4 | 5 => 3,
+      6 | 7 | 8 => 2,
       _ => 1,
     };
     while self.child_nodes.len() > limit && self.child_nodes.last().unwrap().score < 0 {
