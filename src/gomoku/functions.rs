@@ -152,14 +152,14 @@ fn eval_sequence(sequence: &[usize], evaluate_for: Player, board: &Board) -> (Sc
 }
 
 pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
-  let mut is_win = false;
+  let (score, is_win) = board
+    .sequences()
+    .iter()
+    .fold((0, false), |(total, is_win), sequence| {
+      let (score, is_winning) = eval_sequence(sequence, current_player, board);
 
-  let score = board.sequences().iter().fold(0, |total, sequence| {
-    let (score, is_winning) = eval_sequence(sequence, current_player, board);
-
-    is_win |= is_winning;
-    total + score
-  });
+      (total + score, is_win | is_winning)
+    });
 
   let state = if is_win { State::Win } else { State::NotEnd };
 
@@ -219,11 +219,11 @@ pub fn nodes_sorted_by_shallow_eval(
   nodes
 }
 
-pub fn print_status(msg: &str, end_time: Instant) {
+pub fn print_status(msg: &str, end_time: &Arc<Instant>) {
   println!(
     "{} ({:?} remaining)",
     msg,
-    end_time
+    (*end_time)
       .checked_duration_since(Instant::now())
       .unwrap_or(Duration::ZERO)
   );

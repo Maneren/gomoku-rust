@@ -2,9 +2,11 @@ mod board;
 mod functions;
 mod r#move; // r# to allow reserved keyword as name
 mod node;
+mod player;
 mod stats;
 
-pub use board::{Board, Player, Tile, TilePointer};
+pub use board::{Board, TilePointer};
+pub use player::Player;
 pub use r#move::Move; // r# to allow reserved keyword as name
 
 use functions::{
@@ -21,6 +23,7 @@ use std::{
 
 use threadpool::ThreadPool;
 
+type Tile = Option<Player>;
 type Score = i32;
 
 fn minimax_top_level(
@@ -34,19 +37,14 @@ fn minimax_top_level(
   let empty_tiles = board.get_empty_tiles()?;
   print_status(
     &format!("computing depth 1 for {} nodes", empty_tiles.len()),
-    **end_time,
+    end_time,
   );
   let presorted_nodes =
     nodes_sorted_by_shallow_eval(board, empty_tiles, &mut stats, current_player, end_time);
 
   // if there is winning move, return it
-  let winning_node = presorted_nodes
-    .iter()
-    .filter(|node| node.state.is_win())
-    .max();
-
-  if let Some(node) = winning_node {
-    return Ok((node.to_move(), stats));
+  if let Some(winning_move) = check_winning(&presorted_nodes, stats) {
+    return Ok(winning_move);
   }
 
   #[allow(
@@ -55,7 +53,6 @@ fn minimax_top_level(
     clippy::cast_sign_loss
   )]
   let moves_count = (1.5 * (presorted_nodes.len() as f32).sqrt()) as usize;
-
   let presorted_nodes: Vec<_> = presorted_nodes.into_iter().take(moves_count).collect();
 
   let pool = ThreadPool::with_name(String::from("node"), threads);
@@ -69,13 +66,10 @@ fn minimax_top_level(
 
   while time_remaining(end_time) {
     i += 1;
+    let node_count = nodes.len() + nodes.iter().map(Node::node_count).sum::<usize>();
     print_status(
-      &format!(
-        "computing depth {} for {} nodes",
-        i,
-        nodes.len() + nodes.iter().map(Node::node_count).sum::<usize>()
-      ),
-      **end_time,
+      &format!("computing depth {} for {} nodes", i, node_count),
+      end_time,
     );
 
     for mut node in nodes {
@@ -93,7 +87,7 @@ fn minimax_top_level(
 
     pool.join();
     if pool.panic_count() > 0 {
-      panic!("{} node threads panicked", pool.panic_count());
+      panic!("{} node-threads panicked", pool.panic_count());
     };
 
     // HACK: get the nodes from the arc-mutex
@@ -142,6 +136,14 @@ fn minimax_top_level(
   println!("Best moves: {:#?}", best_node);
 
   Ok((best_node.to_move(), stats))
+}
+
+fn check_winning(presorted_nodes: &[Node], stats: Stats) -> Option<(Move, Stats)> {
+  presorted_nodes
+    .iter()
+    .filter(|node| node.state.is_win())
+    .max()
+    .map(|node| (node.to_move(), stats))
 }
 
 pub fn decide(
