@@ -68,12 +68,9 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool, is_on_turn: bool)
   }
 }
 
-fn eval_sequence(
-  sequence: &[usize],
-  evaluate_for: Player,
-  is_on_turn: bool,
-  board: &Board,
-) -> (Score, bool) {
+fn eval_sequence(sequence: &[usize], evaluate_for: Player, board: &Board) -> (Score, bool) {
+  let mut current = evaluate_for;
+
   let mut score = 0;
   let mut consecutive = 0;
   let mut open_ends = 0;
@@ -81,24 +78,40 @@ fn eval_sequence(
 
   let mut is_win = false;
 
+  let get_score = |player: &Player, consecutive: u8, open_ends: u8, has_hole: bool| {
+    let (score, win) = shape_score(
+      consecutive,
+      open_ends,
+      has_hole,
+      player == &evaluate_for.next(),
+    );
+    if player == &evaluate_for {
+      (score, win)
+    } else {
+      (-score, false)
+    }
+  };
+
   for (index, &tile) in sequence.iter().enumerate() {
-    if let Some(player) = board.get_tile_raw(tile) {
-      if player == &evaluate_for {
+    if let Some(player) = *board.get_tile_raw(tile) {
+      if player == current {
         consecutive += 1;
         continue;
       }
 
       // opponent's tile
       if consecutive > 0 {
-        let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole, is_on_turn);
+        let (shape_score, is_win_shape) = get_score(&current, consecutive, open_ends, has_hole);
         score += shape_score;
-        if is_win_shape {
-          is_win = true;
-        }
+        is_win |= is_win_shape;
+
+        open_ends = 0;
+      } else {
+        open_ends = 1;
       }
 
-      consecutive = 0;
-      open_ends = 0;
+      consecutive = 1;
+      current = player;
     } else {
       // empty tile
       if consecutive == 0 {
@@ -109,7 +122,7 @@ fn eval_sequence(
 
       if !has_hole
         && index + 1 < sequence.len()
-        && board.get_tile_raw(sequence[index + 1]) == &Some(evaluate_for)
+        && board.get_tile_raw(sequence[index + 1]) == &Some(current)
       {
         has_hole = true;
         consecutive += 1;
@@ -118,11 +131,10 @@ fn eval_sequence(
 
       open_ends += 1;
 
-      let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole, is_on_turn);
+      let (shape_score, is_win_shape) = get_score(&current, consecutive, open_ends, has_hole);
+
       score += shape_score;
-      if is_win_shape {
-        is_win = true;
-      }
+      is_win |= is_win_shape;
 
       consecutive = 0;
       open_ends = 1;
@@ -131,11 +143,9 @@ fn eval_sequence(
   }
 
   if consecutive > 0 {
-    let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole, is_on_turn);
+    let (shape_score, is_win_shape) = get_score(&current, consecutive, open_ends, has_hole);
     score += shape_score;
-    if is_win_shape {
-      is_win = true;
-    }
+    is_win |= is_win_shape;
   }
 
   (score, is_win)
@@ -145,14 +155,10 @@ pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
   let mut is_win = false;
 
   let score = board.sequences().iter().fold(0, |total, sequence| {
-    let (player_score, is_winning) = eval_sequence(sequence, current_player, false, board);
-    let (opponent_score, _) = eval_sequence(sequence, current_player.next(), true, board);
+    let (score, is_winning) = eval_sequence(sequence, current_player, board);
 
-    if is_winning {
-      is_win |= is_winning;
-    }
-
-    total + player_score - opponent_score
+    is_win |= is_winning;
+    total + score
   });
 
   let state = if is_win { State::Win } else { State::NotEnd };
@@ -185,7 +191,7 @@ pub fn nodes_sorted_by_shallow_eval(
   board: &mut Board,
   empty_tiles: Vec<TilePointer>,
   stats: &mut Stats,
-  current_player: Player,
+  target_player: Player,
   end_time: &Arc<Instant>,
 ) -> Vec<Node> {
   let dist = get_dist_fn(board.get_size());
@@ -193,13 +199,13 @@ pub fn nodes_sorted_by_shallow_eval(
   let mut nodes: Vec<_> = empty_tiles
     .into_iter()
     .map(|tile| {
-      board.set_tile(tile, Some(current_player));
-      let (analysis, state) = evaluate_board(board, current_player);
+      board.set_tile(tile, Some(target_player));
+      let (analysis, state) = evaluate_board(board, target_player);
       board.set_tile(tile, None);
 
       Node::new(
         tile,
-        current_player,
+        target_player,
         analysis - dist(tile),
         state,
         end_time.clone(),
