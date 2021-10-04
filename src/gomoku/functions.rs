@@ -72,23 +72,21 @@ fn eval_sequence(sequence: &[usize], evaluate_for: Player, board: &Board) -> (Sc
   let mut current = evaluate_for;
 
   let mut score = 0;
+  let mut is_win = false;
+
   let mut consecutive = 0;
   let mut open_ends = 0;
   let mut has_hole = false;
 
-  let mut is_win = false;
-
   let get_score = |player: &Player, consecutive: u8, open_ends: u8, has_hole: bool| {
-    let (score, win) = shape_score(
-      consecutive,
-      open_ends,
-      has_hole,
-      player == &evaluate_for.next(),
-    );
-    if player == &evaluate_for {
+    let is_target = player == &evaluate_for;
+
+    let (score, win) = shape_score(consecutive, open_ends, has_hole, !is_target);
+
+    if is_target {
       (score, win)
     } else {
-      (-score, false)
+      (-score, win)
     }
   };
 
