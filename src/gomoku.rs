@@ -176,8 +176,12 @@ pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
 
   let board = Board::get_empty_board(board_size);
   let counter_arc = Arc::new(Mutex::new(0));
-  let tile = TilePointer { x: 8, y: 8 };
+  let tile = TilePointer {
+    x: board_size / 2,
+    y: board_size / 2,
+  };
 
+  let start = Instant::now();
   let pool = ThreadPool::with_name(String::from("node"), threads);
   for _ in 0..threads {
     let mut board_clone = board.clone();
@@ -201,6 +205,8 @@ pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
     panic!("{} node threads panicked", pool.panic_count());
   };
 
+  let elapsed = start.elapsed().as_millis() as u64;
+
   let format_number = |number: f32| {
     let sizes = [' ', 'k', 'M', 'G', 'T'];
 
@@ -215,7 +221,7 @@ pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
   };
 
   let counter = *counter_arc.lock().unwrap();
-  let per_second = counter / time_limit as u64;
+  let per_second = counter * 1000 / elapsed; // * 1000 to account for milliseconds
   println!(
     "total evals = {} ({})",
     counter,
