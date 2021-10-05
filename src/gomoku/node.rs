@@ -1,7 +1,11 @@
 use super::{
-  evaluate_board, get_dist_fn, time_remaining, Board, Move, Player, Score, Stats, TilePointer,
+  evaluate_board, get_dist_fn, do_run, Board, Move, Player, Score, Stats, TilePointer,
 };
-use std::{cmp::Ordering, fmt, sync::Arc, time::Instant};
+use std::{
+  cmp::Ordering,
+  fmt,
+  sync::{atomic::AtomicBool, Arc},
+};
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum State {
@@ -93,7 +97,7 @@ pub struct Node {
   best_moves: MoveSequence,
   depth: u8,
 
-  end_time: Arc<Instant>,
+  end: Arc<AtomicBool>,
 }
 impl Node {
   pub fn compute_next(&mut self, board: &mut Board, stats: &mut Stats) {
@@ -101,7 +105,7 @@ impl Node {
       return;
     }
 
-    if !time_remaining(&self.end_time) {
+    if !do_run(&self.end) {
       self.valid = false;
       return;
     }
@@ -193,7 +197,7 @@ impl Node {
           next_player,
           analysis - dist(tile),
           state,
-          self.end_time.clone(),
+          self.end.clone(),
           stats,
         )
       })
@@ -210,7 +214,7 @@ impl Node {
     player: Player,
     score: Score,
     state: State,
-    end_time: Arc<Instant>,
+    end: Arc<AtomicBool>,
     stats: &mut Stats,
   ) -> Node {
     stats.create_node();
@@ -229,7 +233,7 @@ impl Node {
         next: None,
       },
       depth: 0,
-      end_time,
+      end,
     }
   }
 

@@ -3,7 +3,10 @@ use super::{
   Board, Player, Score, Stats, TilePointer,
 };
 use std::{
-  sync::Arc,
+  sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+  },
   time::{Duration, Instant},
 };
 
@@ -181,8 +184,8 @@ pub fn get_dist_fn(board_size: u8) -> Box<dyn Fn(TilePointer) -> Score> {
   Box::new(function)
 }
 
-pub fn time_remaining(end_time: &Arc<Instant>) -> bool {
-  end_time.checked_duration_since(Instant::now()).is_some()
+pub fn do_run(end: &Arc<AtomicBool>) -> bool {
+  !end.load(Ordering::Relaxed)
 }
 
 pub fn nodes_sorted_by_shallow_eval(
@@ -190,7 +193,7 @@ pub fn nodes_sorted_by_shallow_eval(
   empty_tiles: Vec<TilePointer>,
   stats: &mut Stats,
   target_player: Player,
-  end_time: &Arc<Instant>,
+  end: &Arc<AtomicBool>,
 ) -> Vec<Node> {
   let dist = get_dist_fn(board.get_size());
 
@@ -206,7 +209,7 @@ pub fn nodes_sorted_by_shallow_eval(
         target_player,
         analysis - dist(tile),
         state,
-        end_time.clone(),
+        end.clone(),
         stats,
       )
     })
@@ -217,7 +220,7 @@ pub fn nodes_sorted_by_shallow_eval(
   nodes
 }
 
-pub fn print_status(msg: &str, end_time: &Arc<Instant>) {
+pub fn print_status(msg: &str, end_time: &Instant) {
   println!(
     "{} ({:?} remaining)",
     msg,
