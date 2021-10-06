@@ -1,60 +1,25 @@
 use super::{
-  evaluate_board, get_dist_fn, do_run, Board, Move, Player, Score, Stats, TilePointer,
+  board::{Board, TilePointer},
+  functions::{eval_relevant_sequences, get_dist_fn},
+  player::Player,
+  r#move::Move,
+  state::State,
+  stats::Stats,
+  utils::do_run,
+  Score,
 };
+use core::panic;
 use std::{
   cmp::Ordering,
   fmt,
   sync::{atomic::AtomicBool, Arc},
 };
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub enum State {
-  NotEnd,
-  Win,
-  Lose,
-  Draw,
-}
-impl State {
-  pub fn is_end(self) -> bool {
-    !matches!(self, Self::NotEnd)
-  }
-
-  pub fn is_win(self) -> bool {
-    matches!(self, Self::Win)
-  }
-
-  pub fn is_lose(self) -> bool {
-    matches!(self, Self::Lose)
-  }
-
-  pub fn inversed(self) -> Self {
-    match self {
-      Self::NotEnd => Self::NotEnd,
-      Self::Draw => Self::Draw,
-      Self::Win => Self::Lose,
-      Self::Lose => Self::Win,
-    }
-  }
-}
-impl fmt::Display for State {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(
-      f,
-      "{}",
-      match self {
-        Self::NotEnd => "Not an end",
-        Self::Draw => "Draw",
-        Self::Win => "Win",
-        Self::Lose => "Lose",
-      }
-    )
-  }
-}
-
 #[derive(Clone)]
 struct MoveSequence {
   tile: TilePointer,
   score: Score,
+  player: Player,
   state: State,
   next: Option<Box<Self>>,
 }
@@ -63,6 +28,7 @@ impl MoveSequence {
     MoveSequence {
       tile: node.tile,
       score: node.score,
+      player: node.player,
       state: node.state,
       next: node
         .child_nodes
@@ -75,11 +41,19 @@ impl MoveSequence {
 impl fmt::Debug for MoveSequence {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     if let Some(child) = &self.next {
-      write!(f, "({:?}, {}) => {:#?}", self.tile, self.score, child)
+      write!(
+        f,
+        "({:?}, {}, {}) => {:#?}",
+        self.tile, self.score, self.player, child
+      )
     } else if self.state.is_end() {
-      write!(f, "({:?}, {}, {})", self.tile, self.score, self.state)
+      write!(
+        f,
+        "({:?}, {}, {}, {})",
+        self.tile, self.score, self.player, self.state
+      )
     } else {
-      write!(f, "({:?}, {})", self.tile, self.score)
+      write!(f, "({:?}, {}, {})", self.tile, self.score, self.player)
     }
   }
 }
@@ -131,23 +105,25 @@ impl Node {
       self.child_nodes.pop();
     }
 
-    if !self.child_nodes.is_empty() {
-      board.set_tile(self.tile, Some(self.player));
+    if self.child_nodes.is_empty() {
+      panic!("empty child nodes");
+    }
 
-      for node in &mut self.child_nodes {
-        node.compute_next(board, stats);
+    board.set_tile(self.tile, Some(self.player));
 
-        if !node.valid {
-          self.valid = false;
-          break;
-        }
+    for node in &mut self.child_nodes {
+      node.compute_next(board, stats);
+
+      if !node.valid {
+        self.valid = false;
+        break;
       }
+    }
 
-      board.set_tile(self.tile, None);
+    board.set_tile(self.tile, None);
 
-      if self.valid {
-        self.eval();
-      }
+    if self.valid {
+      self.eval();
     }
   }
 
@@ -187,15 +163,39 @@ impl Node {
       .into_iter()
       .map(|tile| {
         let next_player = self.player.next();
+        let mut score = self.original_score;
+
+        let (prev_score, ..) = eval_relevant_sequences(board, tile);
+
+        score -= prev_score[self.player.index()];
+        score += prev_score[next_player.index()];
 
         board.set_tile(tile, Some(next_player));
-        let (analysis, state) = evaluate_board(board, next_player);
+
+        let (new_score, new_state) = eval_relevant_sequences(board, tile);
+
+        score *= -1;
+
+        score += new_score[next_player.index()];
+        score -= new_score[self.player.index()];
+
         board.set_tile(tile, None);
+
+        let state = {
+          let self_state = new_state[next_player.index()];
+          let opponent_state = new_state[next_player.next().index()];
+
+          match (self_state, opponent_state) {
+            (true, _) => State::Win,
+            (_, true) => State::Lose,
+            _ => State::NotEnd,
+          }
+        };
 
         Node::new(
           tile,
           next_player,
-          analysis - dist(tile),
+          score - dist(tile),
           state,
           self.end.clone(),
           stats,
@@ -228,6 +228,7 @@ impl Node {
       child_nodes: Vec::new(),
       best_moves: MoveSequence {
         tile,
+        player,
         score,
         state,
         next: None,

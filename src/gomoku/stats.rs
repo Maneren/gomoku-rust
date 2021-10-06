@@ -1,5 +1,7 @@
 use std::{fmt, ops::Add};
 
+use super::utils::format_number;
+
 #[derive(Debug, Copy, Clone)]
 pub struct Stats {
   pub nodes_evaluated: u32,
@@ -14,8 +16,14 @@ impl Stats {
   }
 }
 impl fmt::Display for Stats {
+  #[allow(clippy::cast_precision_loss)]
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "Nodes evaluated: {}", self.nodes_evaluated)
+    write!(
+      f,
+      "Nodes evaluated: {} ({})",
+      self.nodes_evaluated,
+      format_number(self.nodes_evaluated as f32)
+    )
   }
 }
 impl Add for Stats {

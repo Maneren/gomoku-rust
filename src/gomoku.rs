@@ -3,17 +3,18 @@ mod functions;
 mod r#move; // r# to allow reserved keyword as name
 mod node;
 mod player;
+mod state;
 mod stats;
+mod utils;
 
 pub use board::{Board, TilePointer};
 pub use player::Player;
 pub use r#move::Move; // r# to allow reserved keyword as name
 
-use functions::{
-  evaluate_board, get_dist_fn, nodes_sorted_by_shallow_eval, print_status, do_run,
-};
+use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
 use node::Node;
 use stats::Stats;
+use utils::{do_run, format_number, print_status};
 
 use std::{
   ops::Add,
@@ -128,6 +129,14 @@ fn minimax_top_level(
   }
 
   println!();
+  // println!(
+  //   "{}",
+  //   nodes_generations
+  //     .iter()
+  //     .map(|n| format!("{:?}", n))
+  //     .collect::<Vec<_>>()
+  //     .join("\n\n")
+  // );
 
   if nodes.iter().any(|node| node.state.is_win()) {
     println!("Winning move found!",);
@@ -153,14 +162,6 @@ fn minimax_top_level(
   Ok((best_node.to_move(), stats))
 }
 
-fn check_winning(presorted_nodes: &[Node], stats: Stats) -> Option<(Move, Stats)> {
-  presorted_nodes
-    .iter()
-    .filter(|node| node.state.is_win())
-    .max()
-    .map(|node| (node.to_move(), stats))
-}
-
 pub fn decide(
   board: &mut Board,
   player: Player,
@@ -176,11 +177,7 @@ pub fn decide(
   Ok((move_, stats))
 }
 
-#[allow(
-  clippy::cast_precision_loss,
-  clippy::cast_possible_truncation,
-  clippy::cast_sign_loss
-)]
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
   let time_limit = Duration::from_secs(time_limit);
   let end = Arc::new(AtomicBool::new(false));
@@ -225,19 +222,6 @@ pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
   };
 
   let elapsed = start.elapsed().as_millis() as u64;
-
-  let format_number = |number: f32| {
-    let sizes = [' ', 'k', 'M', 'G', 'T'];
-
-    let base = 1000.0;
-    let i = number.log(base).floor();
-    let number = format!("{:.2}", number / base.powi(i as i32));
-    if i > 1.0 {
-      format!("{}{}", number, sizes[i as usize])
-    } else {
-      number
-    }
-  };
 
   let counter = *counter_arc.lock().unwrap();
   let per_second = counter * 1000 / elapsed; // * 1000 to account for milliseconds

@@ -20,6 +20,13 @@ impl Player {
       Player::O => 'o',
     }
   }
+
+  pub fn index(self) -> usize {
+    match self {
+      Player::X => 0,
+      Player::O => 1,
+    }
+  }
 }
 impl fmt::Debug for Player {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -35,6 +42,6 @@ impl fmt::Debug for Player {
 }
 impl fmt::Display for Player {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{:?}", self.char())
+    write!(f, "{}", self.char())
   }
 }
