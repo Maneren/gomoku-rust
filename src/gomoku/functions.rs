@@ -5,7 +5,7 @@ use super::{
   r#move::Move,
   state::State,
   stats::Stats,
-  Score,
+  Score, Tile,
 };
 use std::sync::{atomic::AtomicBool, Arc};
 
@@ -48,23 +48,19 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) 
 pub type EvalScore = [Score; 2];
 pub type EvalWin = [bool; 2];
 
-fn eval_sequence(sequence: &[usize], board: &Board) -> (EvalScore, EvalWin) {
-  let mut current = Player::X;
+fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> (EvalScore, EvalWin) {
+  let mut sequence = sequence.peekable();
 
   let mut score = [0, 0];
   let mut is_win = [false, false];
 
+  let mut current = Player::X;
   let mut consecutive = 0;
   let mut open_ends = 0;
   let mut has_hole = false;
 
-  let get_score = |consecutive: u8, open_ends: u8, has_hole: bool| {
-    let (score, win) = shape_score(consecutive, open_ends, has_hole);
-    (score, win)
-  };
-
-  for (index, &tile) in sequence.iter().enumerate() {
-    if let Some(player) = *board.get_tile_raw(tile) {
+  while let Some(&tile) = sequence.next() {
+    if let Some(player) = tile {
       if player == current {
         consecutive += 1;
         continue;
@@ -72,7 +68,7 @@ fn eval_sequence(sequence: &[usize], board: &Board) -> (EvalScore, EvalWin) {
 
       // opponent's tile
       if consecutive > 0 {
-        let (shape_score, is_win_shape) = get_score(consecutive, open_ends, has_hole);
+        let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
         score[current.index()] += shape_score;
         is_win[current.index()] |= is_win_shape;
 
@@ -91,10 +87,7 @@ fn eval_sequence(sequence: &[usize], board: &Board) -> (EvalScore, EvalWin) {
         continue;
       }
 
-      if !has_hole
-        && index + 1 < sequence.len()
-        && board.get_tile_raw(sequence[index + 1]) == &Some(current)
-      {
+      if !has_hole && sequence.peek() == Some(&&Some(current)) {
         has_hole = true;
         consecutive += 1;
         continue;
@@ -102,7 +95,7 @@ fn eval_sequence(sequence: &[usize], board: &Board) -> (EvalScore, EvalWin) {
 
       open_ends += 1;
 
-      let (shape_score, is_win_shape) = get_score(consecutive, open_ends, has_hole);
+      let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
 
       score[current.index()] += shape_score;
       is_win[current.index()] |= is_win_shape;
@@ -114,7 +107,7 @@ fn eval_sequence(sequence: &[usize], board: &Board) -> (EvalScore, EvalWin) {
   }
 
   if consecutive > 0 {
-    let (shape_score, is_win_shape) = get_score(consecutive, open_ends, has_hole);
+    let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
     score[current.index()] += shape_score;
     is_win[current.index()] |= is_win_shape;
   }
@@ -122,11 +115,17 @@ fn eval_sequence(sequence: &[usize], board: &Board) -> (EvalScore, EvalWin) {
   (score, is_win)
 }
 
+macro_rules! seq_to_iter {
+  ($sequence:expr, $board:expr) => {
+    $sequence.iter().map(|index| $board.get_tile_raw(*index))
+  };
+}
+
 pub fn eval_relevant_sequences(board: &Board, tile: TilePointer) -> (EvalScore, EvalWin) {
   let (score, is_win) = board.get_relevant_sequences(tile).iter().fold(
     ([0, 0], [false, false]),
     |(mut total, mut is_win), sequence| {
-      let (score, is_winning) = eval_sequence(sequence, board);
+      let (score, is_winning) = eval_sequence(seq_to_iter!(sequence, board));
 
       total[0] += score[0];
       total[1] += score[1];
@@ -142,14 +141,16 @@ pub fn eval_relevant_sequences(board: &Board, tile: TilePointer) -> (EvalScore, 
 }
 
 pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
+  let opponent = current_player.next();
+
   let (score, is_win) = board
     .sequences()
     .iter()
     .fold((0, false), |(total, is_win), sequence| {
-      let (score, is_winning) = eval_sequence(sequence, board);
+      let (score, is_winning) = eval_sequence(seq_to_iter!(sequence, board));
 
       (
-        total + score[current_player.index()] - score[current_player.next().index()],
+        total + score[current_player.index()] - score[opponent.index()],
         is_win | is_winning[current_player.index()],
       )
     });
