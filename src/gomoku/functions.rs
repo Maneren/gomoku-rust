@@ -216,3 +216,92 @@ pub fn nodes_sorted_by_shallow_eval(
 
   nodes
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_shape_score() {
+    let shapes = [
+      shape_score(0, 0, false),
+      shape_score(1, 0, false),
+      shape_score(2, 0, false),
+      shape_score(3, 0, false),
+      shape_score(0, 2, false),
+      shape_score(1, 2, false),
+      shape_score(2, 2, false),
+      shape_score(3, 1, false),
+      shape_score(4, 1, true),
+      shape_score(4, 2, true),
+      shape_score(4, 1, false),
+      shape_score(3, 2, false),
+      shape_score(5, 1, true),
+      shape_score(5, 2, true),
+      shape_score(4, 2, false),
+      shape_score(5, 0, false),
+      shape_score(5, 1, false),
+      shape_score(5, 2, false),
+    ];
+
+    for i in 0..(shapes.len() - 1) {
+      let a = shapes[i].0;
+      let b = shapes[i + 1].0;
+
+      assert!(a <= b);
+    }
+  }
+
+  #[test]
+  fn test_eval_sequence() {
+    let x = Some(Player::X);
+    let o = Some(Player::O);
+    let n = None;
+
+    let test_sequences = vec![
+      vec![n, n],
+      vec![n, x, x, x, x, x],
+      vec![n, o, o, o, o, o],
+      vec![n, o, n, o, o, o],
+      vec![n, o, n, o, o, n],
+    ];
+
+    let expected_outputs = vec![
+      (vec![], vec![]),
+      (vec![shape_score(5, 1, false)], vec![]),
+      (vec![], vec![shape_score(5, 1, false)]),
+      (vec![], vec![shape_score(5, 1, true)]),
+      (vec![], vec![shape_score(4, 1, true)]),
+    ];
+
+    macro_rules! sum {
+      ($vec:expr) => {
+        $vec
+          .iter()
+          .fold((0, false), |(total, is_win), (score, is_winning)| {
+            (total + score, is_win | is_winning)
+          });
+      };
+    }
+
+    let test_data = test_sequences.into_iter().zip(expected_outputs);
+
+    // this is kinda wonky, but it works
+    // basically it compares the output of eval_sequence with sum of shapes from expected_outputs
+    test_data.for_each(|(sequence, score)| {
+      // unpack eval_sequence output
+      let ([x_score, y_score], [x_win, y_win]) = eval_sequence(sequence.iter().peekable());
+
+      let x = (x_score, x_win);
+      let y = (y_score, y_win);
+
+      // sum the shapes and convert to format similar to x, y above
+      let (x_vec, y_vec) = score;
+      let x_ = sum!(x_vec);
+      let y_ = sum!(y_vec);
+
+      assert_eq!(x, x_);
+      assert_eq!(y, y_);
+    });
+  }
+}
