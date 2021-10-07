@@ -18,7 +18,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) 
     return match consecutive {
       5 => (500_000, false),
       4 => match open_ends {
-        2 => (100_000, false),
+        2 => (80_000, false),
         1 => (100, false),
         _ => (0, false),
       },
@@ -30,11 +30,11 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) 
     5 => (10_000_000, true),
     4 => match open_ends {
       2 => (1_000_000, false),
-      1 => (500_000, false),
+      1 => (100_000, false),
       _ => (0, false),
     },
     3 => match open_ends {
-      2 => (80_000, false),
+      2 => (200_000, false),
       1 => (10, false),
       _ => (0, false),
     },
