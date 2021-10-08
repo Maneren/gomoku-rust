@@ -298,7 +298,6 @@ impl fmt::Display for Board {
 
 #[cfg(test)]
 mod tests {
-  // Note this useful idiom: importing names from outer (for mod tests) scope.
   use super::*;
 
   const BOARD_DATA: &str = "---------

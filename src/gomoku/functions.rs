@@ -16,7 +16,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) 
 
   if has_hole {
     return match consecutive {
-      5 => (500_000, false),
+      5 => (100_000, false),
       4 => match open_ends {
         2 => (80_000, false),
         1 => (100, false),
@@ -27,7 +27,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) 
   }
 
   match consecutive {
-    5 => (10_000_000, true),
+    5.. => (10_000_000, true),
     4 => match open_ends {
       2 => (1_000_000, false),
       1 => (100_000, false),
@@ -45,6 +45,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) 
     _ => (0, false),
   }
 }
+
 pub type EvalScore = [Score; 2];
 pub type EvalWin = [bool; 2];
 
@@ -242,6 +243,8 @@ mod tests {
       shape_score(5, 0, false),
       shape_score(5, 1, false),
       shape_score(5, 2, false),
+      shape_score(6, 2, false),
+      shape_score(10, 2, false),
     ];
 
     for i in 0..(shapes.len() - 1) {

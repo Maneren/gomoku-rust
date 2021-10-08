@@ -129,14 +129,6 @@ fn minimax_top_level(
   }
 
   println!();
-  // println!(
-  //   "{}",
-  //   nodes_generations
-  //     .iter()
-  //     .map(|n| format!("{:?}", n))
-  //     .collect::<Vec<_>>()
-  //     .join("\n\n")
-  // );
 
   if nodes.iter().any(|node| node.state.is_win()) {
     println!("Winning move found!",);
@@ -158,6 +150,18 @@ fn minimax_top_level(
   let best_node = last_generation.iter().max().unwrap();
 
   println!("Best moves: {:#?}", best_node);
+  {
+    let mut best_board = board.clone();
+
+    let mut current = best_node.best_moves.clone();
+
+    best_board.set_tile(current.tile, Some(current.player));
+    while current.next.is_some() {
+      current = *current.next.unwrap();
+      best_board.set_tile(current.tile, Some(current.player));
+    }
+    println!("Best board: \n{}", best_board);
+  }
 
   Ok((best_node.to_move(), stats))
 }

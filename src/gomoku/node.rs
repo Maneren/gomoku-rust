@@ -16,18 +16,20 @@ use std::{
 };
 
 #[derive(Clone)]
-struct MoveSequence {
-  tile: TilePointer,
-  score: Score,
-  player: Player,
-  state: State,
-  next: Option<Box<Self>>,
+pub struct MoveSequence {
+  pub tile: TilePointer,
+  pub score: Score,
+  pub original_score: Score,
+  pub player: Player,
+  pub state: State,
+  pub next: Option<Box<Self>>,
 }
 impl MoveSequence {
   fn new(node: &Node) -> Self {
     MoveSequence {
       tile: node.tile,
       score: node.score,
+      original_score: node.original_score,
       player: node.player,
       state: node.state,
       next: node
@@ -43,17 +45,21 @@ impl fmt::Debug for MoveSequence {
     if let Some(child) = &self.next {
       write!(
         f,
-        "({:?}, {}, {}) => {:#?}",
-        self.tile, self.score, self.player, child
+        "({:?}, {}, {}, {}) => {:#?}",
+        self.tile, self.score, self.original_score, self.player, child
       )
     } else if self.state.is_end() {
       write!(
         f,
-        "({:?}, {}, {}, {})",
-        self.tile, self.score, self.player, self.state
+        "({:?}, {}, {}, {}, {})",
+        self.tile, self.score, self.original_score, self.player, self.state
       )
     } else {
-      write!(f, "({:?}, {}, {})", self.tile, self.score, self.player)
+      write!(
+        f,
+        "({:?}, {}, {}, {})",
+        self.tile, self.score, self.original_score, self.player
+      )
     }
   }
 }
@@ -61,14 +67,14 @@ impl fmt::Debug for MoveSequence {
 #[derive(Clone)]
 pub struct Node {
   pub tile: TilePointer,
+  pub player: Player,
   pub state: State,
   pub valid: bool,
   pub child_nodes: Vec<Node>,
 
   score: Score,
   original_score: Score,
-  player: Player,
-  best_moves: MoveSequence,
+  pub best_moves: MoveSequence,
   depth: u8,
 
   end: Arc<AtomicBool>,
@@ -95,9 +101,9 @@ impl Node {
     }
 
     let limit = match self.depth {
-      0 => 10,
-      1 | 2 => 5,
-      3 | 4 | 5 => 3,
+      0 => 20,
+      1 | 2 | 3 => 10,
+      4 | 5 => 5,
       6 | 7 | 8 => 2,
       _ => 1,
     };
@@ -204,7 +210,7 @@ impl Node {
       .collect();
 
     nodes.sort_unstable_by(|a, b| b.cmp(a));
-    self.child_nodes = nodes.into_iter().take(10).collect();
+    self.child_nodes = nodes.into_iter().take(50).collect();
 
     self.analyze_child_nodes();
   }
@@ -230,6 +236,7 @@ impl Node {
         tile,
         player,
         score,
+        original_score: score,
         state,
         next: None,
       },
@@ -265,10 +272,6 @@ impl PartialOrd for Node {
 impl Eq for Node {}
 impl Ord for Node {
   fn cmp(&self, other: &Self) -> Ordering {
-    if self.state == other.state && self.depth != other.depth {
-      return self.depth.cmp(&other.depth).reverse();
-    }
-
     self.score.cmp(&other.score)
   }
 }
