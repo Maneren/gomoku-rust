@@ -329,7 +329,7 @@ mod tests {
     let x = 2;
     let y = 3;
     let tile = TilePointer { x, y };
-    let target = (x + y * BOARD_SIZE) as usize;
+    let target = Board::get_index(BOARD_SIZE, tile);
 
     let sequences = board.get_relevant_sequences(tile);
 

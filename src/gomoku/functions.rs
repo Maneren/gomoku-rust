@@ -10,13 +10,10 @@ use super::{
 use std::sync::{atomic::AtomicBool, Arc};
 
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) {
-  if consecutive <= 1 {
-    return (0, false);
-  }
-
   if has_hole {
     return match consecutive {
-      5 => (100_000, false),
+      7.. => (1_000_000, false),
+      5 | 6 => (100_000, false),
       4 => match open_ends {
         2 => (80_000, false),
         1 => (100, false),
@@ -74,8 +71,6 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> (EvalScore, Ev
         is_win[current.index()] |= is_win_shape;
 
         open_ends = 0;
-      } else {
-        open_ends = 1;
       }
 
       consecutive = 1;
@@ -229,6 +224,7 @@ mod tests {
       shape_score(1, 0, false),
       shape_score(2, 0, false),
       shape_score(3, 0, false),
+      shape_score(3, 0, true),
       shape_score(0, 2, false),
       shape_score(1, 2, false),
       shape_score(2, 2, false),
@@ -236,9 +232,9 @@ mod tests {
       shape_score(4, 1, true),
       shape_score(4, 2, true),
       shape_score(4, 1, false),
-      shape_score(3, 2, false),
       shape_score(5, 1, true),
       shape_score(5, 2, true),
+      shape_score(3, 2, false),
       shape_score(4, 2, false),
       shape_score(5, 0, false),
       shape_score(5, 1, false),
@@ -251,6 +247,8 @@ mod tests {
       let a = shapes[i].0;
       let b = shapes[i + 1].0;
 
+      println!("{}", i);
+
       assert!(a <= b);
     }
   }
@@ -261,20 +259,59 @@ mod tests {
     let o = Some(Player::O);
     let n = None;
 
-    let test_sequences = vec![
-      vec![n, n],
-      vec![n, x, x, x, x, x],
-      vec![n, o, o, o, o, o],
-      vec![n, o, n, o, o, o],
-      vec![n, o, n, o, o, n],
-    ];
+    let _temp = vec![vec![n, o, o, o, x, n], vec![n, x, o, o, o, x, n]];
 
-    let expected_outputs = vec![
-      (vec![], vec![]),
-      (vec![shape_score(5, 1, false)], vec![]),
-      (vec![], vec![shape_score(5, 1, false)]),
-      (vec![], vec![shape_score(5, 1, true)]),
-      (vec![], vec![shape_score(4, 1, true)]),
+    let test_sequences = vec![
+      (vec![n, n, n, n, n, n, n, n, n, n, n, n], vec![], vec![]),
+      (
+        vec![n, x, x, x, x, x, n],
+        vec![shape_score(5, 2, false)],
+        vec![],
+      ),
+      (
+        vec![n, x, x, x, x, x],
+        vec![shape_score(5, 1, false)],
+        vec![],
+      ),
+      (
+        vec![n, o, o, o, o, o, n],
+        vec![],
+        vec![shape_score(5, 1, false)],
+      ),
+      (
+        vec![n, o, n, o, o, o],
+        vec![],
+        vec![shape_score(5, 1, true)],
+      ),
+      (
+        vec![n, o, x, o, o, o, n],
+        vec![],
+        vec![shape_score(3, 1, false)],
+      ),
+      (
+        vec![n, o, o, o, o, n],
+        vec![],
+        vec![shape_score(4, 2, false)],
+      ),
+      (vec![n, o, o, o, o], vec![], vec![shape_score(4, 1, false)]),
+      (vec![o, o, o, o], vec![], vec![shape_score(4, 0, false)]),
+      (
+        vec![n, o, n, o, o, n],
+        vec![],
+        vec![shape_score(4, 2, true)],
+      ),
+      (vec![o, o, o, o], vec![], vec![shape_score(4, 0, true)]),
+      (vec![n, o, o, o, n], vec![], vec![shape_score(3, 2, false)]),
+      (
+        vec![n, o, o, o, n, x, x, x, n],
+        vec![shape_score(3, 2, false)],
+        vec![shape_score(3, 2, false)],
+      ),
+      (
+        vec![n, o, o, o, x, x, x, n],
+        vec![shape_score(3, 1, false)],
+        vec![shape_score(3, 1, false)],
+      ),
     ];
 
     macro_rules! sum {
@@ -283,15 +320,13 @@ mod tests {
           .iter()
           .fold((0, false), |(total, is_win), (score, is_winning)| {
             (total + score, is_win | is_winning)
-          });
+          })
       };
     }
 
-    let test_data = test_sequences.into_iter().zip(expected_outputs);
-
     // this is kinda wonky, but it works
     // basically it compares the output of eval_sequence with sum of shapes from expected_outputs
-    test_data.for_each(|(sequence, score)| {
+    for (i, (sequence, x_vec, y_vec)) in test_sequences.iter().enumerate() {
       // unpack eval_sequence output
       let ([x_score, y_score], [x_win, y_win]) = eval_sequence(sequence.iter().peekable());
 
@@ -299,12 +334,60 @@ mod tests {
       let y = (y_score, y_win);
 
       // sum the shapes and convert to format similar to x, y above
-      let (x_vec, y_vec) = score;
       let x_ = sum!(x_vec);
       let y_ = sum!(y_vec);
 
+      println!("{}", i);
       assert_eq!(x, x_);
       assert_eq!(y, y_);
-    });
+    }
+  }
+
+  const BOARD_DATA: &str = "---------
+---------
+---x-----
+---xoo---
+----xo---
+---xxxo--
+------oo-
+--------x
+---------";
+  const BOARD_SIZE: u8 = 9;
+
+  #[test]
+  fn test_eval_relevant_sequences() {
+    let board = Board::from_string(BOARD_DATA).unwrap();
+
+    let tiles: Vec<TilePointer> = (0..BOARD_SIZE)
+      .flat_map(|x| {
+        (0..BOARD_SIZE)
+          .map(|y| TilePointer { x, y })
+          .collect::<Vec<_>>()
+      })
+      .collect();
+
+    for tile in tiles {
+      let eval = eval_relevant_sequences(&board, tile);
+
+      let expected_sequences: Vec<_> = {
+        board
+          .get_relevant_sequences(tile)
+          .iter()
+          .map(|sequence| eval_sequence(seq_to_iter!(sequence, board)))
+          .collect()
+      };
+
+      let expected_output = expected_sequences.iter().fold(
+        ([0, 0], [false, false]),
+        |(total, is_win), (score, is_winning)| {
+          (
+            [total[0] + score[0], total[1] + score[1]],
+            [is_win[0] | is_winning[0], is_win[1] | is_winning[1]],
+          )
+        },
+      );
+
+      assert_eq!(eval, expected_output);
+    }
   }
 }

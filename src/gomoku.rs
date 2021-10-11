@@ -102,9 +102,8 @@ fn minimax_top_level(
     }
 
     pool.join();
-    if pool.panic_count() > 0 {
-      panic!("{} node-threads panicked", pool.panic_count());
-    };
+
+    assert!(pool.panic_count() == 0, "node threads panicked");
 
     // HACK: get the nodes from the arc-mutex
     nodes = nodes_arc.lock().unwrap().drain(..).collect();
@@ -221,9 +220,11 @@ pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
   }
 
   pool.join();
-  if pool.panic_count() > 0 {
-    panic!("{} node threads panicked", pool.panic_count());
-  };
+  assert!(
+    pool.panic_count() == 0,
+    "{} node threads panicked",
+    pool.panic_count()
+  );
 
   let elapsed = start.elapsed().as_millis() as u64;
 

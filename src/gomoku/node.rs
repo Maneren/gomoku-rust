@@ -105,14 +105,10 @@ impl Node {
       1 | 2 | 3 => 10,
       4 | 5 => 5,
       6 | 7 | 8 => 2,
-      _ => 1,
+      9.. => 1,
     };
     while self.child_nodes.len() > limit && self.child_nodes.last().unwrap().score < 0 {
       self.child_nodes.pop();
-    }
-
-    if self.child_nodes.is_empty() {
-      panic!("empty child nodes");
     }
 
     board.set_tile(self.tile, Some(self.player));
