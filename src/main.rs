@@ -4,7 +4,7 @@
 use std::{fs::File, io::prelude::Read, time::Instant};
 
 mod gomoku;
-use gomoku::{Board, Move, Player, TilePointer, perf};
+use gomoku::{perf, Board, Move, Player, TilePointer};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -36,6 +36,14 @@ fn main() {
             .help("Size of game board")
             .takes_value(true),
         ),
+    )
+    .subcommand(
+      App::new("fen").arg(
+        Arg::with_name("string")
+          .index(1)
+          .required(true)
+          .help("Incomplete fen string"),
+      ),
     )
     .arg(
       Arg::with_name("player")
@@ -74,11 +82,22 @@ fn main() {
     )
     .get_matches();
 
+  if let Some(matches) = matches.subcommand_matches("fen") {
+    let string = value_t!(matches, "string", String).unwrap();
+
+    match utils::parse_fen_string(&string) {
+      Ok(s) => println!("{}", s),
+      Err(err) => println!("{}", err),
+    };
+
+    return;
+  }
+
+  let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
+
   if let Some(matches) = matches.subcommand_matches("perf") {
-    let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
     let time_limit = value_t!(matches, "time", u64).unwrap_or(10);
-    let board_size = value_t!(matches, "board", u8).unwrap_or(15);
-    perf(time_limit, threads, board_size);
+    perf(time_limit, threads, 15);
     return;
   }
 
@@ -89,8 +108,6 @@ fn main() {
   };
 
   let time_limit = value_t!(matches, "time", u64).unwrap_or(1000);
-
-  let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
   let board_size = value_t!(matches, "board", u8).unwrap_or(15);
 
   if let Some(path) = matches.value_of("debug") {
@@ -149,6 +166,75 @@ fn load_input(path: &str) -> Result<String, Error> {
   let mut contents = String::new();
   file.read_to_string(&mut contents)?;
   Ok(contents)
+}
+
+mod utils {
+  use super::Error;
+  use regex::{Captures, Regex};
+  use std::io::{self, Read};
+
+  pub fn parse_fen_string(input: &str) -> Result<String, Error> {
+    let mut input = input.trim().to_owned();
+
+    // if argument is "--" read from stdin instead
+    if input == "--" {
+      let mut buffer = String::new();
+      let mut stdin = io::stdin();
+      stdin.read_to_string(&mut buffer)?;
+
+      input = buffer;
+    }
+
+    let (prefix, data) = {
+      let splitted: Vec<_> = input.split('|').collect();
+
+      let prefix = splitted.get(0);
+      let data = splitted.get(1);
+
+      match (prefix, data) {
+        (Some(prefix), Some(data)) => Ok((prefix.to_owned(), data.to_owned())),
+        _ => Err("Incorrect format"),
+      }
+    }?;
+
+    let size = prefix.parse()?;
+
+    let parts: Vec<_> = data.split('/').collect();
+
+    if parts.len() != size {
+      return Err("Incorrect row count".into());
+    }
+
+    let re = Regex::new(r#"\d+"#).unwrap();
+
+    let replace_function = |captures: &Captures| {
+      let capture = captures.get(0).unwrap().as_str();
+      let number = capture.parse().unwrap();
+      "-".repeat(number)
+    };
+
+    let parse_row = |part| -> Result<String, Error> {
+      // calls replace_function for each match
+      let parsed = re.replace_all(part, replace_function).to_string();
+
+      if parsed.len() > size {
+        return Err("Row too long".into());
+      }
+
+      let length_missing = size - parsed.len();
+      let padding = "-".repeat(length_missing);
+
+      Ok(parsed + &padding)
+    };
+
+    let mut out = String::new();
+    // can't use Iter::fold because of the possible Err
+    for x in parts {
+      out += &(parse_row(x)? + "\n");
+    }
+
+    Ok(out)
+  }
 }
 
 fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
