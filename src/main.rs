@@ -3,8 +3,7 @@
 
 use std::{fs::File, io::prelude::Read, time::Instant};
 
-mod gomoku;
-use gomoku::{perf, Board, Move, Player, TilePointer};
+use gomoku_lib::{self, perf, Board, Move, Player, TilePointer};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -135,7 +134,7 @@ fn run_debug(
 
   let start = Instant::now();
 
-  let result = gomoku::decide(&mut board, player, time_limit, threads);
+  let result = gomoku_lib::decide(&mut board, player, time_limit, threads);
   let run_time = start.elapsed().as_micros();
 
   let unwrapped;
@@ -295,7 +294,7 @@ fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
     }
 
     let start = Instant::now();
-    let result = gomoku::decide(&mut board, player, time_limit, threads);
+    let result = gomoku_lib::decide(&mut board, player, time_limit, threads);
     let run_time = start.elapsed().as_micros();
 
     let unwrapped;
