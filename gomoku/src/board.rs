@@ -28,20 +28,22 @@ impl fmt::Debug for TilePointer {
   }
 }
 
+type Sequence = Vec<usize>;
+
 #[derive(Clone)]
 pub struct Board {
   data: Vec<Tile>,
   size: u8,
 
   tile_ptrs: Vec<TilePointer>,
-  sequences: Vec<Vec<usize>>,
+  sequences: Vec<Sequence>,
 }
 
 impl Board {
   pub fn new(data: Vec<Vec<Tile>>) -> Result<Board, Error> {
     if data.len() <= 8 {
       return Err(Error {
-        msg: "Too small board height".into(),
+        msg: "Too small board".into(),
       });
     }
 
@@ -57,7 +59,7 @@ impl Board {
 
     #[allow(clippy::cast_possible_truncation)]
     let board_size = data.len() as u8;
-    let sequences = Board::get_all_sequences(board_size);
+    let sequences = Board::generate_sequences(board_size);
     let tile_ptrs = Self::get_tile_ptrs(board_size);
     let flat_data = data.into_iter().flatten().collect();
 
@@ -77,7 +79,7 @@ impl Board {
     Board::new(data).unwrap()
   }
 
-  fn get_all_sequences(board_size: u8) -> Vec<Vec<usize>> {
+  fn generate_sequences(board_size: u8) -> Vec<Sequence> {
     let mut sequences = Vec::new();
 
     // horizontal
@@ -99,9 +101,9 @@ impl Board {
     // diag1
     {
       let mut start = 0;
-      let mut end = 0;
+      let mut end = 1;
 
-      while start <= board_size {
+      while start < board_size {
         let temp = (0..(end - start))
           .map(|i| {
             let x = start + i;
@@ -123,9 +125,9 @@ impl Board {
     // diag2
     {
       let mut start = 0;
-      let mut end = 0;
+      let mut end = 1;
 
-      while start <= board_size {
+      while start < board_size {
         let temp = (0..(end - start))
           .map(|i| {
             let x = board_size - (start + i) - 1;
@@ -153,8 +155,24 @@ impl Board {
       .collect()
   }
 
-  pub fn sequences(&self) -> &[Vec<usize>] {
+  pub fn sequences(&self) -> &[Sequence] {
     &self.sequences
+  }
+
+  pub fn get_relevant_sequences(&self, ptr: TilePointer) -> [&Sequence; 4] {
+    let n = self.size;
+
+    let index1 = ptr.y;
+    let index2 = ptr.x + n;
+    let index3 = (ptr.x + ptr.y) + 2 * n;
+    let index4 = (ptr.y + n - ptr.x) + 4 * n - 2;
+
+    [
+      &self.sequences[index1 as usize],
+      &self.sequences[index2 as usize],
+      &self.sequences[index3 as usize],
+      &self.sequences[index4 as usize],
+    ]
   }
 
   pub fn get_empty_tiles(&self) -> Result<Vec<TilePointer>, Error> {
@@ -275,5 +293,48 @@ impl fmt::Display for Board {
     }
 
     write!(f, "{}", string)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  const BOARD_DATA: &str = "---------
+---------
+---x-----
+---xoo---
+----xo---
+---xxxo--
+------oo-
+--------x
+---------";
+  const BOARD_SIZE: u8 = 9;
+
+  #[test]
+  fn test_get_index() {
+    let x = 2;
+    let y = 3;
+    let tile = TilePointer { x, y };
+    let target = (x + y * BOARD_SIZE) as usize;
+
+    assert_eq!(Board::get_index_raw(BOARD_SIZE, x, y), target);
+    assert_eq!(Board::get_index(BOARD_SIZE, tile), target);
+  }
+
+  #[test]
+  fn test_get_relevant_sequences() {
+    let board = Board::from_string(BOARD_DATA).unwrap();
+
+    let x = 2;
+    let y = 3;
+    let tile = TilePointer { x, y };
+    let target = Board::get_index(BOARD_SIZE, tile);
+
+    let sequences = board.get_relevant_sequences(tile);
+
+    sequences
+      .iter()
+      .for_each(|sequence| assert!(sequence.iter().any(|index| *index == target)));
   }
 }

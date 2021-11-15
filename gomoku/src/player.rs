@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::fmt;
 
 #[derive(Clone, PartialEq, Eq, Copy)]
@@ -20,6 +21,29 @@ impl Player {
       Player::O => 'o',
     }
   }
+
+  pub fn index(self) -> usize {
+    match self {
+      Player::X => 0,
+      Player::O => 1,
+    }
+  }
+
+  pub fn from_char(c: char) -> Result<Self, Box<dyn Error>> {
+    match c {
+      'x' => Ok(Player::X),
+      'o' => Ok(Player::O),
+      _ => Err("Unexpected character!".into()),
+    }
+  }
+
+  pub fn from_string(c: &str) -> Result<Self, Box<dyn Error>> {
+    match c {
+      "x" => Ok(Player::X),
+      "o" => Ok(Player::O),
+      _ => Err("Unexpected character!".into()),
+    }
+  }
 }
 impl fmt::Debug for Player {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -35,6 +59,6 @@ impl fmt::Debug for Player {
 }
 impl fmt::Display for Player {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{:?}", self.char())
+    write!(f, "{}", self.char())
   }
 }

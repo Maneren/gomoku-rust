@@ -1,6 +1,6 @@
 .vscode/
 
-/target
+target
 
 test*.txt
 perf.data*

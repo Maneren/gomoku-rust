@@ -1,17 +1,71 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::similar_names)]
 
+use std::io::{self};
 use std::{fs::File, io::prelude::Read, time::Instant};
 
-mod gomoku;
-use gomoku::{Board, Move, Player, TilePointer, perf};
+use gomoku_lib::{self, perf, utils, Board, Move, Player, TilePointer};
 
 type Error = Box<dyn std::error::Error>;
 
 use clap::{value_t, App, Arg};
 
 fn main() {
-  let matches = App::new("Gomoku")
+  let matches = parse_args();
+
+  if let Some(matches) = matches.subcommand_matches("fen") {
+    let mut string = value_t!(matches, "string", String).unwrap();
+
+    // if argument is "--" read from stdin instead
+    if string == "--" {
+      let mut buffer = String::new();
+      let mut stdin = io::stdin();
+
+      if let Err(err) = stdin.read_to_string(&mut buffer) {
+        println!("{}", err);
+        return;
+      }
+
+      string = buffer;
+    }
+
+    match utils::parse_fen_string(&string) {
+      Ok(s) => println!("{}", s),
+      Err(err) => println!("{}", err),
+    };
+
+    return;
+  }
+
+  let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
+
+  if let Some(matches) = matches.subcommand_matches("perf") {
+    let time_limit = value_t!(matches, "time", u64).unwrap_or(10);
+    perf(time_limit, threads, 15);
+    return;
+  }
+
+  let player = match matches.value_of("player").unwrap_or("o") {
+    "x" | "X" => Player::X,
+    "o" | "O" => Player::O,
+    _ => panic!("Invalid player"),
+  };
+
+  let time_limit = value_t!(matches, "time", u64).unwrap_or(1000);
+  let board_size = value_t!(matches, "board", u8).unwrap_or(15);
+
+  if let Some(path) = matches.value_of("debug") {
+    match run_debug(path, player, time_limit, threads) {
+      Ok(_) => println!("Done!"),
+      Err(msg) => println!("Error: {}", msg),
+    }
+  } else {
+    run(player, time_limit, threads, board_size);
+  }
+}
+
+fn parse_args<'a>() -> clap::ArgMatches<'a> {
+  App::new("Gomoku")
     .version("5.0")
     .subcommand(
       App::new("perf")
@@ -36,6 +90,14 @@ fn main() {
             .help("Size of game board")
             .takes_value(true),
         ),
+    )
+    .subcommand(
+      App::new("fen").arg(
+        Arg::with_name("string")
+          .index(1)
+          .required(true)
+          .help("Incomplete fen string"),
+      ),
     )
     .arg(
       Arg::with_name("player")
@@ -72,35 +134,7 @@ fn main() {
         .help("Size of game board")
         .takes_value(true),
     )
-    .get_matches();
-
-  if let Some(matches) = matches.subcommand_matches("perf") {
-    let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
-    let time_limit = value_t!(matches, "time", u64).unwrap_or(10);
-    let board_size = value_t!(matches, "board", u8).unwrap_or(15);
-    perf(time_limit, threads, board_size);
-    return;
-  }
-
-  let player = match matches.value_of("player").unwrap_or("o") {
-    "x" | "X" => Player::X,
-    "o" | "O" => Player::O,
-    _ => panic!("Invalid player"),
-  };
-
-  let time_limit = value_t!(matches, "time", u64).unwrap_or(1000);
-
-  let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
-  let board_size = value_t!(matches, "board", u8).unwrap_or(15);
-
-  if let Some(path) = matches.value_of("debug") {
-    match run_debug(path, player, time_limit, threads) {
-      Ok(_) => println!("Done!"),
-      Err(msg) => println!("Error: {}", msg),
-    }
-  } else {
-    run(player, time_limit, threads, board_size);
-  }
+    .get_matches()
 }
 
 fn run_debug(
@@ -118,7 +152,7 @@ fn run_debug(
 
   let start = Instant::now();
 
-  let result = gomoku::decide(&mut board, player, time_limit, threads);
+  let result = gomoku_lib::decide(&mut board, player, time_limit, threads);
   let run_time = start.elapsed().as_micros();
 
   let unwrapped;
@@ -202,14 +236,14 @@ fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
 
     board.set_tile(tile_ptr, Some(player.next()));
 
-    if is_game_end(&board, player.next()) {
+    if utils::is_game_end(&board, player.next()) {
       println!("Engine loses!\n$");
       println!("{}", board);
       break;
     }
 
     let start = Instant::now();
-    let result = gomoku::decide(&mut board, player, time_limit, threads);
+    let result = gomoku_lib::decide(&mut board, player, time_limit, threads);
     let run_time = start.elapsed().as_micros();
 
     let unwrapped;
@@ -229,7 +263,7 @@ fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
     println!();
     println!("board:\n{}", board);
 
-    if is_game_end(&board, player) {
+    if utils::is_game_end(&board, player) {
       println!("Engine wins!\n$");
       break;
     }
@@ -246,31 +280,4 @@ fn print_runtime(run_time: u128) {
   } else {
     println!("Time: {} s", run_time / 1_000_000);
   }
-}
-
-fn is_game_end(board: &Board, current_player: Player) -> bool {
-  board
-    .sequences()
-    .iter()
-    .any(|sequence| is_game_end_sequence(sequence, current_player, board))
-}
-
-fn is_game_end_sequence(sequence: &[usize], current_player: Player, board: &Board) -> bool {
-  let mut consecutive = 0;
-  for &tile in sequence {
-    if let Some(player) = board.get_tile_raw(tile) {
-      if *player == current_player {
-        consecutive += 1;
-        if consecutive >= 5 {
-          return true;
-        }
-      } else {
-        consecutive = 0;
-      }
-    } else {
-      consecutive = 0;
-    };
-  }
-
-  false
 }

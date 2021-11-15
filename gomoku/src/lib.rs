@@ -3,21 +3,26 @@ mod functions;
 mod r#move; // r# to allow reserved keyword as name
 mod node;
 mod player;
+mod state;
 mod stats;
+pub mod utils;
 
 pub use board::{Board, TilePointer};
 pub use player::Player;
 pub use r#move::Move; // r# to allow reserved keyword as name
 
-use functions::{
-  evaluate_board, get_dist_fn, nodes_sorted_by_shallow_eval, print_status, time_remaining,
-};
+use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
 use node::Node;
 use stats::Stats;
+use utils::{do_run, format_number, print_status};
 
 use std::{
   ops::Add,
-  sync::{Arc, Mutex},
+  sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+  },
+  thread::{sleep, spawn},
   time::{Duration, Instant},
 };
 
@@ -29,18 +34,29 @@ type Score = i32;
 fn minimax_top_level(
   board: &mut Board,
   current_player: Player,
-  end_time: &Arc<Instant>,
+  time_limit: Duration,
   threads: usize,
 ) -> Result<(Move, Stats), board::Error> {
   let mut stats = Stats::new();
+  let end_time = Instant::now().checked_add(time_limit).unwrap();
+
+  let end = Arc::new(AtomicBool::new(false));
+
+  {
+    let end = end.clone();
+    spawn(move || {
+      sleep(time_limit);
+      end.store(true, Ordering::Relaxed);
+    });
+  }
 
   let empty_tiles = board.get_empty_tiles()?;
   print_status(
     &format!("computing depth 1 for {} nodes", empty_tiles.len()),
-    end_time,
+    &end_time,
   );
   let presorted_nodes =
-    nodes_sorted_by_shallow_eval(board, empty_tiles, &mut stats, current_player, end_time);
+    nodes_sorted_by_shallow_eval(board, empty_tiles, &mut stats, current_player, &end);
 
   // if there is winning move, return it
   if let Some(winning_move) = check_winning(&presorted_nodes, stats) {
@@ -64,12 +80,12 @@ fn minimax_top_level(
 
   let mut i = 1;
 
-  while time_remaining(end_time) {
+  while do_run(&end) {
     i += 1;
     let node_count = nodes.len() + nodes.iter().map(Node::node_count).sum::<usize>();
     print_status(
       &format!("computing depth {} for {} nodes", i, node_count),
-      end_time,
+      &end_time,
     );
 
     for mut node in nodes {
@@ -86,9 +102,8 @@ fn minimax_top_level(
     }
 
     pool.join();
-    if pool.panic_count() > 0 {
-      panic!("{} node-threads panicked", pool.panic_count());
-    };
+
+    assert!(pool.panic_count() == 0, "node threads panicked");
 
     // HACK: get the nodes from the arc-mutex
     nodes = nodes_arc.lock().unwrap().drain(..).collect();
@@ -134,16 +149,20 @@ fn minimax_top_level(
   let best_node = last_generation.iter().max().unwrap();
 
   println!("Best moves: {:#?}", best_node);
+  {
+    let mut best_board = board.clone();
+
+    let mut current = best_node.best_moves.clone();
+
+    best_board.set_tile(current.tile, Some(current.player));
+    while current.next.is_some() {
+      current = *current.next.unwrap();
+      best_board.set_tile(current.tile, Some(current.player));
+    }
+    println!("Best board: \n{}", best_board);
+  }
 
   Ok((best_node.to_move(), stats))
-}
-
-fn check_winning(presorted_nodes: &[Node], stats: Stats) -> Option<(Move, Stats)> {
-  presorted_nodes
-    .iter()
-    .filter(|node| node.state.is_win())
-    .max()
-    .map(|node| (node.to_move(), stats))
 }
 
 pub fn decide(
@@ -153,26 +172,26 @@ pub fn decide(
   threads: usize,
 ) -> Result<(Move, Stats), board::Error> {
   let time_limit = Duration::from_millis(time_limit);
-  let end = Arc::new(Instant::now().checked_add(time_limit).unwrap());
 
-  let (move_, stats) = minimax_top_level(board, player, &end, threads)?;
+  let (move_, stats) = minimax_top_level(board, player, time_limit, threads)?;
 
   board.set_tile(move_.tile, Some(player));
 
   Ok((move_, stats))
 }
 
-#[allow(
-  clippy::cast_precision_loss,
-  clippy::cast_possible_truncation,
-  clippy::cast_sign_loss
-)]
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
-  let end = Arc::new(
-    Instant::now()
-      .checked_add(Duration::from_secs(time_limit))
-      .unwrap(),
-  );
+  let time_limit = Duration::from_secs(time_limit);
+  let end = Arc::new(AtomicBool::new(false));
+
+  {
+    let end = end.clone();
+    spawn(move || {
+      sleep(time_limit);
+      end.store(true, Ordering::Relaxed);
+    });
+  }
 
   let board = Board::get_empty_board(board_size);
   let counter_arc = Arc::new(Mutex::new(0));
@@ -190,7 +209,7 @@ pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
 
     pool.execute(move || {
       let mut i = 0;
-      while time_remaining(&end_clone) {
+      while do_run(&end_clone) {
         board_clone.set_tile(tile, Some(Player::X));
         let (..) = evaluate_board(&board_clone, Player::O);
         board_clone.set_tile(tile, None);
@@ -201,24 +220,13 @@ pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
   }
 
   pool.join();
-  if pool.panic_count() > 0 {
-    panic!("{} node threads panicked", pool.panic_count());
-  };
+  assert!(
+    pool.panic_count() == 0,
+    "{} node threads panicked",
+    pool.panic_count()
+  );
 
   let elapsed = start.elapsed().as_millis() as u64;
-
-  let format_number = |number: f32| {
-    let sizes = [' ', 'k', 'M', 'G', 'T'];
-
-    let base = 1000.0;
-    let i = number.log(base).floor();
-    let number = format!("{:.2}", number / base.powi(i as i32));
-    if i > 1.0 {
-      format!("{}{}", number, sizes[i as usize])
-    } else {
-      number
-    }
-  };
 
   let counter = *counter_arc.lock().unwrap();
   let per_second = counter * 1000 / elapsed; // * 1000 to account for milliseconds
