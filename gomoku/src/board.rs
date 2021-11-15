@@ -43,7 +43,7 @@ impl Board {
   pub fn new(data: Vec<Vec<Tile>>) -> Result<Board, Error> {
     if data.len() <= 8 {
       return Err(Error {
-        msg: "Too small board height".into(),
+        msg: "Too small board".into(),
       });
     }
 
