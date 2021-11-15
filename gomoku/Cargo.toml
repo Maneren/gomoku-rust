@@ -8,3 +8,4 @@ crate-type = ["lib"]
 
 [dependencies]
 threadpool = "1"
+regex = "1"
