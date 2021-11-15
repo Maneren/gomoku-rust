@@ -185,75 +185,6 @@ fn load_input(path: &str) -> Result<String, Error> {
   Ok(contents)
 }
 
-mod utils {
-  use super::Error;
-  use regex::{Captures, Regex};
-  use std::io::{self, Read};
-
-  pub fn parse_fen_string(input: &str) -> Result<String, Error> {
-    let mut input = input.trim().to_owned();
-
-    // if argument is "--" read from stdin instead
-    if input == "--" {
-      let mut buffer = String::new();
-      let mut stdin = io::stdin();
-      stdin.read_to_string(&mut buffer)?;
-
-      input = buffer;
-    }
-
-    let (prefix, data) = {
-      let splitted: Vec<_> = input.split('|').collect();
-
-      let prefix = splitted.get(0);
-      let data = splitted.get(1);
-
-      match (prefix, data) {
-        (Some(prefix), Some(data)) => Ok((prefix.to_owned(), data.to_owned())),
-        _ => Err("Incorrect format"),
-      }
-    }?;
-
-    let size = prefix.parse()?;
-
-    let parts: Vec<_> = data.split('/').collect();
-
-    if parts.len() != size {
-      return Err("Incorrect row count".into());
-    }
-
-    let re = Regex::new(r#"\d+"#).unwrap();
-
-    let replace_function = |captures: &Captures| {
-      let capture = captures.get(0).unwrap().as_str();
-      let number = capture.parse().unwrap();
-      "-".repeat(number)
-    };
-
-    let parse_row = |part| -> Result<String, Error> {
-      // calls replace_function for each match
-      let parsed = re.replace_all(part, replace_function).to_string();
-
-      if parsed.len() > size {
-        return Err("Row too long".into());
-      }
-
-      let length_missing = size - parsed.len();
-      let padding = "-".repeat(length_missing);
-
-      Ok(parsed + &padding)
-    };
-
-    let mut out = String::new();
-    // can't use Iter::fold because of the possible Err
-    for x in parts {
-      out += &(parse_row(x)? + "\n");
-    }
-
-    Ok(out)
-  }
-}
-
 fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
   use text_io::read;
   let mut board = Board::get_empty_board(board_size);
@@ -305,7 +236,7 @@ fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
 
     board.set_tile(tile_ptr, Some(player.next()));
 
-    if is_game_end(&board, player.next()) {
+    if utils::is_game_end(&board, player.next()) {
       println!("Engine loses!\n$");
       println!("{}", board);
       break;
@@ -332,7 +263,7 @@ fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
     println!();
     println!("board:\n{}", board);
 
-    if is_game_end(&board, player) {
+    if utils::is_game_end(&board, player) {
       println!("Engine wins!\n$");
       break;
     }
@@ -349,31 +280,4 @@ fn print_runtime(run_time: u128) {
   } else {
     println!("Time: {} s", run_time / 1_000_000);
   }
-}
-
-fn is_game_end(board: &Board, current_player: Player) -> bool {
-  board
-    .sequences()
-    .iter()
-    .any(|sequence| is_game_end_sequence(sequence, current_player, board))
-}
-
-fn is_game_end_sequence(sequence: &[usize], current_player: Player, board: &Board) -> bool {
-  let mut consecutive = 0;
-  for &tile in sequence {
-    if let Some(player) = board.get_tile_raw(tile) {
-      if *player == current_player {
-        consecutive += 1;
-        if consecutive >= 5 {
-          return true;
-        }
-      } else {
-        consecutive = 0;
-      }
-    } else {
-      consecutive = 0;
-    };
-  }
-
-  false
 }
