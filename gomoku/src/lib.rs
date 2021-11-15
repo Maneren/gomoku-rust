@@ -5,7 +5,7 @@ mod node;
 mod player;
 mod state;
 mod stats;
-mod utils;
+pub mod utils;
 
 pub use board::{Board, TilePointer};
 pub use player::Player;
