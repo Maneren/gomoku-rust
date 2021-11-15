@@ -1,16 +1,71 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::similar_names)]
 
+use std::io::{self};
 use std::{fs::File, io::prelude::Read, time::Instant};
 
-use gomoku_lib::{self, perf, Board, Move, Player, TilePointer};
+use gomoku_lib::{self, perf, utils, Board, Move, Player, TilePointer};
 
 type Error = Box<dyn std::error::Error>;
 
 use clap::{value_t, App, Arg};
 
 fn main() {
-  let matches = App::new("Gomoku")
+  let matches = parse_args();
+
+  if let Some(matches) = matches.subcommand_matches("fen") {
+    let mut string = value_t!(matches, "string", String).unwrap();
+
+    // if argument is "--" read from stdin instead
+    if string == "--" {
+      let mut buffer = String::new();
+      let mut stdin = io::stdin();
+
+      if let Err(err) = stdin.read_to_string(&mut buffer) {
+        println!("{}", err);
+        return;
+      }
+
+      string = buffer;
+    }
+
+    match utils::parse_fen_string(&string) {
+      Ok(s) => println!("{}", s),
+      Err(err) => println!("{}", err),
+    };
+
+    return;
+  }
+
+  let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
+
+  if let Some(matches) = matches.subcommand_matches("perf") {
+    let time_limit = value_t!(matches, "time", u64).unwrap_or(10);
+    perf(time_limit, threads, 15);
+    return;
+  }
+
+  let player = match matches.value_of("player").unwrap_or("o") {
+    "x" | "X" => Player::X,
+    "o" | "O" => Player::O,
+    _ => panic!("Invalid player"),
+  };
+
+  let time_limit = value_t!(matches, "time", u64).unwrap_or(1000);
+  let board_size = value_t!(matches, "board", u8).unwrap_or(15);
+
+  if let Some(path) = matches.value_of("debug") {
+    match run_debug(path, player, time_limit, threads) {
+      Ok(_) => println!("Done!"),
+      Err(msg) => println!("Error: {}", msg),
+    }
+  } else {
+    run(player, time_limit, threads, board_size);
+  }
+}
+
+fn parse_args<'a>() -> clap::ArgMatches<'a> {
+  App::new("Gomoku")
     .version("5.0")
     .subcommand(
       App::new("perf")
@@ -79,44 +134,7 @@ fn main() {
         .help("Size of game board")
         .takes_value(true),
     )
-    .get_matches();
-
-  if let Some(matches) = matches.subcommand_matches("fen") {
-    let string = value_t!(matches, "string", String).unwrap();
-
-    match utils::parse_fen_string(&string) {
-      Ok(s) => println!("{}", s),
-      Err(err) => println!("{}", err),
-    };
-
-    return;
-  }
-
-  let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
-
-  if let Some(matches) = matches.subcommand_matches("perf") {
-    let time_limit = value_t!(matches, "time", u64).unwrap_or(10);
-    perf(time_limit, threads, 15);
-    return;
-  }
-
-  let player = match matches.value_of("player").unwrap_or("o") {
-    "x" | "X" => Player::X,
-    "o" | "O" => Player::O,
-    _ => panic!("Invalid player"),
-  };
-
-  let time_limit = value_t!(matches, "time", u64).unwrap_or(1000);
-  let board_size = value_t!(matches, "board", u8).unwrap_or(15);
-
-  if let Some(path) = matches.value_of("debug") {
-    match run_debug(path, player, time_limit, threads) {
-      Ok(_) => println!("Done!"),
-      Err(msg) => println!("Error: {}", msg),
-    }
-  } else {
-    run(player, time_limit, threads, board_size);
-  }
+    .get_matches()
 }
 
 fn run_debug(
