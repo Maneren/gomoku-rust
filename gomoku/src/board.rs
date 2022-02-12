@@ -263,13 +263,13 @@ impl Board {
 }
 impl fmt::Display for Board {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let board_size = self.size;
+    let board_size = self.size as usize;
 
     let mut string: String = String::new()
       + if board_size >= 10 { "  " } else { " " }
       + &"abcdefghijklmnopqrstuvwxyz"
         .chars()
-        .take(board_size as usize)
+        .take(board_size)
         .collect::<String>()
       + "\n";
 
@@ -281,8 +281,9 @@ impl fmt::Display for Board {
       };
       string.push_str(&tmp);
 
-      let row_start = (i * board_size) as usize;
-      let row_end = ((i + 1) * board_size) as usize;
+      let row_start = i * board_size;
+      let row_end = (i + 1) * board_size;
+
       let row = &self.data[row_start..row_end];
       let row_string: String = row
         .iter()
