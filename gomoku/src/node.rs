@@ -8,7 +8,6 @@ use super::{
   utils::do_run,
   Score,
 };
-use core::panic;
 use std::{
   cmp::Ordering,
   fmt,
@@ -136,10 +135,7 @@ impl Node {
   }
 
   fn analyze_child_nodes(&mut self) {
-    let best = self
-      .child_nodes
-      .get(0)
-      .unwrap_or_else(|| panic!("no children in eval"));
+    let best = self.child_nodes.get(0).expect("no children in eval");
 
     self.score = self.original_score / 10 + -best.score;
     self.state = best.state.inversed();

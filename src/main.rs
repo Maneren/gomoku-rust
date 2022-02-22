@@ -155,16 +155,13 @@ fn run_debug(
   let result = gomoku_lib::decide(&mut board, player, time_limit, threads);
   let run_time = start.elapsed().as_micros();
 
-  let unwrapped;
-  match result {
-    Ok(result) => unwrapped = result,
+  let (best_move, stats) = match result {
+    Ok(result) => result,
     Err(err) => {
       println!("Error occured: {:?}", err);
       return Ok(());
     }
-  }
-
-  let (best_move, stats) = unwrapped;
+  };
 
   println!();
   println!("{}", stats);

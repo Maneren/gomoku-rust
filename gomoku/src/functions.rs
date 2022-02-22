@@ -118,7 +118,7 @@ macro_rules! seq_to_iter {
 }
 
 pub fn eval_relevant_sequences(board: &Board, tile: TilePointer) -> (EvalScore, EvalWin) {
-  let (score, is_win) = board.get_relevant_sequences(tile).iter().fold(
+  let (score, is_win) = board.get_relevant_sequences(tile).into_iter().fold(
     ([0, 0], [false, false]),
     |(mut total, mut is_win), sequence| {
       let (score, is_winning) = eval_sequence(seq_to_iter!(sequence, board));
@@ -139,17 +139,18 @@ pub fn eval_relevant_sequences(board: &Board, tile: TilePointer) -> (EvalScore, 
 pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
   let opponent = current_player.next();
 
-  let (score, is_win) = board
-    .sequences()
-    .iter()
-    .fold((0, false), |(total, is_win), sequence| {
-      let (score, is_winning) = eval_sequence(seq_to_iter!(sequence, board));
+  let (score, is_win) =
+    board
+      .sequences()
+      .into_iter()
+      .fold((0, false), |(total, is_win), sequence| {
+        let (score, is_winning) = eval_sequence(seq_to_iter!(sequence, board));
 
-      (
-        total + score[current_player.index()] - score[opponent.index()],
-        is_win | is_winning[current_player.index()],
-      )
-    });
+        (
+          total + score[current_player.index()] - score[opponent.index()],
+          is_win | is_winning[current_player.index()],
+        )
+      });
 
   let state = if is_win { State::Win } else { State::NotEnd };
 
@@ -175,7 +176,7 @@ pub fn get_dist_fn(board_size: u8) -> Box<dyn Fn(TilePointer) -> Score> {
 
 pub fn check_winning(presorted_nodes: &[Node], stats: Stats) -> Option<(Move, Stats)> {
   presorted_nodes
-    .iter()
+    .into_iter()
     .filter(|node| node.state.is_win())
     .max()
     .map(|node| (node.to_move(), stats))
