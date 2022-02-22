@@ -1,3 +1,5 @@
+use std::sync::{atomic::AtomicBool, Arc};
+
 use super::{
   board::{Board, TilePointer},
   node::Node,
@@ -7,7 +9,6 @@ use super::{
   stats::Stats,
   Score, Tile,
 };
-use std::sync::{atomic::AtomicBool, Arc};
 
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) {
   if has_hole {

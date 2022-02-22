@@ -1,5 +1,6 @@
-use super::{Player, Tile};
 use std::{error, fmt, iter};
+
+use super::{Player, Tile};
 
 #[derive(Debug)]
 pub struct Error {

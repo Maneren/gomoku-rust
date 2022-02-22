@@ -1,3 +1,9 @@
+use std::{
+  cmp::Ordering,
+  fmt,
+  sync::{atomic::AtomicBool, Arc},
+};
+
 use super::{
   board::{Board, TilePointer},
   functions::{eval_relevant_sequences, get_dist_fn},
@@ -7,11 +13,6 @@ use super::{
   stats::Stats,
   utils::do_run,
   Score,
-};
-use std::{
-  cmp::Ordering,
-  fmt,
-  sync::{atomic::AtomicBool, Arc},
 };
 
 #[derive(Clone)]

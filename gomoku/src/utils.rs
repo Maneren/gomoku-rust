@@ -44,8 +44,9 @@ pub fn format_number(input: f32) -> String {
   }
 }
 
-use regex::{Captures, Regex};
 use std::error::Error;
+
+use regex::{Captures, Regex};
 
 use crate::{Board, Player};
 
