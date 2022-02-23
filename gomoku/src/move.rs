@@ -1,5 +1,6 @@
-use super::{Score, TilePointer};
 use std::fmt;
+
+use super::{Score, TilePointer};
 
 pub struct Move {
   pub tile: TilePointer,

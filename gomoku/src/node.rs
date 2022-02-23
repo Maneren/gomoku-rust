@@ -1,3 +1,9 @@
+use std::{
+  cmp::Ordering,
+  fmt,
+  sync::{atomic::AtomicBool, Arc},
+};
+
 use super::{
   board::{Board, TilePointer},
   functions::{eval_relevant_sequences, get_dist_fn},
@@ -7,12 +13,6 @@ use super::{
   stats::Stats,
   utils::do_run,
   Score,
-};
-use core::panic;
-use std::{
-  cmp::Ordering,
-  fmt,
-  sync::{atomic::AtomicBool, Arc},
 };
 
 #[derive(Clone)]
@@ -136,10 +136,7 @@ impl Node {
   }
 
   fn analyze_child_nodes(&mut self) {
-    let best = self
-      .child_nodes
-      .get(0)
-      .unwrap_or_else(|| panic!("no children in eval"));
+    let best = self.child_nodes.get(0).expect("no children in eval");
 
     self.score = self.original_score / 10 + -best.score;
     self.state = best.state.inversed();
