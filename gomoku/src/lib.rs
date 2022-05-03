@@ -53,8 +53,14 @@ fn minimax_top_level(
     &format!("computing depth 1 for {} nodes", empty_tiles.len()),
     &end_time,
   );
-  let presorted_nodes =
-    nodes_sorted_by_shallow_eval(board, empty_tiles, &mut stats, current_player, &end);
+  let presorted_nodes = nodes_sorted_by_shallow_eval(
+    board,
+    empty_tiles,
+    &mut stats,
+    current_player,
+    &end,
+    threads,
+  );
 
   // if there is winning move, return it
   if let Some(winning_move) = check_winning(&presorted_nodes, stats) {

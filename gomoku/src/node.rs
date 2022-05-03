@@ -1,8 +1,10 @@
 use std::{
   cmp::Ordering,
   fmt,
-  sync::{atomic::AtomicBool, Arc},
+  sync::{atomic::AtomicBool, Arc, Mutex},
 };
+
+use threadpool::ThreadPool;
 
 use super::{
   board::{Board, TilePointer},
@@ -77,6 +79,7 @@ pub struct Node {
   pub best_moves: MoveSequence,
   depth: u8,
 
+  threads: usize,
   end: Arc<AtomicBool>,
 }
 impl Node {
@@ -101,9 +104,10 @@ impl Node {
     }
 
     let limit = match self.depth {
-      0 => 20,
-      1 | 2 | 3 | 4 | 5 => 10,
-      6 | 7 => 5,
+      0 => 24,
+      1 | 2 => 16,
+      3 | 4 | 5 => 8,
+      6 | 7 => 4,
       8 | 9 => 2,
       10.. => 1,
     };
@@ -114,15 +118,50 @@ impl Node {
 
     board.set_tile(self.tile, Some(self.player));
 
-    for node in &mut self.child_nodes {
-      node.compute_next(board, stats);
+    // evaluate all child nodes
+    if self.depth <= 4 {
+      // single threaded
+      for node in &mut self.child_nodes {
+        node.compute_next(board, stats);
 
-      if !node.valid {
-        self.valid = false;
-        break;
+        if !node.valid {
+          self.valid = false;
+          break;
+        }
       }
-    }
+    } else {
+      // multi threaded
+      let pool = ThreadPool::with_name(String::from("node"), self.threads);
 
+      let nodes: Vec<Node> = self.child_nodes.drain(..).collect();
+      let nodes_arc = Arc::new(Mutex::new(Vec::new()));
+      let stats_arc = Arc::new(Mutex::new(Vec::new()));
+
+      for mut node in nodes {
+        let mut board_clone = board.clone();
+        let mut stats_clone = Stats::new();
+        let nodes_arc_clone = nodes_arc.clone();
+        let stats_arc_clone = stats_arc.clone();
+
+        pool.execute(move || {
+          node.compute_next(&mut board_clone, &mut stats_clone);
+          nodes_arc_clone.lock().unwrap().push(node);
+          stats_arc_clone.lock().unwrap().push(stats_clone);
+        });
+      }
+
+      pool.join();
+
+      assert!(pool.panic_count() == 0, "node threads panicked");
+
+      self.child_nodes = nodes_arc.lock().unwrap().drain(..).collect();
+
+      *stats += stats_arc
+        .lock()
+        .unwrap()
+        .drain(..)
+        .fold(Stats::new(), |total, stat| total + stat);
+    }
     board.set_tile(self.tile, None);
 
     if self.valid {
@@ -198,6 +237,7 @@ impl Node {
           score - dist(tile),
           state,
           self.end.clone(),
+          self.threads,
           stats,
         )
       })
@@ -215,6 +255,7 @@ impl Node {
     score: Score,
     state: State,
     end: Arc<AtomicBool>,
+    threads: usize,
     stats: &mut Stats,
   ) -> Node {
     stats.create_node();
@@ -236,6 +277,7 @@ impl Node {
       },
       depth: 0,
       end,
+      threads,
     }
   }
 

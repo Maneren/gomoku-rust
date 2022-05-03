@@ -189,6 +189,7 @@ pub fn nodes_sorted_by_shallow_eval(
   stats: &mut Stats,
   target_player: Player,
   end: &Arc<AtomicBool>,
+  threads: usize,
 ) -> Vec<Node> {
   let dist = get_dist_fn(board.get_size());
 
@@ -205,6 +206,7 @@ pub fn nodes_sorted_by_shallow_eval(
         analysis - dist(tile),
         state,
         end.clone(),
+        threads,
         stats,
       )
     })

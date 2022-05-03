@@ -1,4 +1,7 @@
-use std::{fmt, ops::Add};
+use std::{
+  fmt,
+  ops::{Add, AddAssign},
+};
 
 use super::utils::format_number;
 
@@ -33,5 +36,10 @@ impl Add for Stats {
     Stats {
       nodes_evaluated: self.nodes_evaluated + other.nodes_evaluated,
     }
+  }
+}
+impl AddAssign for Stats {
+  fn add_assign(&mut self, other: Stats) {
+    *self = *self + other;
   }
 }
