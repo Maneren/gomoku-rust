@@ -1,3 +1,9 @@
+use std::{
+  cmp::Ordering,
+  fmt,
+  sync::{atomic::AtomicBool, Arc},
+};
+
 use super::{
   board::{Board, TilePointer},
   functions::{eval_relevant_sequences, get_dist_fn},
@@ -7,12 +13,6 @@ use super::{
   stats::Stats,
   utils::do_run,
   Score,
-};
-use core::panic;
-use std::{
-  cmp::Ordering,
-  fmt,
-  sync::{atomic::AtomicBool, Arc},
 };
 
 #[derive(Clone)]
@@ -102,12 +102,12 @@ impl Node {
 
     let limit = match self.depth {
       0 => 20,
-      1 | 2 | 3 => 10,
-      4 | 5 => 6,
-      6 | 7 => 3,
+      1 | 2 | 3 | 4 | 5 => 10,
+      6 | 7 => 5,
       8 | 9 => 2,
       10.. => 1,
     };
+
     while self.child_nodes.len() > limit {
       self.child_nodes.pop();
     }
@@ -136,10 +136,7 @@ impl Node {
   }
 
   fn analyze_child_nodes(&mut self) {
-    let best = self
-      .child_nodes
-      .get(0)
-      .unwrap_or_else(|| panic!("no children in eval"));
+    let best = self.child_nodes.get(0).expect("no children in eval");
 
     self.score = self.original_score / 10 + -best.score;
     self.state = best.state.inversed();
@@ -186,7 +183,7 @@ impl Node {
 
         let state = {
           let self_state = new_state[next_player.index()];
-          let opponent_state = new_state[next_player.next().index()];
+          let opponent_state = new_state[self.player.index()];
 
           match (self_state, opponent_state) {
             (true, _) => State::Win,
