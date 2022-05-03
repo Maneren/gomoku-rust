@@ -7,15 +7,6 @@ mod state;
 mod stats;
 pub mod utils;
 
-pub use board::{Board, TilePointer};
-pub use player::Player;
-pub use r#move::Move; // r# to allow reserved keyword as name
-
-use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
-use node::Node;
-use stats::Stats;
-use utils::{do_run, format_number, print_status};
-
 use std::{
   ops::Add,
   sync::{
@@ -26,7 +17,14 @@ use std::{
   time::{Duration, Instant},
 };
 
+pub use board::{Board, TilePointer};
+use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
+use node::Node;
+pub use player::Player;
+pub use r#move::Move; // r# to allow reserved keyword as name
+use stats::Stats;
 use threadpool::ThreadPool;
+use utils::{do_run, format_number, print_status};
 
 type Tile = Option<Player>;
 type Score = i32;

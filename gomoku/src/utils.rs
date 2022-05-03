@@ -25,21 +25,28 @@ pub fn print_status(msg: &str, end_time: &Instant) {
   clippy::cast_possible_truncation,
   clippy::cast_sign_loss
 )]
-pub fn format_number(number: f32) -> String {
-  let sizes = [' ', 'k', 'M', 'G', 'T'];
-
+pub fn format_number(input: f32) -> String {
+  let sizes = ['-', 'k', 'M', 'G', 'T'];
   let base = 1000.0;
-  let i = number.log(base).floor();
-  let number = format!("{:.2}", number / base.powi(i as i32));
-  if i > 1.0 {
-    format!("{}{}", number, sizes[i as usize])
+
+  let i = input.log(base).floor();
+  let number = input / base.powi(i as i32);
+
+  let string = format!("{:.2}", number)
+    .trim_end_matches('0')
+    .trim_end_matches('.')
+    .to_owned();
+
+  if i >= 1.0 {
+    format!("{}{}", string, sizes[i as usize])
   } else {
-    number
+    string
   }
 }
 
-use regex::{Captures, Regex};
 use std::error::Error;
+
+use regex::{Captures, Regex};
 
 use crate::{Board, Player};
 

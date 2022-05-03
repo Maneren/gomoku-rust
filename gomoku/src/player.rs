@@ -1,5 +1,4 @@
-use std::error::Error;
-use std::fmt;
+use std::{error::Error, fmt};
 
 #[derive(Clone, PartialEq, Eq, Copy)]
 pub enum Player {
