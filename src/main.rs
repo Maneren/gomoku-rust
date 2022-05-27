@@ -243,14 +243,14 @@ fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
     let result = gomoku_lib::decide(&mut board, player, time_limit, threads);
     let run_time = start.elapsed().as_micros();
 
-    let unwrapped;
-    match result {
-      Ok(result) => unwrapped = result,
+    let unwrapped = match result {
+      Ok(result) => result,
       Err(err) => {
         println!("Error occured: {:?}", err);
         continue;
       }
-    }
+    };
+
     let (Move { tile, score }, stats) = unwrapped;
 
     print_runtime(run_time);

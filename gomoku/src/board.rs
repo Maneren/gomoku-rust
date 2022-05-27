@@ -227,8 +227,7 @@ impl Board {
   }
 
   fn get_index_raw(size: u8, x: u8, y: u8) -> usize {
-    let index = size * y + x;
-    index as usize
+    (size * y + x) as usize
   }
 
   pub fn get_tile(&self, ptr: &TilePointer) -> &Tile {
