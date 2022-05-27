@@ -131,7 +131,10 @@ impl Node {
       }
     } else {
       // multi threaded
-      let pool = ThreadPool::with_name(String::from("node"), self.threads);
+      let pool = ThreadPool::with_name(
+        String::from("node"),
+        self.threads.min(self.child_nodes.len()),
+      );
 
       let nodes: Vec<Node> = self.child_nodes.drain(..).collect();
       let nodes_arc = Arc::new(Mutex::new(Vec::new()));
