@@ -313,6 +313,14 @@ mod tests {
   const BOARD_SIZE: u8 = 9;
 
   #[test]
+  fn test_from_string() {
+    let board = Board::from_string(BOARD_DATA).unwrap();
+
+    assert_eq!(board.get_size(), BOARD_SIZE);
+    assert_eq!(board.sequences()[0].len(), BOARD_SIZE as usize);
+  }
+
+  #[test]
   fn test_get_index() {
     let x = 2;
     let y = 3;
