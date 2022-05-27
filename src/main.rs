@@ -1,20 +1,23 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::similar_names)]
 
-use std::io::{self};
-use std::{fs::File, io::prelude::Read, time::Instant};
+use std::{
+  fs::File,
+  io::{self, prelude::Read},
+  time::Instant,
+};
 
 use gomoku_lib::{self, perf, utils, Board, Move, Player, TilePointer};
 
 type Error = Box<dyn std::error::Error>;
 
-use clap::{value_t, App, Arg};
+use clap::{Arg, Command};
 
 fn main() {
   let matches = parse_args();
 
   if let Some(matches) = matches.subcommand_matches("fen") {
-    let mut string = value_t!(matches, "string", String).unwrap();
+    let mut string = matches.value_of_t("string").unwrap();
 
     // if argument is "--" read from stdin instead
     if string == "--" {
@@ -37,11 +40,15 @@ fn main() {
     return;
   }
 
-  let threads = value_t!(matches, "threads", usize).unwrap_or_else(|_| num_cpus::get());
+  let threads = matches
+    .value_of_t("threads")
+    .unwrap_or_else(|_| num_cpus::get());
 
   if let Some(matches) = matches.subcommand_matches("perf") {
-    let time_limit = value_t!(matches, "time", u64).unwrap_or(10);
+    let time_limit = matches.value_of_t("time").unwrap_or(10);
+
     perf(time_limit, threads, 15);
+
     return;
   }
 
@@ -51,8 +58,8 @@ fn main() {
     _ => panic!("Invalid player"),
   };
 
-  let time_limit = value_t!(matches, "time", u64).unwrap_or(1000);
-  let board_size = value_t!(matches, "board", u8).unwrap_or(15);
+  let time_limit = matches.value_of_t("time").unwrap_or(1000);
+  let board_size = matches.value_of_t("board").unwrap_or(15);
 
   if let Some(path) = matches.value_of("debug") {
     match run_debug(path, player, time_limit, threads) {
@@ -64,70 +71,70 @@ fn main() {
   }
 }
 
-fn parse_args<'a>() -> clap::ArgMatches<'a> {
-  App::new("Gomoku")
+fn parse_args() -> clap::ArgMatches {
+  Command::new("Gomoku")
     .version("5.0")
     .subcommand(
-      App::new("perf")
+      Command::new("perf")
         .arg(
-          Arg::with_name("threads")
-            .short("t")
+          Arg::new("threads")
+            .short('t')
             .long("threads")
             .help("How many threads to use (default is thread count of your CPU)")
             .takes_value(true),
         )
         .arg(
-          Arg::with_name("time")
-            .short("m")
+          Arg::new("time")
+            .short('m')
             .long("time")
             .help("Time limit in seconds (default is 10)")
             .takes_value(true),
         )
         .arg(
-          Arg::with_name("board")
-            .short("b")
+          Arg::new("board")
+            .short('b')
             .long("board")
             .help("Size of game board")
             .takes_value(true),
         ),
     )
     .subcommand(
-      App::new("fen").arg(
-        Arg::with_name("string")
+      Command::new("fen").arg(
+        Arg::new("string")
           .index(1)
           .required(true)
           .help("Incomplete fen string"),
       ),
     )
     .arg(
-      Arg::with_name("player")
+      Arg::new("player")
         .help("X or O")
         .index(1)
         .possible_values(&["X", "O", "x", "o"]),
     )
     .arg(
-      Arg::with_name("time")
+      Arg::new("time")
         .help("Time limit in milliseconds (default is 1000)")
         .index(2),
     )
     .arg(
-      Arg::with_name("debug")
-        .short("d")
+      Arg::new("debug")
+        .short('d')
         .long("debug")
         .help("Run in debug mode")
         .takes_value(true)
         .value_name("FILE"),
     )
     .arg(
-      Arg::with_name("threads")
-        .short("t")
+      Arg::new("threads")
+        .short('t')
         .long("threads")
         .help("How many threads to use (default is thread count of your CPU)")
         .takes_value(true),
     )
     .arg(
-      Arg::with_name("board")
-        .short("b")
+      Arg::new("board")
+        .short('b')
         .long("board")
         .value_name("SIZE")
         .conflicts_with("debug")

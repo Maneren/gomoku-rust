@@ -5,7 +5,7 @@ authors = ["Maneren <maneren731@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-clap = "2"
+clap = "3.1.18"
 num_cpus = "1"
 text_io = "0"
 gomoku_lib = { path = "./gomoku" }
