@@ -50,7 +50,6 @@ use regex::{Captures, Regex};
 
 use crate::{Board, Player};
 
-#[allow(dead_code)]
 pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
   let input = input.trim().to_owned();
 
@@ -96,16 +95,13 @@ pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
     Ok(parsed + &padding)
   };
 
-  let mut out = String::new();
-  // can't use Iter::fold because of the possible Err
-  for x in parts {
-    out += &(parse_row(x)? + "\n");
-  }
-
-  Ok(out)
+  parts
+    .into_iter()
+    .map(|row| parse_row(row))
+    .collect::<Result<Vec<_>, _>>()
+    .map(|rows| rows.join("/"))
 }
 
-#[allow(dead_code)]
 pub fn is_game_end(board: &Board, current_player: Player) -> bool {
   board
     .sequences()
@@ -113,7 +109,6 @@ pub fn is_game_end(board: &Board, current_player: Player) -> bool {
     .any(|sequence| is_game_end_sequence(sequence, current_player, board))
 }
 
-#[allow(dead_code)]
 fn is_game_end_sequence(sequence: &[usize], current_player: Player, board: &Board) -> bool {
   let mut consecutive = 0;
   for &tile in sequence {
