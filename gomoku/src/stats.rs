@@ -1,5 +1,6 @@
 use std::{
   fmt,
+  iter::Sum,
   ops::{Add, AddAssign},
 };
 
@@ -33,7 +34,7 @@ impl Add for Stats {
   type Output = Stats;
 
   fn add(self, other: Stats) -> Self::Output {
-    Stats {
+    Self {
       nodes_evaluated: self.nodes_evaluated + other.nodes_evaluated,
     }
   }
@@ -41,5 +42,13 @@ impl Add for Stats {
 impl AddAssign for Stats {
   fn add_assign(&mut self, other: Stats) {
     *self = *self + other;
+  }
+}
+impl Sum for Stats {
+  fn sum<I>(iter: I) -> Self
+  where
+    I: Iterator<Item = Self>,
+  {
+    iter.fold(Stats::new(), |acc, x| acc + x)
   }
 }

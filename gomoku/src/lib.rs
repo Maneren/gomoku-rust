@@ -8,7 +8,6 @@ mod stats;
 pub mod utils;
 
 use std::{
-  ops::Add,
   sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
@@ -78,30 +77,36 @@ fn minimax_top_level(
   let pool = ThreadPool::with_name(String::from("node"), threads);
 
   let mut nodes = presorted_nodes;
-  let mut nodes_generations = vec![nodes.clone()];
+  let mut generation_number = 1;
+  let mut last_generation = nodes.clone();
   let nodes_arc = Arc::new(Mutex::new(Vec::new()));
-  let stats_arc = Arc::new(Mutex::new(Vec::new()));
-
-  let mut i = 1;
+  let stats_arc = Arc::new(Mutex::new(Stats::new()));
 
   while do_run(&end) {
-    i += 1;
+    generation_number += 1;
+
     let node_count = nodes.len() + nodes.iter().map(Node::node_count).sum::<usize>();
+
     print_status(
-      &format!("computing depth {} for {} nodes", i, node_count),
+      &format!(
+        "computing depth {} for {} nodes",
+        generation_number, node_count
+      ),
       &end_time,
     );
 
     for mut node in nodes {
       let mut board_clone = board.clone();
-      let mut stats_clone = Stats::new();
       let nodes_arc_clone = nodes_arc.clone();
       let stats_arc_clone = stats_arc.clone();
 
       pool.execute(move || {
-        node.compute_next(&mut board_clone, &mut stats_clone);
+        let mut stats = Stats::new();
+
+        node.compute_next(&mut board_clone, &mut stats);
+
         nodes_arc_clone.lock().unwrap().push(node);
-        stats_arc_clone.lock().unwrap().push(stats_clone);
+        *stats_arc_clone.lock().unwrap() += stats;
       });
     }
 
@@ -117,7 +122,8 @@ fn minimax_top_level(
     }
 
     nodes.sort_unstable_by(|a, b| b.cmp(a));
-    nodes_generations.push(nodes.clone());
+
+    last_generation = nodes.clone();
 
     if nodes.iter().any(|node| node.state.is_win()) || nodes.iter().all(|node| node.state.is_lose())
     {
@@ -126,7 +132,7 @@ fn minimax_top_level(
 
     nodes.retain(|child| !child.state.is_lose());
 
-    if i >= 4 {
+    if generation_number >= 4 {
       nodes.truncate(threads);
     }
   }
@@ -139,32 +145,27 @@ fn minimax_top_level(
     println!("All moves are losing :(");
   }
 
-  println!("Searched to depth {:?}!", nodes_generations.len());
+  println!("Searched to depth {:?}!", generation_number);
 
   println!();
 
-  let stats = stats_arc
-    .lock()
-    .unwrap()
-    .iter()
-    .fold(Stats::new(), |total, stats| total.add(*stats));
+  let stats = stats_arc.lock().unwrap().clone();
 
-  let last_generation = nodes_generations.last().unwrap();
   let best_node = last_generation.iter().max().unwrap();
 
   println!("Best moves: {:#?}", best_node);
-  {
-    let mut best_board = board.clone();
+  // {
+  //   let mut best_board = board.clone();
 
-    let mut current = best_node.best_moves.clone();
+  //   let mut current = best_node.best_moves.clone();
 
-    best_board.set_tile(current.tile, Some(current.player));
-    while current.next.is_some() {
-      current = *current.next.unwrap();
-      best_board.set_tile(current.tile, Some(current.player));
-    }
-    println!("Best board: \n{}", best_board);
-  }
+  //   best_board.set_tile(current.tile, Some(current.player));
+  //   while current.next.is_some() {
+  //     current = *current.next.unwrap();
+  //     best_board.set_tile(current.tile, Some(current.player));
+  //   }
+  //   println!("Best board: \n{}", best_board);
+  // }
 
   Ok((best_node.to_move(), stats))
 }

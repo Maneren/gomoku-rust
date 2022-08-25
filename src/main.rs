@@ -233,7 +233,7 @@ fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
 
     let tile_ptr = TilePointer { x, y };
 
-    if board.get_tile(&tile_ptr).is_some() {
+    if board.get_tile(tile_ptr).is_some() {
       println!("Tile already used");
       continue;
     }

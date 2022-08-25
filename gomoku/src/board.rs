@@ -1,5 +1,7 @@
 use std::{error, fmt, iter};
 
+use crate::Score;
+
 use super::{Player, Tile};
 
 #[derive(Debug)]
@@ -33,10 +35,8 @@ type Sequence = Vec<usize>;
 
 #[derive(Clone)]
 pub struct Board {
-  data: Vec<Tile>,
   size: u8,
-
-  tile_ptrs: Vec<TilePointer>,
+  data: Vec<Tile>,
   sequences: Vec<Sequence>,
 }
 
@@ -61,13 +61,11 @@ impl Board {
     #[allow(clippy::cast_possible_truncation)]
     let board_size = data.len() as u8;
     let sequences = Board::generate_sequences(board_size);
-    let tile_ptrs = Self::get_tile_ptrs(board_size);
     let flat_data = data.into_iter().flatten().collect();
 
     Ok(Board {
       data: flat_data,
       size: board_size,
-      tile_ptrs,
       sequences,
     })
   }
@@ -81,23 +79,13 @@ impl Board {
   }
 
   fn generate_sequences(board_size: u8) -> Vec<Sequence> {
-    let mut sequences = Vec::new();
+    let board_size = board_size as usize;
 
-    // horizontal
-    for y in 0..board_size {
-      let temp = (0..board_size)
-        .map(|x| Self::get_index_raw(board_size, x, y))
-        .collect();
-      sequences.push(temp);
-    }
+    let rows = (0..board_size).map(|y| (0..board_size).map(|x| x * board_size + y).collect());
 
-    // vertical
-    for x in 0..board_size {
-      let temp = (0..board_size)
-        .map(|y| Self::get_index_raw(board_size, x, y))
-        .collect();
-      sequences.push(temp);
-    }
+    let columns = (0..board_size).map(|x| (0..board_size).map(|y| x + y * board_size).collect());
+
+    let mut sequences: Vec<Vec<usize>> = rows.chain(columns).collect();
 
     // diag1
     {
@@ -109,7 +97,7 @@ impl Board {
           .map(|i| {
             let x = start + i;
             let y = end - i - 1;
-            Self::get_index_raw(board_size, x, y)
+            Self::get_index_raw(board_size as u8, x as u8, y as u8)
           })
           .collect();
 
@@ -133,7 +121,7 @@ impl Board {
           .map(|i| {
             let x = board_size - (start + i) - 1;
             let y = end - i - 1;
-            Self::get_index_raw(board_size, x, y)
+            Self::get_index_raw(board_size as u8, x as u8, y as u8)
           })
           .collect();
 
@@ -148,12 +136,6 @@ impl Board {
     }
 
     sequences
-  }
-
-  fn get_tile_ptrs(size: u8) -> Vec<TilePointer> {
-    (0..size)
-      .flat_map(|y| (0..size).map(move |x| TilePointer { x, y }))
-      .collect()
   }
 
   pub fn sequences(&self) -> &[Sequence] {
@@ -178,10 +160,11 @@ impl Board {
 
   pub fn get_empty_tiles(&self) -> Result<Vec<TilePointer>, Error> {
     let tiles: Vec<_> = self
-      .tile_ptrs
+      .data
       .iter()
-      .filter(|ptr| self.get_tile(ptr).is_none())
-      .map(TilePointer::to_owned)
+      .enumerate()
+      .filter(|(.., tile)| tile.is_none())
+      .map(|(index, ..)| Self::get_ptr_from_index(index, self.size))
       .collect();
 
     if tiles.is_empty() {
@@ -191,6 +174,16 @@ impl Board {
     } else {
       Ok(tiles)
     }
+  }
+
+  pub fn squared_distance_from_center(&self, p: TilePointer) -> Score {
+    let center = f32::from(self.size - 1) / 2.0; // -1 to adjust for 0-indexing
+
+    let x = f32::from(p.x);
+    let y = f32::from(p.y);
+    let dist = (x - center).powi(2) + (y - center).powi(2);
+
+    dist.round() as Score
   }
 
   pub fn from_string(input_string: &str) -> Result<Board, Error> {
@@ -221,6 +214,16 @@ impl Board {
     Ok(board)
   }
 
+  fn get_ptr_from_index(index: usize, size: u8) -> TilePointer {
+    let x = index % size as usize;
+    let y = index / size as usize;
+
+    TilePointer {
+      x: x as u8,
+      y: y as u8,
+    }
+  }
+
   fn get_index(size: u8, ptr: TilePointer) -> usize {
     let TilePointer { x, y } = ptr;
     Self::get_index_raw(size, x, y)
@@ -230,8 +233,8 @@ impl Board {
     (size * y + x) as usize
   }
 
-  pub fn get_tile(&self, ptr: &TilePointer) -> &Tile {
-    let index = Self::get_index(self.size, *ptr);
+  pub fn get_tile(&self, ptr: TilePointer) -> &Tile {
+    let index = Self::get_index(self.size, ptr);
     self.get_tile_raw(index)
   }
 

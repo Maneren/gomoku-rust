@@ -8,7 +8,7 @@ use threadpool::ThreadPool;
 
 use super::{
   board::{Board, TilePointer},
-  functions::{eval_relevant_sequences, get_dist_fn},
+  functions::eval_relevant_sequences,
   player::Player,
   r#move::Move,
   state::State,
@@ -104,8 +104,8 @@ impl Node {
     }
 
     let limit = match self.depth {
-      0 => 24,
-      1 | 2 | 3 => 16,
+      0 | 1 => unreachable!(),
+      2 | 3 => 16,
       4 | 5 => 8,
       6 | 7 => 4,
       8 | 9 => 2,
@@ -138,18 +138,20 @@ impl Node {
 
       let nodes: Vec<Node> = self.child_nodes.drain(..).collect();
       let nodes_arc = Arc::new(Mutex::new(Vec::new()));
-      let stats_arc = Arc::new(Mutex::new(Vec::new()));
+      let stats_arc = Arc::new(Mutex::new(Stats::new()));
 
       for mut node in nodes {
         let mut board_clone = board.clone();
-        let mut stats_clone = Stats::new();
         let nodes_arc_clone = nodes_arc.clone();
         let stats_arc_clone = stats_arc.clone();
 
         pool.execute(move || {
-          node.compute_next(&mut board_clone, &mut stats_clone);
+          let mut stats = Stats::new();
+
+          node.compute_next(&mut board_clone, &mut stats);
+
           nodes_arc_clone.lock().unwrap().push(node);
-          stats_arc_clone.lock().unwrap().push(stats_clone);
+          *stats_arc_clone.lock().unwrap() += stats;
         });
       }
 
@@ -159,12 +161,9 @@ impl Node {
 
       self.child_nodes = nodes_arc.lock().unwrap().drain(..).collect();
 
-      *stats += stats_arc
-        .lock()
-        .unwrap()
-        .drain(..)
-        .fold(Stats::new(), |total, stat| total + stat);
+      *stats += *stats_arc.lock().unwrap();
     }
+
     board.set_tile(self.tile, None);
 
     if self.valid {
@@ -183,23 +182,20 @@ impl Node {
     self.score = self.original_score / 10 + -best.score;
     self.state = best.state.inversed();
 
-    self.best_moves = MoveSequence::new(&*self);
+    self.best_moves = MoveSequence::new(self);
 
     self.child_nodes.retain(|child| !child.state.is_lose());
   }
 
   fn init_child_nodes(&mut self, board: &mut Board, stats: &mut Stats) {
-    let available_tiles;
-    if let Ok(tiles) = board.get_empty_tiles() {
-      available_tiles = tiles;
+    let available_tiles = if let Ok(tiles) = board.get_empty_tiles() {
+      tiles
     } else {
       // no empty tiles
       self.state = State::Draw;
       self.score = 0;
       return;
-    }
-
-    let dist = get_dist_fn(board.get_size());
+    };
 
     let mut nodes: Vec<Node> = available_tiles
       .into_iter()
@@ -237,7 +233,7 @@ impl Node {
         Node::new(
           tile,
           next_player,
-          score - dist(tile),
+          score - board.squared_distance_from_center(tile),
           state,
           self.end.clone(),
           self.threads,
