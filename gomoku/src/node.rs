@@ -1,12 +1,14 @@
 use std::{
   cmp::Ordering,
   fmt,
-  sync::{atomic::AtomicBool, Arc},
+  sync::{atomic::AtomicBool, Arc, Mutex},
 };
+
+use threadpool::ThreadPool;
 
 use super::{
   board::{Board, TilePointer},
-  functions::{eval_relevant_sequences, get_dist_fn},
+  functions::eval_relevant_sequences,
   player::Player,
   r#move::Move,
   state::State,
@@ -77,6 +79,7 @@ pub struct Node {
   pub best_moves: MoveSequence,
   depth: u8,
 
+  threads: usize,
   end: Arc<AtomicBool>,
 }
 impl Node {
@@ -101,26 +104,64 @@ impl Node {
     }
 
     let limit = match self.depth {
-      0 => 20,
-      1 | 2 | 3 => 10,
-      4 | 5 => 6,
-      6 | 7 => 3,
+      0 | 1 => unreachable!(),
+      2 | 3 => 16,
+      4 | 5 => 8,
+      6 | 7 => 4,
       8 | 9 => 2,
       10.. => 1,
     };
+
     while self.child_nodes.len() > limit {
       self.child_nodes.pop();
     }
 
     board.set_tile(self.tile, Some(self.player));
 
-    for node in &mut self.child_nodes {
-      node.compute_next(board, stats);
+    // evaluate all child nodes
+    if self.depth <= 4 {
+      // single threaded
+      for node in &mut self.child_nodes {
+        node.compute_next(board, stats);
 
-      if !node.valid {
-        self.valid = false;
-        break;
+        if !node.valid {
+          self.valid = false;
+          break;
+        }
       }
+    } else {
+      // multi threaded
+      let pool = ThreadPool::with_name(
+        String::from("node"),
+        self.threads.min(self.child_nodes.len()),
+      );
+
+      let nodes: Vec<Node> = self.child_nodes.drain(..).collect();
+      let nodes_arc = Arc::new(Mutex::new(Vec::new()));
+      let stats_arc = Arc::new(Mutex::new(Stats::new()));
+
+      for mut node in nodes {
+        let mut board_clone = board.clone();
+        let nodes_arc_clone = nodes_arc.clone();
+        let stats_arc_clone = stats_arc.clone();
+
+        pool.execute(move || {
+          let mut stats = Stats::new();
+
+          node.compute_next(&mut board_clone, &mut stats);
+
+          nodes_arc_clone.lock().unwrap().push(node);
+          *stats_arc_clone.lock().unwrap() += stats;
+        });
+      }
+
+      pool.join();
+
+      assert!(pool.panic_count() == 0, "node threads panicked");
+
+      self.child_nodes = nodes_arc.lock().unwrap().drain(..).collect();
+
+      *stats += *stats_arc.lock().unwrap();
     }
 
     board.set_tile(self.tile, None);
@@ -141,23 +182,20 @@ impl Node {
     self.score = self.original_score / 10 + -best.score;
     self.state = best.state.inversed();
 
-    self.best_moves = MoveSequence::new(&*self);
+    self.best_moves = MoveSequence::new(self);
 
     self.child_nodes.retain(|child| !child.state.is_lose());
   }
 
   fn init_child_nodes(&mut self, board: &mut Board, stats: &mut Stats) {
-    let available_tiles;
-    if let Ok(tiles) = board.get_empty_tiles() {
-      available_tiles = tiles;
+    let available_tiles = if let Ok(tiles) = board.get_empty_tiles() {
+      tiles
     } else {
       // no empty tiles
       self.state = State::Draw;
       self.score = 0;
       return;
-    }
-
-    let dist = get_dist_fn(board.get_size());
+    };
 
     let mut nodes: Vec<Node> = available_tiles
       .into_iter()
@@ -183,7 +221,7 @@ impl Node {
 
         let state = {
           let self_state = new_state[next_player.index()];
-          let opponent_state = new_state[next_player.next().index()];
+          let opponent_state = new_state[self.player.index()];
 
           match (self_state, opponent_state) {
             (true, _) => State::Win,
@@ -195,9 +233,10 @@ impl Node {
         Node::new(
           tile,
           next_player,
-          score - dist(tile),
+          score - board.squared_distance_from_center(tile),
           state,
           self.end.clone(),
+          self.threads,
           stats,
         )
       })
@@ -215,6 +254,7 @@ impl Node {
     score: Score,
     state: State,
     end: Arc<AtomicBool>,
+    threads: usize,
     stats: &mut Stats,
   ) -> Node {
     stats.create_node();
@@ -236,6 +276,7 @@ impl Node {
       },
       depth: 0,
       end,
+      threads,
     }
   }
 

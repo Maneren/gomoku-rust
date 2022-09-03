@@ -158,23 +158,6 @@ pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
   (score, state)
 }
 
-pub fn get_dist_fn(board_size: u8) -> Box<dyn Fn(TilePointer) -> Score> {
-  let middle = f32::from(board_size - 1) / 2.0;
-
-  let function = move |p1: TilePointer| {
-    let x = f32::from(p1.x);
-    let y = f32::from(p1.y);
-    let raw_dist = (x - middle).powi(2) + (y - middle).powi(2);
-
-    #[allow(clippy::cast_possible_truncation)]
-    let dist = raw_dist.round() as Score;
-
-    dist
-  };
-
-  Box::new(function)
-}
-
 pub fn check_winning(presorted_nodes: &[Node], stats: Stats) -> Option<(Move, Stats)> {
   presorted_nodes
     .into_iter()
@@ -189,9 +172,8 @@ pub fn nodes_sorted_by_shallow_eval(
   stats: &mut Stats,
   target_player: Player,
   end: &Arc<AtomicBool>,
+  threads: usize,
 ) -> Vec<Node> {
-  let dist = get_dist_fn(board.get_size());
-
   let mut nodes: Vec<_> = empty_tiles
     .into_iter()
     .map(|tile| {
@@ -202,9 +184,10 @@ pub fn nodes_sorted_by_shallow_eval(
       Node::new(
         tile,
         target_player,
-        analysis - dist(tile),
+        analysis - board.squared_distance_from_center(tile),
         state,
         end.clone(),
+        threads,
         stats,
       )
     })
@@ -261,8 +244,6 @@ mod tests {
     let o = Some(Player::O);
     let n = None;
 
-    let _temp = vec![vec![n, o, o, o, x, n], vec![n, x, o, o, o, x, n]];
-
     let test_sequences = vec![
       (vec![n, n, n, n, n, n, n, n, n, n, n, n], vec![], vec![]),
       (
@@ -313,6 +294,11 @@ mod tests {
         vec![n, o, o, o, x, x, x, n],
         vec![shape_score(3, 1, false)],
         vec![shape_score(3, 1, false)],
+      ),
+      (
+        vec![o, o, o, n, n, o, o, o],
+        vec![],
+        vec![shape_score(3, 1, false), shape_score(3, 1, false)],
       ),
     ];
 
