@@ -1,8 +1,7 @@
 use std::{error, fmt, iter};
 
-use crate::Score;
-
 use super::{Player, Tile};
+use crate::Score;
 
 #[derive(Debug)]
 pub struct Error {
@@ -230,7 +229,7 @@ impl Board {
   }
 
   fn get_index_raw(size: u8, x: u8, y: u8) -> usize {
-    (size * y + x) as usize
+    usize::from(size) * usize::from(y) + usize::from(x)
   }
 
   pub fn get_tile(&self, ptr: TilePointer) -> &Tile {
