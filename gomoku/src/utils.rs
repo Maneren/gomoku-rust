@@ -6,6 +6,7 @@ use std::{
   time::{Duration, Instant},
 };
 
+#[inline]
 pub fn do_run(end: &Arc<AtomicBool>) -> bool {
   !end.load(Ordering::Relaxed)
 }
@@ -51,16 +52,13 @@ use regex::{Captures, Regex};
 use crate::{Board, Player};
 
 pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
-  let input = input.trim().to_owned();
+  let input = input.trim();
 
   let (prefix, data) = {
     let splitted: Vec<_> = input.split('|').collect();
 
-    let prefix = splitted.get(0);
-    let data = splitted.get(1);
-
-    match (prefix, data) {
-      (Some(prefix), Some(data)) => Ok((prefix.to_owned(), data.to_owned())),
+    match splitted[..] {
+      [prefix, data] => Ok((prefix, data)),
       _ => Err("Incorrect format"),
     }
   }?;
@@ -76,8 +74,7 @@ pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
   let re = Regex::new(r#"\d+"#).unwrap();
 
   let replace_function = |captures: &Captures| {
-    let capture = captures.get(0).unwrap().as_str();
-    let number = capture.parse().unwrap();
+    let number = captures[0].parse().unwrap();
     "-".repeat(number)
   };
 
@@ -89,8 +86,7 @@ pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
       return Err("Row too long".into());
     }
 
-    let length_missing = size - parsed.len();
-    let padding = "-".repeat(length_missing);
+    let padding = "-".repeat(size - parsed.len());
 
     Ok(parsed + &padding)
   };
@@ -111,6 +107,7 @@ pub fn is_game_end(board: &Board, current_player: Player) -> bool {
 
 fn is_game_end_sequence(sequence: &[usize], current_player: Player, board: &Board) -> bool {
   let mut consecutive = 0;
+
   for &tile in sequence {
     if let Some(player) = board.get_tile_raw(tile) {
       if *player == current_player {

@@ -112,9 +112,7 @@ impl Node {
       10.. => 1,
     };
 
-    while self.child_nodes.len() > limit {
-      self.child_nodes.pop();
-    }
+    self.child_nodes.truncate(limit);
 
     board.set_tile(self.tile, Some(self.player));
 
