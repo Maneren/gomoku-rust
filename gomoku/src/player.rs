@@ -1,4 +1,4 @@
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, ops::Not};
 
 #[derive(Clone, PartialEq, Eq, Copy)]
 pub enum Player {
@@ -7,13 +7,6 @@ pub enum Player {
 }
 
 impl Player {
-  pub fn next(self) -> Player {
-    match self {
-      Player::X => Player::O,
-      Player::O => Player::X,
-    }
-  }
-
   pub fn char(self) -> char {
     match self {
       Player::X => 'x',
@@ -41,6 +34,16 @@ impl Player {
       "x" => Ok(Player::X),
       "o" => Ok(Player::O),
       _ => Err("Unexpected character!".into()),
+    }
+  }
+}
+impl Not for Player {
+  type Output = Self;
+
+  fn not(self) -> Self::Output {
+    match self {
+      Player::X => Player::O,
+      Player::O => Player::X,
     }
   }
 }

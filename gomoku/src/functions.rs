@@ -138,7 +138,7 @@ pub fn eval_relevant_sequences(board: &Board, tile: TilePointer) -> (EvalScore, 
 }
 
 pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
-  let opponent = current_player.next();
+  let opponent = !current_player;
 
   let (score, is_win) =
     board

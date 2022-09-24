@@ -203,7 +203,7 @@ impl Node {
     let mut nodes: Vec<Node> = available_tiles
       .into_iter()
       .map(|tile| {
-        let next_player = self.player.next();
+        let next_player = !self.player;
         let mut score = self.original_score;
 
         let (prev_score, ..) = eval_relevant_sequences(board, tile);

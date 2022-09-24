@@ -189,7 +189,7 @@ fn load_input(path: &str) -> Result<String, Error> {
   Ok(contents)
 }
 
-fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
+fn run(mut player: Player, time_limit: u64, threads: usize, board_size: u8) {
   use text_io::read;
   let mut board = Board::get_empty_board(board_size);
 
@@ -203,6 +203,7 @@ fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
     board.set_tile(tile, Some(player));
     println!("board:\n{}", board);
     println!("{}{:?}", prefix, tile);
+    player = !player;
   }
 
   loop {
@@ -238,13 +239,15 @@ fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
       continue;
     }
 
-    board.set_tile(tile_ptr, Some(player.next()));
+    board.set_tile(tile_ptr, Some(player));
 
-    if utils::is_game_end(&board, player.next()) {
+    if utils::is_game_end(&board, player) {
       println!("Engine loses!\n$");
       println!("{}", board);
       break;
     }
+
+    player = !player;
 
     let start = Instant::now();
     let result = gomoku_lib::decide(&mut board, player, time_limit, threads);
@@ -273,6 +276,7 @@ fn run(player: Player, time_limit: u64, threads: usize, board_size: u8) {
     }
 
     println!("{}{:?}", prefix, tile);
+    player = !player;
   }
 }
 
