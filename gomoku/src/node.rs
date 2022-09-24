@@ -135,21 +135,21 @@ impl Node {
       );
 
       let nodes: Vec<Node> = self.child_nodes.drain(..).collect();
-      let nodes_arc = Arc::new(Mutex::new(Vec::new()));
-      let stats_arc = Arc::new(Mutex::new(Stats::new()));
+      let arc = Arc::new(Mutex::new((Vec::new(), Stats::new())));
 
       for mut node in nodes {
         let mut board_clone = board.clone();
-        let nodes_arc_clone = nodes_arc.clone();
-        let stats_arc_clone = stats_arc.clone();
+        let arc_clone = arc.clone();
 
         pool.execute(move || {
           let mut stats = Stats::new();
 
           node.compute_next(&mut board_clone, &mut stats);
 
-          nodes_arc_clone.lock().unwrap().push(node);
-          *stats_arc_clone.lock().unwrap() += stats;
+          let (nodes, total_stats) = &mut *arc_clone.lock().unwrap();
+
+          nodes.push(node);
+          *total_stats += stats;
         });
       }
 
@@ -157,9 +157,11 @@ impl Node {
 
       assert!(pool.panic_count() == 0, "node threads panicked");
 
-      self.child_nodes = nodes_arc.lock().unwrap().drain(..).collect();
+      let (nodes, total_stats) = &mut *arc.lock().unwrap();
 
-      *stats += *stats_arc.lock().unwrap();
+      self.child_nodes = nodes.drain(..).collect();
+
+      *stats += *total_stats;
     }
 
     board.set_tile(self.tile, None);

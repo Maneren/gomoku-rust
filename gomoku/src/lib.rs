@@ -79,8 +79,7 @@ fn minimax_top_level(
   let mut nodes = presorted_nodes;
   let mut generation_number = 1;
   let mut last_generation = nodes.clone();
-  let nodes_arc = Arc::new(Mutex::new(Vec::new()));
-  let stats_arc = Arc::new(Mutex::new(Stats::new()));
+  let arc = Arc::new(Mutex::new((Vec::new(), Stats::new())));
 
   while do_run(&end) {
     generation_number += 1;
@@ -97,16 +96,17 @@ fn minimax_top_level(
 
     for mut node in nodes {
       let mut board_clone = board.clone();
-      let nodes_arc_clone = nodes_arc.clone();
-      let stats_arc_clone = stats_arc.clone();
+      let arc_clone = arc.clone();
 
       pool.execute(move || {
         let mut stats = Stats::new();
 
         node.compute_next(&mut board_clone, &mut stats);
 
-        nodes_arc_clone.lock().unwrap().push(node);
-        *stats_arc_clone.lock().unwrap() += stats;
+        let (nodes, total_stats) = &mut *arc_clone.lock().unwrap();
+
+        nodes.push(node);
+        *total_stats += stats;
       });
     }
 
@@ -114,8 +114,9 @@ fn minimax_top_level(
 
     assert!(pool.panic_count() == 0, "node threads panicked");
 
-    // HACK: get the nodes from the arc-mutex
-    nodes = nodes_arc.lock().unwrap().drain(..).collect();
+    let (new_nodes, ..) = &mut *arc.lock().unwrap();
+
+    nodes = new_nodes.drain(..).collect();
 
     if nodes.iter().any(|node| !node.valid) {
       break;
@@ -149,7 +150,8 @@ fn minimax_top_level(
 
   println!();
 
-  let stats = stats_arc.lock().unwrap().clone();
+  let (_, stats) = &mut *arc.lock().unwrap();
+  let stats = stats.clone();
 
   let best_node = last_generation.iter().max().unwrap();
 
