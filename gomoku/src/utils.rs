@@ -109,14 +109,10 @@ fn is_game_end_sequence(sequence: &[usize], current_player: Player, board: &Boar
   let mut consecutive = 0;
 
   for &tile in sequence {
-    if let Some(player) = board.get_tile_raw(tile) {
-      if *player == current_player {
-        consecutive += 1;
-        if consecutive >= 5 {
-          return true;
-        }
-      } else {
-        consecutive = 0;
+    if board.get_tile_raw(tile) == &Some(current_player) {
+      consecutive += 1;
+      if consecutive >= 5 {
+        return true;
       }
     } else {
       consecutive = 0;
