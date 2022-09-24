@@ -285,13 +285,6 @@ impl Node {
     }
   }
 
-  pub fn node_count(&self) -> usize {
-    1 + self
-      .child_nodes
-      .iter()
-      .fold(0, |total, n| total + n.node_count())
-  }
-
   pub fn to_move(&self) -> Move {
     Move {
       tile: self.tile,
@@ -322,14 +315,13 @@ impl fmt::Debug for Node {
     } else {
       write!(
         f,
-        "({:?}, {}, {}, {}, {:?}, {}, {})",
+        "({:?}, {}, {}, {}, {:?}, {})",
         self.tile,
         self.score,
         self.depth,
         self.player,
         self.state,
-        if self.valid { "valid" } else { "invalid" },
-        self.node_count()
+        if self.valid { "valid" } else { "invalid" }
       )
     }
   }

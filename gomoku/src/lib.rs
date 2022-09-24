@@ -18,7 +18,6 @@ use std::{
 
 pub use board::{Board, TilePointer};
 use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
-use node::Node;
 pub use player::Player;
 pub use r#move::Move; // r# to allow reserved keyword as name
 use stats::Stats;
@@ -48,10 +47,7 @@ fn minimax_top_level(
   }
 
   let empty_tiles = board.get_empty_tiles()?;
-  print_status(
-    &format!("computing depth 1 for {} nodes", empty_tiles.len()),
-    &end_time,
-  );
+  print_status(&format!("computing depth 1"), &end_time);
   let presorted_nodes = nodes_sorted_by_shallow_eval(
     board,
     empty_tiles,
@@ -84,15 +80,7 @@ fn minimax_top_level(
   while do_run(&end) {
     generation_number += 1;
 
-    let node_count = nodes.len() + nodes.iter().map(Node::node_count).sum::<usize>();
-
-    print_status(
-      &format!(
-        "computing depth {} for {} nodes",
-        generation_number, node_count
-      ),
-      &end_time,
-    );
+    print_status(&format!("computing depth {generation_number}"), &end_time);
 
     for mut node in nodes {
       let mut board_clone = board.clone();
