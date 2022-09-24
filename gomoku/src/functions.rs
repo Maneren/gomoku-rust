@@ -13,8 +13,7 @@ use super::{
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) {
   if has_hole {
     return match consecutive {
-      7.. => (1_000_000, false),
-      5 | 6 => (100_000, false),
+      5.. => (100_000, false),
       4 => match open_ends {
         2 => (80_000, false),
         1 => (100, false),
@@ -28,12 +27,12 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) 
     5.. => (10_000_000, true),
     4 => match open_ends {
       2 => (1_000_000, false),
-      1 => (100_000, false),
+      1 => (110_000, false),
       _ => (0, false),
     },
     3 => match open_ends {
-      2 => (200_000, false),
-      1 => (10, false),
+      2 => (500_000, false),
+      1 => (110, false),
       _ => (0, false),
     },
     2 => match open_ends {
@@ -148,7 +147,7 @@ pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
         let (score, is_winning) = eval_sequence(seq_to_iter!(sequence, board));
 
         (
-          total + score[current_player.index()] - score[opponent.index()],
+          total + score[current_player.index()] - (1.2 * score[opponent.index()] as f32) as i32,
           is_win | is_winning[current_player.index()],
         )
       });
