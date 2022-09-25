@@ -58,8 +58,8 @@ fn minimax_top_level(
   );
 
   // if there is winning move, return it
-  if let Some(winning_move) = check_winning(&presorted_nodes, stats) {
-    return Ok(winning_move);
+  if let Some(winning_move) = check_winning(&presorted_nodes) {
+    return Ok((winning_move, stats));
   }
 
   #[allow(

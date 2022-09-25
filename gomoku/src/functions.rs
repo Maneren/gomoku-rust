@@ -157,12 +157,12 @@ pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
   (score, state)
 }
 
-pub fn check_winning(presorted_nodes: &[Node], stats: Stats) -> Option<(Move, Stats)> {
+pub fn check_winning(presorted_nodes: &[Node]) -> Option<Move> {
   presorted_nodes
     .into_iter()
     .filter(|node| node.state.is_win())
     .max()
-    .map(|node| (node.to_move(), stats))
+    .map(|node| node.to_move())
 }
 
 pub fn nodes_sorted_by_shallow_eval(
