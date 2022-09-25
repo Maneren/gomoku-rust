@@ -75,7 +75,7 @@ fn minimax_top_level(
   let mut nodes = presorted_nodes;
   let mut generation_number = 1;
   let mut last_generation = nodes.clone();
-  let arc = Arc::new(Mutex::new((Vec::new(), Stats::new())));
+  let arc = Arc::new(Mutex::new((Vec::new(), stats)));
 
   while do_run(&end) {
     generation_number += 1;
