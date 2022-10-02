@@ -134,7 +134,7 @@ fn minimax_top_level(
     println!("All moves are losing :(");
   }
 
-  println!("Searched to depth {:?}!", generation_number);
+  println!("Searched to depth {:?}!", generation_number - 1);
 
   println!();
 
@@ -143,7 +143,7 @@ fn minimax_top_level(
 
   let best_node = last_generation.iter().max().unwrap();
 
-  println!("Best moves: {:#?}", best_node);
+  println!("Best moves: {best_node:#?}");
   // {
   //   let mut best_board = board.clone();
 
