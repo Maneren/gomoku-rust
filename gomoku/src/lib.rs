@@ -121,6 +121,10 @@ fn minimax_top_level(
 
     nodes.retain(|child| !child.state.is_lose());
 
+    if nodes.len() <= 1 {
+      break;
+    }
+
     if generation_number >= 4 {
       nodes.truncate(threads);
     }

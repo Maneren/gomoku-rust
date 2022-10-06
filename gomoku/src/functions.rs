@@ -83,7 +83,7 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> (EvalScore, Ev
         continue;
       }
 
-      if !has_hole && sequence.peek() == Some(&&Some(current)) {
+      if !has_hole && sequence.peek() == Some(&&Some(current)) && consecutive < 5 {
         has_hole = true;
         consecutive += 1;
         continue;
