@@ -160,8 +160,7 @@ pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
 pub fn check_winning(presorted_nodes: &[Node]) -> Option<Move> {
   presorted_nodes
     .into_iter()
-    .filter(|node| node.state.is_win())
-    .max()
+    .find(|node| node.state.is_win())
     .map(|node| node.to_move())
 }
 
