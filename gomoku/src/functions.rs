@@ -211,12 +211,12 @@ mod tests {
       shape_score(0, 2, false),
       shape_score(1, 2, false),
       shape_score(2, 2, false),
-      shape_score(3, 1, false),
       shape_score(4, 1, true),
+      shape_score(3, 1, false),
       shape_score(4, 2, true),
-      shape_score(4, 1, false),
       shape_score(5, 1, true),
       shape_score(5, 2, true),
+      shape_score(4, 1, false),
       shape_score(3, 2, false),
       shape_score(4, 2, false),
       shape_score(5, 0, false),
@@ -230,7 +230,7 @@ mod tests {
       let a = shapes[i].0;
       let b = shapes[i + 1].0;
 
-      println!("{}", i);
+      println!("{i}: {a}, {b}");
 
       assert!(a <= b);
     }
