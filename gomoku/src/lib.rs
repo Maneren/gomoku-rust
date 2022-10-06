@@ -67,12 +67,12 @@ fn minimax_top_level(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
   )]
-  let moves_count = (1.5 * (presorted_nodes.len() as f32).sqrt()) as usize;
-  let presorted_nodes: Vec<_> = presorted_nodes.into_iter().take(moves_count).collect();
+  let mut nodes = presorted_nodes;
+  let moves_count = (1.5 * (nodes.len() as f32).sqrt()) as usize;
+  nodes.truncate(moves_count);
 
   let pool = ThreadPool::with_name(String::from("node"), threads);
 
-  let mut nodes = presorted_nodes;
   let mut generation_number = 1;
   let mut last_generation = nodes.clone();
   let arc = Arc::new(Mutex::new((Vec::new(), stats)));

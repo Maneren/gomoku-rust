@@ -248,7 +248,8 @@ impl Node {
       .collect();
 
     nodes.sort_unstable_by(|a, b| b.cmp(a));
-    self.child_nodes = nodes.into_iter().take(50).collect();
+    nodes.truncate(50);
+    self.child_nodes = nodes;
 
     self.analyze_child_nodes();
   }
