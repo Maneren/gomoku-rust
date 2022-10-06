@@ -80,7 +80,7 @@ impl Board {
   fn generate_sequences(board_size: u8) -> Vec<Sequence> {
     let board_size = board_size as usize;
 
-    let rows = (0..board_size).map(|y| (0..board_size).map(|x| x * board_size + y).collect());
+    let rows = (0..board_size).map(|y| (0..board_size).map(|x| x + y * board_size).collect());
 
     let columns = (0..board_size).map(|x| (0..board_size).map(|y| x + y * board_size).collect());
 
