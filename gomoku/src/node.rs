@@ -184,12 +184,12 @@ impl Node {
     self.score = self.original_score / 10 + -best.score;
     self.state = best.state.inversed();
 
+    self.best_moves = MoveSequence::new(self);
+
     if self.state != State::NotEnd {
       self.child_nodes = Vec::new();
       return;
     }
-
-    self.best_moves = MoveSequence::new(self);
 
     self.child_nodes.retain(|child| !child.state.is_lose());
   }
