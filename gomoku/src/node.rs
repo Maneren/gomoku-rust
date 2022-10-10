@@ -6,6 +6,8 @@ use std::{
 
 use threadpool::ThreadPool;
 
+use crate::functions::eval_structs::Eval;
+
 use super::{
   board::{Board, TilePointer},
   functions::eval_relevant_sequences,
@@ -208,27 +210,29 @@ impl Node {
         let next_player = !self.player;
         let mut score = self.original_score;
 
-        let (prev_score, ..) = eval_relevant_sequences(board, tile);
+        let Eval {
+          score: prev_score, ..
+        } = eval_relevant_sequences(board, tile);
 
-        score -= prev_score[self.player.index()];
-        score += prev_score[next_player.index()];
+        score -= prev_score[self.player];
+        score += prev_score[next_player];
 
         board.set_tile(tile, Some(next_player));
 
-        let (new_score, new_state) = eval_relevant_sequences(board, tile);
+        let Eval {
+          score: new_score,
+          win: new_win,
+        } = eval_relevant_sequences(board, tile);
 
         score *= -1;
 
-        score += new_score[next_player.index()];
-        score -= new_score[self.player.index()];
+        score += new_score[next_player];
+        score -= new_score[self.player];
 
         board.set_tile(tile, None);
 
         let state = {
-          let self_state = new_state[next_player.index()];
-          let opponent_state = new_state[self.player.index()];
-
-          match (self_state, opponent_state) {
+          match (new_win[next_player], new_win[self.player]) {
             (true, _) => State::Win,
             (_, true) => State::Lose,
             _ => State::NotEnd,

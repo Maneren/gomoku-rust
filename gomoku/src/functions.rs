@@ -1,5 +1,7 @@
 use std::sync::{atomic::AtomicBool, Arc};
 
+use self::eval_structs::Eval;
+
 use super::{
   board::{Board, TilePointer},
   node::Node,
@@ -9,6 +11,8 @@ use super::{
   stats::Stats,
   Score, Tile,
 };
+
+pub mod eval_structs;
 
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) {
   if has_hole {
@@ -43,14 +47,10 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) 
   }
 }
 
-pub type EvalScore = [Score; 2];
-pub type EvalWin = [bool; 2];
-
-fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> (EvalScore, EvalWin) {
+fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> Eval {
   let mut sequence = sequence.peekable();
 
-  let mut score = [0, 0];
-  let mut is_win = [false, false];
+  let mut eval = Eval::default();
 
   let mut current = Player::X;
   let mut consecutive = 0;
@@ -67,8 +67,8 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> (EvalScore, Ev
       // opponent's tile
       if consecutive > 0 {
         let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
-        score[current.index()] += shape_score;
-        is_win[current.index()] |= is_win_shape;
+        eval.score[current] += shape_score;
+        eval.win[current] |= is_win_shape;
 
         open_ends = 0;
       }
@@ -93,8 +93,8 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> (EvalScore, Ev
 
       let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
 
-      score[current.index()] += shape_score;
-      is_win[current.index()] |= is_win_shape;
+      eval.score[current] += shape_score;
+      eval.win[current] |= is_win_shape;
 
       consecutive = 0;
       open_ends = 1;
@@ -104,11 +104,11 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> (EvalScore, Ev
 
   if consecutive > 0 {
     let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
-    score[current.index()] += shape_score;
-    is_win[current.index()] |= is_win_shape;
+    eval.score[current] += shape_score;
+    eval.win[current] |= is_win_shape;
   }
 
-  (score, is_win)
+  eval
 }
 
 macro_rules! seq_to_iter {
@@ -117,23 +117,12 @@ macro_rules! seq_to_iter {
   };
 }
 
-pub fn eval_relevant_sequences(board: &Board, tile: TilePointer) -> (EvalScore, EvalWin) {
-  let (score, is_win) = board.get_relevant_sequences(tile).into_iter().fold(
-    ([0, 0], [false, false]),
-    |(mut total, mut is_win), sequence| {
-      let (score, is_winning) = eval_sequence(seq_to_iter!(sequence, board));
-
-      total[0] += score[0];
-      total[1] += score[1];
-
-      is_win[0] |= is_winning[0];
-      is_win[1] |= is_winning[1];
-
-      (total, is_win)
-    },
-  );
-
-  (score, is_win)
+pub fn eval_relevant_sequences(board: &Board, tile: TilePointer) -> Eval {
+  board
+    .get_relevant_sequences(tile)
+    .into_iter()
+    .map(|sequence| eval_sequence(seq_to_iter!(sequence, board)))
+    .sum()
 }
 
 pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
@@ -144,11 +133,11 @@ pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
       .sequences()
       .into_iter()
       .fold((0, false), |(total, is_win), sequence| {
-        let (score, is_winning) = eval_sequence(seq_to_iter!(sequence, board));
+        let Eval { score, win } = eval_sequence(seq_to_iter!(sequence, board));
 
         (
-          total + score[current_player.index()] - (1.2 * score[opponent.index()] as f32) as i32,
-          is_win | is_winning[current_player.index()],
+          total + score[current_player] - (1.2 * score[opponent] as f32) as i32,
+          is_win | win[current_player],
         )
       });
 
@@ -198,7 +187,9 @@ pub fn nodes_sorted_by_shallow_eval(
 
 #[cfg(test)]
 mod tests {
+
   use super::*;
+  use eval_structs::{Eval, EvalScore, EvalWin};
 
   #[test]
   fn test_shape_score() {
@@ -314,7 +305,10 @@ mod tests {
     // basically it compares the output of eval_sequence with sum of shapes from expected_outputs
     for (i, (sequence, x_vec, y_vec)) in test_sequences.iter().enumerate() {
       // unpack eval_sequence output
-      let ([x_score, y_score], [x_win, y_win]) = eval_sequence(sequence.iter().peekable());
+      let Eval {
+        score: EvalScore(x_score, y_score),
+        win: EvalWin(x_win, y_win),
+      } = eval_sequence(sequence.iter().peekable());
 
       let x = (x_score, x_win);
       let y = (y_score, y_win);
@@ -363,15 +357,7 @@ mod tests {
           .collect()
       };
 
-      let expected_output = expected_sequences.iter().fold(
-        ([0, 0], [false, false]),
-        |(total, is_win), (score, is_winning)| {
-          (
-            [total[0] + score[0], total[1] + score[1]],
-            [is_win[0] | is_winning[0], is_win[1] | is_winning[1]],
-          )
-        },
-      );
+      let expected_output = expected_sequences.into_iter().sum();
 
       assert_eq!(eval, expected_output);
     }
