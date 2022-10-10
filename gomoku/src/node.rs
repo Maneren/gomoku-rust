@@ -108,10 +108,10 @@ impl Node {
     let limit = match self.depth {
       0 | 1 => unreachable!(),
       2 | 3 => 16,
-      4 | 5 => 8,
-      6 | 7 => 4,
-      8 | 9 => 2,
-      10.. => 1,
+      4 | 5 => 12,
+      6 | 7 => 8,
+      8 | 9 => 4,
+      10.. => 2,
     };
 
     self.child_nodes.truncate(limit);
