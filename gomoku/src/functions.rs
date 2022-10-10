@@ -136,7 +136,7 @@ pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
         let Eval { score, win } = eval_sequence(seq_to_iter!(sequence, board));
 
         (
-          total + score[current_player] - (1.2 * score[opponent] as f32) as i32,
+          total + (1.2 * score[current_player] as f32) as i32 - score[opponent], // give slight bias to attacking
           is_win | win[current_player],
         )
       });
