@@ -1,20 +1,9 @@
-use std::iter::Sum;
+use std::{
+  iter::Sum,
+  ops::{Add, AddAssign, BitOr, BitOrAssign, Index, IndexMut},
+};
 
-use std::ops::BitOrAssign;
-
-use std::ops::BitOr;
-
-use std::ops::AddAssign;
-
-use std::ops::Add;
-
-use std::ops::IndexMut;
-
-use super::super::player::Player;
-
-use std::ops::Index;
-
-use super::super::Score;
+use super::super::{player::Player, Score};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EvalScore(pub Score, pub Score);

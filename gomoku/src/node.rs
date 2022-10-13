@@ -6,8 +6,6 @@ use std::{
 
 use threadpool::ThreadPool;
 
-use crate::functions::eval_structs::Eval;
-
 use super::{
   board::{Board, TilePointer},
   functions::eval_relevant_sequences,
@@ -18,6 +16,7 @@ use super::{
   utils::do_run,
   Score,
 };
+use crate::functions::eval_structs::Eval;
 
 #[derive(Clone)]
 pub struct MoveSequence {

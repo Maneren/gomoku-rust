@@ -110,7 +110,7 @@ fn parse_args() -> clap::ArgMatches {
       Arg::new("player")
         .help("X or O")
         .index(1)
-        .possible_values(&["X", "O", "x", "o"]),
+        .possible_values(["X", "O", "x", "o"]),
     )
     .arg(
       Arg::new("time")

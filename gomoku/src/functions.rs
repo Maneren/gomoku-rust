@@ -1,7 +1,6 @@
 use std::sync::{atomic::AtomicBool, Arc};
 
 use self::eval_structs::Eval;
-
 use super::{
   board::{Board, TilePointer},
   node::Node,
@@ -188,8 +187,9 @@ pub fn nodes_sorted_by_shallow_eval(
 #[cfg(test)]
 mod tests {
 
-  use super::*;
   use eval_structs::{Eval, EvalScore, EvalWin};
+
+  use super::*;
 
   #[test]
   fn test_shape_score() {
