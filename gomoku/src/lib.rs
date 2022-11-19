@@ -10,7 +10,7 @@ pub mod utils;
 use std::{
   sync::{
     atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
+    Arc,
   },
   thread::{sleep, spawn},
   time::{Duration, Instant},
@@ -19,9 +19,10 @@ use std::{
 pub use board::{Board, TilePointer};
 use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
 pub use player::Player;
-pub use r#move::Move; // r# to allow reserved keyword as name
+// r# to allow reserved keyword as name
+pub use r#move::Move;
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use stats::Stats;
-use threadpool::ThreadPool;
 use utils::{do_run, format_number, print_status};
 
 type Tile = Option<Player>;
@@ -71,48 +72,28 @@ fn minimax_top_level(
   let moves_count = (1.5 * (nodes.len() as f32).sqrt()) as usize;
   nodes.truncate(moves_count);
 
-  let pool = ThreadPool::with_name(String::from("node"), threads);
-
   let mut generation_number = 1;
-  let mut last_generation = nodes.clone();
-  let arc = Arc::new(Mutex::new((Vec::new(), stats)));
+  let mut stats = Stats::new();
 
   while do_run(&end) {
     generation_number += 1;
 
     print_status(&format!("computing depth {generation_number}"), &end_time);
 
-    for mut node in nodes {
-      let mut board_clone = board.clone();
-      let arc_clone = arc.clone();
-
-      pool.execute(move || {
+    stats += nodes
+      .par_iter_mut()
+      .map(|node| {
         let mut stats = Stats::new();
-
-        node.compute_next(&mut board_clone, &mut stats);
-
-        let (nodes, total_stats) = &mut *arc_clone.lock().unwrap();
-
-        nodes.push(node);
-        *total_stats += stats;
-      });
-    }
-
-    pool.join();
-
-    assert!(pool.panic_count() == 0, "node threads panicked");
-
-    let (new_nodes, ..) = &mut *arc.lock().unwrap();
-
-    nodes = new_nodes.drain(..).collect();
+        node.compute_next(&mut board.clone(), &mut stats);
+        stats
+      })
+      .sum();
 
     if nodes.iter().any(|node| !node.valid) {
       break;
     }
 
     nodes.sort_unstable_by(|a, b| b.cmp(a));
-
-    last_generation = nodes.clone();
 
     if nodes.iter().any(|node| node.state.is_win()) || nodes.iter().all(|node| node.state.is_lose())
     {
@@ -142,10 +123,7 @@ fn minimax_top_level(
 
   println!();
 
-  let (_, stats) = &mut *arc.lock().unwrap();
-  let stats = stats.clone();
-
-  let best_node = last_generation.iter().max().unwrap();
+  let best_node = nodes.iter().max().unwrap();
 
   println!("Best moves: {best_node:#?}");
   // {
@@ -193,41 +171,29 @@ pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
   }
 
   let board = Board::get_empty_board(board_size);
-  let counter_arc = Arc::new(Mutex::new(0));
   let tile = TilePointer {
     x: board_size / 2,
     y: board_size / 2,
   };
 
   let start = Instant::now();
-  let pool = ThreadPool::with_name(String::from("node"), threads);
-  for _ in 0..threads {
-    let mut board_clone = board.clone();
-    let counter_arc_clone = counter_arc.clone();
-    let end_clone = end.clone();
+  let counter: u64 = (0..threads)
+    .into_par_iter()
+    .map(|_| {
+      let mut board_clone = board.clone();
 
-    pool.execute(move || {
       let mut i = 0;
-      while do_run(&end_clone) {
+      while do_run(&end) {
         board_clone.set_tile(tile, Some(Player::X));
         let (..) = evaluate_board(&board_clone, Player::O);
         board_clone.set_tile(tile, None);
         i += 1;
       }
-      *counter_arc_clone.lock().unwrap() += i;
-    });
-  }
-
-  pool.join();
-  assert!(
-    pool.panic_count() == 0,
-    "{} node threads panicked",
-    pool.panic_count()
-  );
+      i
+    })
+    .sum();
 
   let elapsed = start.elapsed().as_millis() as u64;
-
-  let counter = *counter_arc.lock().unwrap();
   let per_second = counter * 1000 / elapsed; // * 1000 to account for milliseconds
   println!(
     "total evals = {} ({})",

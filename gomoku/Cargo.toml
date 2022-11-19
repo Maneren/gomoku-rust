@@ -8,5 +8,5 @@ edition = "2021"
 crate-type = ["lib"]
 
 [dependencies]
-threadpool = "1"
 regex = "1"
+rayon = "1.6.0"

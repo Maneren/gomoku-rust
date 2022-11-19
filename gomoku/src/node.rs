@@ -1,10 +1,10 @@
 use std::{
   cmp::Ordering,
   fmt,
-  sync::{atomic::AtomicBool, Arc, Mutex},
+  sync::{atomic::AtomicBool, Arc},
 };
 
-use threadpool::ThreadPool;
+use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 
 use super::{
   board::{Board, TilePointer},
@@ -118,52 +118,17 @@ impl Node {
     board.set_tile(self.tile, Some(self.player));
 
     // evaluate all child nodes
-    if self.depth <= 4 {
-      // single threaded
-      for node in &mut self.child_nodes {
-        node.compute_next(board, stats);
+    let new_stats = self
+      .child_nodes
+      .par_iter_mut()
+      .map(|node| {
+        let mut stats = Stats::new();
+        node.compute_next(&mut board.clone(), &mut stats);
+        stats
+      })
+      .sum();
 
-        if !node.valid {
-          self.valid = false;
-          break;
-        }
-      }
-    } else {
-      // multi threaded
-      let pool = ThreadPool::with_name(
-        String::from("node"),
-        self.threads.min(self.child_nodes.len()),
-      );
-
-      let nodes: Vec<Node> = self.child_nodes.drain(..).collect();
-      let arc = Arc::new(Mutex::new((Vec::new(), Stats::new())));
-
-      for mut node in nodes {
-        let mut board_clone = board.clone();
-        let arc_clone = arc.clone();
-
-        pool.execute(move || {
-          let mut stats = Stats::new();
-
-          node.compute_next(&mut board_clone, &mut stats);
-
-          let (nodes, total_stats) = &mut *arc_clone.lock().unwrap();
-
-          nodes.push(node);
-          *total_stats += stats;
-        });
-      }
-
-      pool.join();
-
-      assert!(pool.panic_count() == 0, "node threads panicked");
-
-      let (nodes, total_stats) = &mut *arc.lock().unwrap();
-
-      self.child_nodes = nodes.drain(..).collect();
-
-      *stats += *total_stats;
-    }
+    *stats += new_stats;
 
     board.set_tile(self.tile, None);
 
