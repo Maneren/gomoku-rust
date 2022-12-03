@@ -8,5 +8,5 @@ edition = "2021"
 crate-type = ["lib"]
 
 [dependencies]
-regex = "1"
+regex = "1.7.0"
 rayon = "1.6.0"
