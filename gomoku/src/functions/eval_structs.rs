@@ -5,14 +5,8 @@ use std::{
 
 use super::super::{player::Player, Score};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct EvalScore(pub Score, pub Score);
-
-impl Default for EvalScore {
-  fn default() -> Self {
-    Self(0, 0)
-  }
-}
 
 impl Index<Player> for EvalScore {
   type Output = Score;
@@ -47,14 +41,8 @@ impl AddAssign for EvalScore {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct EvalWin(pub bool, pub bool);
-
-impl Default for EvalWin {
-  fn default() -> Self {
-    Self(false, false)
-  }
-}
 
 impl Index<Player> for EvalWin {
   type Output = bool;
@@ -89,19 +77,10 @@ impl BitOrAssign for EvalWin {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Eval {
   pub score: EvalScore,
   pub win: EvalWin,
-}
-
-impl Default for Eval {
-  fn default() -> Self {
-    Self {
-      score: EvalScore::default(),
-      win: EvalWin::default(),
-    }
-  }
 }
 
 impl Add for Eval {
@@ -120,14 +99,8 @@ impl Sum for Eval {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct EvalWinPotential(pub u8, pub u8);
-
-impl Default for EvalWinPotential {
-  fn default() -> Self {
-    Self(0, 0)
-  }
-}
 
 impl Index<Player> for EvalWinPotential {
   type Output = u8;

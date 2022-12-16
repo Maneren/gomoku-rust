@@ -19,6 +19,12 @@ impl Stats {
     self.nodes_evaluated += 1;
   }
 }
+
+impl Default for Stats {
+  fn default() -> Self {
+    Self::new()
+  }
+}
 impl fmt::Display for Stats {
   #[allow(clippy::cast_precision_loss)]
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
