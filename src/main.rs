@@ -25,7 +25,7 @@ fn main() {
       let mut stdin = io::stdin();
 
       if let Err(err) = stdin.read_to_string(&mut buffer) {
-        println!("{}", err);
+        println!("{err}");
         return;
       }
 
@@ -33,8 +33,8 @@ fn main() {
     }
 
     match utils::parse_fen_string(&string) {
-      Ok(s) => println!("{}", s),
-      Err(err) => println!("{}", err),
+      Ok(s) => println!("{s}"),
+      Err(err) => println!("{err}"),
     };
 
     return;
@@ -64,7 +64,7 @@ fn main() {
   if let Some(path) = matches.value_of("debug") {
     match run_debug(path, player, time_limit, threads) {
       Ok(_) => println!("Done!"),
-      Err(msg) => println!("Error: {}", msg),
+      Err(msg) => println!("Error: {msg}"),
     }
   } else {
     run(player, time_limit, threads, board_size);
@@ -153,9 +153,9 @@ fn run_debug(
   let input_string = load_input(path_to_input)?;
   let mut board = Board::from_string(&input_string)?;
 
-  println!("{}", board);
+  println!("{board}");
 
-  println!("Searching with max time {} ms\n", time_limit);
+  println!("Searching with max time {time_limit} ms\n");
 
   let start = Instant::now();
 
@@ -165,17 +165,17 @@ fn run_debug(
   let (best_move, stats) = match result {
     Ok(result) => result,
     Err(err) => {
-      println!("Error occured: {:?}", err);
+      println!("Error occured: {err:?}");
       return Ok(());
     }
   };
 
   println!();
-  println!("{}", stats);
+  println!("{stats}");
   println!();
-  println!("{}", board);
+  println!("{board}");
   let Move { tile, score } = best_move;
-  println!("{:?}, {:?}", tile, score);
+  println!("{tile:?}, {score:?}");
 
   print_runtime(run_time);
 
@@ -201,15 +201,15 @@ fn run(mut player: Player, time_limit: u64, threads: usize, board_size: u8) {
       y: middle,
     };
     board.set_tile(tile, Some(player));
-    println!("board:\n{}", board);
-    println!("{}{:?}", prefix, tile);
+    println!("board:\n{board}");
+    println!("{prefix}{tile:?}");
     player = !player;
   }
 
   loop {
     let line: String = read!("{}\n");
     let line = line.trim().to_string();
-    println!("input: {}", line);
+    println!("input: {line}");
 
     if line.starts_with('$') {
       return;
@@ -225,7 +225,7 @@ fn run(mut player: Player, time_limit: u64, threads: usize, board_size: u8) {
     let y = chars.collect::<String>().parse::<u8>();
 
     if x.is_none() || y.is_err() {
-      println!("Invalid input: {:?}", line);
+      println!("Invalid input: {line:?}");
       continue;
     }
 
@@ -243,7 +243,7 @@ fn run(mut player: Player, time_limit: u64, threads: usize, board_size: u8) {
 
     if utils::is_game_end(&board, player) {
       println!("Engine loses!\n$");
-      println!("{}", board);
+      println!("{board}");
       break;
     }
 
@@ -256,7 +256,7 @@ fn run(mut player: Player, time_limit: u64, threads: usize, board_size: u8) {
     let unwrapped = match result {
       Ok(result) => result,
       Err(err) => {
-        println!("Error occured: {:?}", err);
+        println!("Error occured: {err:?}");
         continue;
       }
     };
@@ -265,24 +265,24 @@ fn run(mut player: Player, time_limit: u64, threads: usize, board_size: u8) {
 
     print_runtime(run_time);
     println!();
-    println!("{}", stats);
-    println!("score: {:?}", score);
+    println!("{stats}");
+    println!("score: {score:?}");
     println!();
-    println!("board:\n{}", board);
+    println!("board:\n{board}");
 
     if utils::is_game_end(&board, player) {
       println!("Engine wins!\n$");
       break;
     }
 
-    println!("{}{:?}", prefix, tile);
+    println!("{prefix}{tile:?}");
     player = !player;
   }
 }
 
 fn print_runtime(run_time: u128) {
   if run_time < 10_000 {
-    println!("Time: {} \u{03bc}s", run_time);
+    println!("Time: {run_time} \u{03bc}s");
   } else if run_time < 10_000_000 {
     println!("Time: {} ms", run_time / 1000);
   } else {
