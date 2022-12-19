@@ -80,7 +80,6 @@ pub struct Node {
   pub best_moves: MoveSequence,
   depth: u8,
 
-  threads: usize,
   end: Arc<AtomicBool>,
 }
 impl Node {
@@ -106,7 +105,8 @@ impl Node {
 
     let limit = match self.depth {
       0 | 1 => unreachable!(),
-      2 | 3 => 16,
+      2 => self.child_nodes.len(),
+      3 => 16,
       4 | 5 => 12,
       6 | 7 => 8,
       8 | 9 => 4,
@@ -145,7 +145,7 @@ impl Node {
   fn analyze_child_nodes(&mut self) {
     let best = self.child_nodes.get(0).expect("no children in eval");
 
-    self.score = self.original_score / 10 + -best.score;
+    self.score = self.original_score - best.score / 2;
     self.state = best.state.inversed();
 
     self.best_moves = MoveSequence::new(self);
@@ -209,14 +209,14 @@ impl Node {
           score - board.squared_distance_from_center(tile),
           state,
           self.end.clone(),
-          self.threads,
           stats,
         )
       })
       .collect();
 
+    nodes.retain(|node| !node.state.is_lose());
     nodes.sort_unstable_by(|a, b| b.cmp(a));
-    nodes.truncate(50);
+    nodes.truncate(20);
     self.child_nodes = nodes;
 
     self.analyze_child_nodes();
@@ -228,7 +228,6 @@ impl Node {
     score: Score,
     state: State,
     end: Arc<AtomicBool>,
-    threads: usize,
     stats: &mut Stats,
   ) -> Node {
     stats.create_node();
@@ -237,20 +236,19 @@ impl Node {
       state,
       valid: true,
       score,
-      original_score: score,
+      original_score: (score as f64).sqrt() as Score,
       player,
       child_nodes: Vec::new(),
       best_moves: MoveSequence {
         tile,
         player,
         score,
-        original_score: score,
+        original_score: (score as f64).sqrt() as Score,
         state,
         next: None,
       },
       depth: 0,
       end,
-      threads,
     }
   }
 

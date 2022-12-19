@@ -2,7 +2,7 @@ use std::sync::{atomic::AtomicBool, Arc};
 
 use rayon::prelude::*;
 
-use self::eval_structs::Eval;
+use self::eval_structs::{Eval, EvalWinPotential};
 use super::{
   board::{Board, TilePointer},
   node::Node,
@@ -15,36 +15,36 @@ use super::{
 
 pub mod eval_structs;
 
-fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) {
+fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool, u8) {
   if has_hole {
     return match consecutive {
-      5.. => (100_000, false),
+      5.. => (8000, false, 2),
       4 => match open_ends {
-        2 => (80_000, false),
-        1 => (30, false),
-        _ => (0, false),
+        2 => (1000, false, 1),
+        1 => (50, false, 0),
+        _ => (0, false, 0),
       },
-      _ => (0, false),
+      _ => (0, false, 0),
     };
   }
 
   match consecutive {
-    5.. => (10_000_000, true),
+    5.. => (10_000_000, true, 4),
     4 => match open_ends {
-      2 => (1_000_000, false),
-      1 => (100_000, false),
-      _ => (0, false),
+      2 => (1_000_000, false, 2),
+      1 => (10_000, false, 2),
+      _ => (0, false, 0),
     },
     3 => match open_ends {
-      2 => (500_000, false),
-      1 => (50, false),
-      _ => (0, false),
+      2 => (500_000, false, 2),
+      1 => (100, false, 0),
+      _ => (0, false, 0),
     },
     2 => match open_ends {
-      2 => (20, false),
-      _ => (0, false),
+      2 => (10, false, 0),
+      _ => (0, false, 0),
     },
-    _ => (0, false),
+    _ => (0, false, 0),
   }
 }
 
@@ -52,6 +52,7 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> Eval {
   let mut sequence = sequence.peekable();
 
   let mut eval = Eval::default();
+  let mut win_potentials = EvalWinPotential::default();
 
   let mut current = Player::X;
   let mut consecutive = 0;
@@ -67,9 +68,11 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> Eval {
 
       // opponent's tile
       if consecutive > 0 {
-        let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
+        let (shape_score, is_win_shape, win_potential) =
+          shape_score(consecutive, open_ends, has_hole);
         eval.score[current] += shape_score;
         eval.win[current] |= is_win_shape;
+        win_potentials[current] += win_potential;
 
         open_ends = 0;
       }
@@ -92,10 +95,12 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> Eval {
 
       open_ends += 1;
 
-      let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
+      let (shape_score, is_win_shape, win_potential) =
+        shape_score(consecutive, open_ends, has_hole);
 
       eval.score[current] += shape_score;
       eval.win[current] |= is_win_shape;
+      win_potentials[current] += win_potential;
 
       consecutive = 0;
       open_ends = 1;
@@ -104,9 +109,17 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> Eval {
   }
 
   if consecutive > 0 {
-    let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
+    let (shape_score, is_win_shape, win_potential) = shape_score(consecutive, open_ends, has_hole);
     eval.score[current] += shape_score;
     eval.win[current] |= is_win_shape;
+    win_potentials[current] += win_potential;
+  }
+
+  if win_potentials.0 >= 4 {
+    eval.win.0 = true;
+  }
+  if win_potentials.1 >= 4 {
+    eval.win.1 = true;
   }
 
   eval
@@ -166,7 +179,6 @@ pub fn nodes_sorted_by_shallow_eval(
   stats: &mut Stats,
   target_player: Player,
   end: &Arc<AtomicBool>,
-  threads: usize,
 ) -> Vec<Node> {
   let mut nodes: Vec<_> = empty_tiles
     .into_iter()
@@ -181,7 +193,6 @@ pub fn nodes_sorted_by_shallow_eval(
         analysis - board.squared_distance_from_center(tile),
         state,
         end.clone(),
-        threads,
         stats,
       )
     })

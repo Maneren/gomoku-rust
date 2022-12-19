@@ -16,7 +16,7 @@ impl Default for EvalScore {
 
 impl Index<Player> for EvalScore {
   type Output = Score;
-  fn index(&self, player: Player) -> &Score {
+  fn index(&self, player: Player) -> &Self::Output {
     match player {
       Player::X => &self.0,
       Player::O => &self.1,
@@ -25,7 +25,7 @@ impl Index<Player> for EvalScore {
 }
 
 impl IndexMut<Player> for EvalScore {
-  fn index_mut(&mut self, player: Player) -> &mut Score {
+  fn index_mut(&mut self, player: Player) -> &mut Self::Output {
     match player {
       Player::X => &mut self.0,
       Player::O => &mut self.1,
@@ -58,7 +58,7 @@ impl Default for EvalWin {
 
 impl Index<Player> for EvalWin {
   type Output = bool;
-  fn index(&self, player: Player) -> &bool {
+  fn index(&self, player: Player) -> &Self::Output {
     match player {
       Player::X => &self.0,
       Player::O => &self.1,
@@ -67,7 +67,7 @@ impl Index<Player> for EvalWin {
 }
 
 impl IndexMut<Player> for EvalWin {
-  fn index_mut(&mut self, player: Player) -> &mut bool {
+  fn index_mut(&mut self, player: Player) -> &mut Self::Output {
     match player {
       Player::X => &mut self.0,
       Player::O => &mut self.1,
@@ -117,5 +117,33 @@ impl Add for Eval {
 impl Sum for Eval {
   fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
     iter.fold(Eval::default(), |acc, x| acc + x)
+  }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EvalWinPotential(pub u8, pub u8);
+
+impl Default for EvalWinPotential {
+  fn default() -> Self {
+    Self(0, 0)
+  }
+}
+
+impl Index<Player> for EvalWinPotential {
+  type Output = u8;
+  fn index(&self, player: Player) -> &Self::Output {
+    match player {
+      Player::X => &self.0,
+      Player::O => &self.1,
+    }
+  }
+}
+
+impl IndexMut<Player> for EvalWinPotential {
+  fn index_mut(&mut self, player: Player) -> &mut Self::Output {
+    match player {
+      Player::X => &mut self.0,
+      Player::O => &mut self.1,
+    }
   }
 }
