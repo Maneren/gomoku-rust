@@ -77,64 +77,53 @@ impl Board {
     Board::new(data).unwrap()
   }
 
+  fn make_diag1(size: usize, a: usize, b: usize) -> Vec<usize> {
+    let min = a.min(b);
+
+    let a = a - min;
+    let b = b - min;
+
+    let len = size - a - b;
+
+    let base = a + b * size;
+    let offset = size + 1;
+
+    (0..len).map(|i| base + i * offset).collect()
+  }
+
+  fn make_diag2(size: usize, a: usize, b: usize) -> Vec<usize> {
+    let min = a.min(b);
+
+    let len = size - a - b + min;
+
+    let a = size - (a - min) - 1;
+    let b = b - min;
+
+    let base = a + b * size;
+    let offset = size - 1;
+
+    (0..len).map(|i| base + i * offset).collect()
+  }
+
   fn generate_sequences(board_size: u8) -> Vec<Sequence> {
-    let board_size = board_size as usize;
+    let size = board_size as usize;
 
-    let rows = (0..board_size).map(|y| (0..board_size).map(|x| x + y * board_size).collect());
+    let rows = (0..size).map(|y| (0..size).map(|x| x + y * size).collect());
+    let columns = (0..size).map(|x| (0..size).map(|y| x + y * size).collect());
 
-    let columns = (0..board_size).map(|x| (0..board_size).map(|y| x + y * board_size).collect());
+    let diag11 = (0..size).map(|k| Self::make_diag1(size, k, 0));
+    let diag12 = (0..size).map(|k| Self::make_diag1(size, 0, k)).skip(1);
 
-    let mut sequences: Vec<Vec<usize>> = rows.chain(columns).collect();
+    let diag21 = (0..size).map(|k| Self::make_diag2(size, k, 0));
+    let diag22 = (0..size).map(|k| Self::make_diag2(size, 0, k)).skip(1);
 
-    // diag1
-    {
-      let mut start = 0;
-      let mut end = 1;
-
-      while start < board_size {
-        let temp = (0..(end - start))
-          .map(|i| {
-            let x = start + i;
-            let y = end - i - 1;
-            Self::get_index_raw(board_size as u8, x as u8, y as u8)
-          })
-          .collect();
-
-        if end < board_size {
-          end += 1;
-        } else {
-          start += 1;
-        }
-
-        sequences.push(temp);
-      }
-    }
-
-    // diag2
-    {
-      let mut start = 0;
-      let mut end = 1;
-
-      while start < board_size {
-        let temp = (0..(end - start))
-          .map(|i| {
-            let x = board_size - (start + i) - 1;
-            let y = end - i - 1;
-            Self::get_index_raw(board_size as u8, x as u8, y as u8)
-          })
-          .collect();
-
-        if end < board_size {
-          end += 1;
-        } else {
-          start += 1;
-        }
-
-        sequences.push(temp);
-      }
-    }
-
-    sequences
+    rows
+      .chain(columns)
+      .chain(diag11)
+      .chain(diag12)
+      .chain(diag21)
+      .chain(diag22)
+      .collect()
   }
 
   pub fn sequences(&self) -> &[Sequence] {
