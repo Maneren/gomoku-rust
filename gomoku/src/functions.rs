@@ -314,7 +314,7 @@ mod tests {
       ($vec:expr) => {
         $vec
           .iter()
-          .fold((0, false), |(total, is_win), (score, is_winning)| {
+          .fold((0, false), |(total, is_win), (score, is_winning, ..)| {
             (total + score, is_win | is_winning)
           })
       };
