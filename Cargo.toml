@@ -6,6 +6,6 @@ edition = "2021"
 
 [dependencies]
 clap = "3.2.23"
-num_cpus = "1.14.0"
+num_cpus = "1.15.0"
 text_io = "0.1.12"
 gomoku_lib = { path = "./gomoku" }
