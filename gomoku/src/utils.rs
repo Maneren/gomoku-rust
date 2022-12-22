@@ -21,11 +21,6 @@ pub fn print_status(msg: &str, end_time: &Instant) {
   );
 }
 
-#[allow(
-  clippy::cast_precision_loss,
-  clippy::cast_possible_truncation,
-  clippy::cast_sign_loss
-)]
 pub fn format_number(input: f32) -> String {
   let sizes = ['-', 'k', 'M', 'G', 'T'];
   let base = 1000.0;
@@ -33,13 +28,13 @@ pub fn format_number(input: f32) -> String {
   let i = input.log(base).floor();
   let number = input / base.powi(i as i32);
 
-  let string = format!("{:.2}", number)
+  let string = format!("{number:.2}")
     .trim_end_matches('0')
     .trim_end_matches('.')
     .to_owned();
 
   if i >= 1.0 {
-    format!("{}{}", string, sizes[i as usize])
+    format!("{string}{}", sizes[i as usize])
   } else {
     string
   }

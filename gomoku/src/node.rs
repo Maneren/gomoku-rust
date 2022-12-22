@@ -48,8 +48,8 @@ impl fmt::Debug for MoveSequence {
     if let Some(child) = &self.next {
       write!(
         f,
-        "({:?}, {}, {}, {}) => {:#?}",
-        self.tile, self.score, self.original_score, self.player, child
+        "({:?}, {}, {}, {}) => {child:#?}",
+        self.tile, self.score, self.original_score, self.player
       )
     } else if self.state.is_end() {
       write!(

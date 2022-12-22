@@ -1,3 +1,13 @@
+#![warn(clippy::pedantic)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::cast_lossless)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::similar_names)]
+
 mod board;
 mod functions;
 mod r#move; // r# to allow reserved keyword as name

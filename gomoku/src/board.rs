@@ -65,10 +65,8 @@ impl Board {
       });
     }
 
-    let height = data.len();
-
     for (index, row) in data.iter().enumerate() {
-      if row.len() != height {
+      if row.len() != data.len() {
         return Err(Error {
           msg: format!("Invalid board width {} on row {}", row.len(), index + 1),
         });
@@ -86,13 +84,10 @@ impl Board {
   }
 
   pub fn get_empty_board(size: u8) -> Board {
-    let size = size as usize;
-    let row = iter::repeat(None).take(size).collect();
-    let data = iter::repeat(row).take(size).collect();
+    let data = iter::repeat(None).take(size.pow(2) as usize).collect();
 
-    Board::new(data).unwrap()
+    Board { size, data }
   }
-
 
   fn make_row(size: usize, y: usize) -> Vec<usize> {
     let x = 0;
@@ -255,7 +250,7 @@ impl Board {
     self
       .data
       .get(index)
-      .unwrap_or_else(|| panic!("Tile index out of bounds: {}", index))
+      .unwrap_or_else(|| panic!("Tile index out of bounds: {index}"))
   }
 
   pub fn set_tile(&mut self, ptr: TilePointer, value: Tile) {
@@ -309,7 +304,7 @@ impl fmt::Display for Board {
       string.push_str(&(row_string + "\n"));
     }
 
-    write!(f, "{}", string)
+    write!(f, "{string}")
   }
 }
 

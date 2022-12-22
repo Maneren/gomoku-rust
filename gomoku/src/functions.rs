@@ -169,7 +169,7 @@ pub fn check_winning(presorted_nodes: &[Node]) -> Option<Move> {
   presorted_nodes
     .iter()
     .find(|node| node.state.is_win())
-    .map(|node| node.to_move())
+    .map(Node::to_move)
 }
 
 pub fn nodes_sorted_by_shallow_eval(
@@ -335,7 +335,7 @@ mod tests {
       let x_ = sum!(x_vec);
       let y_ = sum!(y_vec);
 
-      println!("{}", i);
+      println!("{i}");
       assert_eq!(x, x_);
       assert_eq!(y, y_);
     }
