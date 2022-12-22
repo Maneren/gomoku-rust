@@ -49,7 +49,7 @@ use std::error::Error;
 
 use regex::{Captures, Regex};
 
-use crate::{Board, Player};
+use crate::{board, Board, Player};
 
 pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
   let input = input.trim();
@@ -99,8 +99,7 @@ pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
 }
 
 pub fn is_game_end(board: &Board, current_player: Player) -> bool {
-  board
-    .sequences()
+  board::sequences()
     .iter()
     .any(|sequence| is_game_end_sequence(sequence, current_player, board))
 }

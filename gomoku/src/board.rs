@@ -1,5 +1,7 @@
 use std::{error, fmt, iter};
 
+use once_cell::sync::OnceCell;
+
 use super::{Player, Tile};
 use crate::Score;
 
@@ -31,12 +33,28 @@ impl fmt::Debug for TilePointer {
 }
 
 type Sequence = Vec<usize>;
+type Sequences = Vec<Sequence>;
+
+static SEQUENCES: OnceCell<Sequences> = OnceCell::new();
+
+pub fn sequences() -> &'static Sequences {
+  if let Some(sequences) = SEQUENCES.get() {
+    sequences
+  } else {
+    panic!("Must initialize the sequences first!")
+  }
+}
+
+pub fn initialize_sequences(board_size: u8) {
+  SEQUENCES
+    .set(Board::generate_sequences(board_size))
+    .unwrap();
+}
 
 #[derive(Clone)]
 pub struct Board {
   size: u8,
   data: Vec<Tile>,
-  sequences: Vec<Sequence>,
 }
 
 impl Board {
@@ -59,13 +77,11 @@ impl Board {
 
     #[allow(clippy::cast_possible_truncation)]
     let board_size = data.len() as u8;
-    let sequences = Board::generate_sequences(board_size);
     let flat_data = data.into_iter().flatten().collect();
 
     Ok(Board {
       data: flat_data,
       size: board_size,
-      sequences,
     })
   }
 
@@ -77,7 +93,36 @@ impl Board {
     Board::new(data).unwrap()
   }
 
+
+  fn make_row(size: usize, y: usize) -> Vec<usize> {
+    let x = 0;
+
+    (0..size).map(|i| x + i + y * size).collect()
+  }
+
+  fn make_col(size: usize, x: usize) -> Vec<usize> {
+    let y = 0;
+
+    (0..size).map(|i| x + (y + i) * size).collect()
+  }
+
   fn make_diag1(size: usize, a: usize, b: usize) -> Vec<usize> {
+    let min = a.min(b);
+
+    let a = a - min;
+    let b = b - min;
+
+    let len = size - a - b;
+
+    let a = size - a - 1;
+
+    let base = a + b * size;
+    let offset = size - 1;
+
+    (0..len).map(|i| base + i * offset).collect()
+  }
+
+  fn make_diag2(size: usize, a: usize, b: usize) -> Vec<usize> {
     let min = a.min(b);
 
     let a = a - min;
@@ -91,30 +136,16 @@ impl Board {
     (0..len).map(|i| base + i * offset).collect()
   }
 
-  fn make_diag2(size: usize, a: usize, b: usize) -> Vec<usize> {
-    let min = a.min(b);
+  pub fn generate_sequences(size: u8) -> Vec<Sequence> {
+    let size = size as usize;
 
-    let len = size - a - b + min;
+    let rows = (0..size).map(|y| Self::make_row(size, y));
+    let columns = (0..size).map(|x| Self::make_col(size, x));
 
-    let a = size - (a - min) - 1;
-    let b = b - min;
-
-    let base = a + b * size;
-    let offset = size - 1;
-
-    (0..len).map(|i| base + i * offset).collect()
-  }
-
-  fn generate_sequences(board_size: u8) -> Vec<Sequence> {
-    let size = board_size as usize;
-
-    let rows = (0..size).map(|y| (0..size).map(|x| x + y * size).collect());
-    let columns = (0..size).map(|x| (0..size).map(|y| x + y * size).collect());
-
-    let diag11 = (0..size).map(|k| Self::make_diag1(size, k, 0));
+    let diag11 = (0..size).map(|k| Self::make_diag1(size, k, 0)).rev();
     let diag12 = (0..size).map(|k| Self::make_diag1(size, 0, k)).skip(1);
 
-    let diag21 = (0..size).map(|k| Self::make_diag2(size, k, 0));
+    let diag21 = (0..size).map(|k| Self::make_diag2(size, k, 0)).rev();
     let diag22 = (0..size).map(|k| Self::make_diag2(size, 0, k)).skip(1);
 
     rows
@@ -126,23 +157,17 @@ impl Board {
       .collect()
   }
 
-  pub fn sequences(&self) -> &[Sequence] {
-    &self.sequences
-  }
-
   pub fn get_relevant_sequences(&self, ptr: TilePointer) -> [&Sequence; 4] {
-    let n = self.size;
-
-    let index1 = ptr.y;
-    let index2 = ptr.x + n;
-    let index3 = (ptr.x + ptr.y) + 2 * n;
-    let index4 = (ptr.y + n - ptr.x) + 4 * n - 2;
+    let n = self.size as usize;
+    let TilePointer { x, y } = ptr;
+    let x = x as usize;
+    let y = y as usize;
 
     [
-      &self.sequences[index1 as usize],
-      &self.sequences[index2 as usize],
-      &self.sequences[index3 as usize],
-      &self.sequences[index4 as usize],
+      &sequences()[y],                     // row
+      &sequences()[x + n],                 // column
+      &sequences()[x + y + 2 * n],         // diagonal
+      &sequences()[y + n - x + 4 * n - 2], // other diagonal
     ]
   }
 
@@ -308,7 +333,27 @@ mod tests {
     let board = Board::from_string(BOARD_DATA).unwrap();
 
     assert_eq!(board.get_size(), BOARD_SIZE);
-    assert_eq!(board.sequences()[0].len(), BOARD_SIZE as usize);
+  }
+
+  #[test]
+  fn test_initialize_sequences() {
+    let board_size = 10;
+
+    initialize_sequences(board_size);
+
+    assert!(!sequences().is_empty());
+
+    let mut visits = vec![0; board_size.pow(2) as usize];
+
+    for sequence in sequences() {
+      for index in sequence {
+        visits[*index] += 1;
+      }
+    }
+
+    for visit in &visits {
+      assert_eq!(*visit, 4);
+    }
   }
 
   #[test]
@@ -325,6 +370,8 @@ mod tests {
   #[test]
   fn test_get_relevant_sequences() {
     let board = Board::from_string(BOARD_DATA).unwrap();
+
+    initialize_sequences(board.get_size());
 
     let x = 2;
     let y = 3;

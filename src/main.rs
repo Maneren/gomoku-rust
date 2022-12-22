@@ -61,6 +61,8 @@ fn main() {
   let time_limit = matches.value_of_t("time").unwrap_or(1000);
   let board_size = matches.value_of_t("board").unwrap_or(15);
 
+  gomoku_lib::initialize_sequences(board_size);
+
   if let Some(path) = matches.value_of("debug") {
     match run_debug(path, player, time_limit, threads) {
       Ok(_) => println!("Done!"),

@@ -4,7 +4,7 @@ use rayon::prelude::*;
 
 use self::eval_structs::{Eval, EvalWinPotential};
 use super::{
-  board::{Board, TilePointer},
+  board::{self, Board, TilePointer},
   node::Node,
   player::Player,
   r#move::Move,
@@ -142,8 +142,7 @@ pub fn eval_relevant_sequences(board: &Board, tile: TilePointer) -> Eval {
 pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
   let opponent = !current_player;
 
-  let (score, is_win) = board
-    .sequences()
+  let (score, is_win) = board::sequences()
     .into_par_iter()
     .fold(
       || (0, false),
@@ -356,6 +355,7 @@ mod tests {
   #[test]
   fn test_eval_relevant_sequences() {
     let board = Board::from_string(BOARD_DATA).unwrap();
+    crate::initialize_sequences(board.get_size());
 
     let tiles: Vec<TilePointer> = (0..BOARD_SIZE)
       .flat_map(|x| {
