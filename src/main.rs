@@ -61,8 +61,6 @@ fn main() {
   let time_limit = matches.value_of_t("time").unwrap_or(1000);
   let board_size = matches.value_of_t("board").unwrap_or(15);
 
-  gomoku_lib::initialize_sequences(board_size);
-
   if let Some(path) = matches.value_of("debug") {
     match run_debug(path, player, time_limit, threads) {
       Ok(_) => println!("Done!"),
@@ -155,6 +153,8 @@ fn run_debug(
   let input_string = load_input(path_to_input)?;
   let mut board = Board::from_string(&input_string)?;
 
+  gomoku_lib::initialize_sequences(board.get_size());
+
   println!("{board}");
 
   println!("Searching with max time {time_limit} ms\n");
@@ -194,6 +194,8 @@ fn load_input(path: &str) -> Result<String, Error> {
 fn run(mut player: Player, time_limit: u64, threads: usize, board_size: u8) {
   use text_io::read;
   let mut board = Board::get_empty_board(board_size);
+
+  gomoku_lib::initialize_sequences(board_size);
 
   let prefix = '!';
   if player == Player::X {
