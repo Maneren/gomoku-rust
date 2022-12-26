@@ -89,19 +89,19 @@ impl Board {
     Board { size, data }
   }
 
-  fn make_row(size: usize, y: usize) -> Vec<usize> {
+  fn make_row(size: usize, y: usize) -> Sequence {
     let x = 0;
 
     (0..size).map(|i| x + i + y * size).collect()
   }
 
-  fn make_col(size: usize, x: usize) -> Vec<usize> {
+  fn make_col(size: usize, x: usize) -> Sequence {
     let y = 0;
 
     (0..size).map(|i| x + (y + i) * size).collect()
   }
 
-  fn make_diag1(size: usize, a: usize, b: usize) -> Vec<usize> {
+  fn make_diag1(size: usize, a: usize, b: usize) -> Sequence {
     let min = a.min(b);
 
     let a = a - min;
@@ -117,7 +117,7 @@ impl Board {
     (0..len).map(|i| base + i * offset).collect()
   }
 
-  fn make_diag2(size: usize, a: usize, b: usize) -> Vec<usize> {
+  fn make_diag2(size: usize, a: usize, b: usize) -> Sequence {
     let min = a.min(b);
 
     let a = a - min;
@@ -131,7 +131,7 @@ impl Board {
     (0..len).map(|i| base + i * offset).collect()
   }
 
-  pub fn generate_sequences(size: u8) -> Vec<Sequence> {
+  pub fn generate_sequences(size: u8) -> Sequences {
     let size = size as usize;
 
     let rows = (0..size).map(|y| Self::make_row(size, y));
