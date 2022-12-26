@@ -332,7 +332,7 @@ mod tests {
 
   #[test]
   fn test_initialize_sequences() {
-    let board_size = 10;
+    let board_size = BOARD_SIZE;
 
     initialize_sequences(board_size);
 
