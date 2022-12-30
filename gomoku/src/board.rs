@@ -83,6 +83,7 @@ impl Board {
     })
   }
 
+  #[must_use]
   pub fn get_empty_board(size: u8) -> Board {
     let data = iter::repeat(None).take(size.pow(2) as usize).collect();
 
@@ -131,6 +132,7 @@ impl Board {
     (0..len).map(|i| base + i * offset).collect()
   }
 
+  #[must_use]
   pub fn generate_sequences(size: u8) -> Sequences {
     let size = size as usize;
 
@@ -152,6 +154,7 @@ impl Board {
       .collect()
   }
 
+  #[must_use]
   pub fn get_relevant_sequences(&self, ptr: TilePointer) -> [&Sequence; 4] {
     let n = self.size as usize;
     let TilePointer { x, y } = ptr;
@@ -184,6 +187,7 @@ impl Board {
     }
   }
 
+  #[must_use]
   pub fn squared_distance_from_center(&self, p: TilePointer) -> Score {
     let center = f32::from(self.size - 1) / 2.0; // -1 to adjust for 0-indexing
 
@@ -241,11 +245,13 @@ impl Board {
     usize::from(size) * usize::from(y) + usize::from(x)
   }
 
+  #[must_use]
   pub fn get_tile(&self, ptr: TilePointer) -> &Tile {
     let index = Self::get_index(self.size, ptr);
     self.get_tile_raw(index)
   }
 
+  #[must_use]
   pub fn get_tile_raw(&self, index: usize) -> &Tile {
     self
       .data
@@ -268,6 +274,7 @@ impl Board {
     self.data[index] = value;
   }
 
+  #[must_use]
   pub fn get_size(&self) -> u8 {
     self.size
   }
