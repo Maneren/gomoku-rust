@@ -25,7 +25,7 @@ use std::{
   time::{Duration, Instant},
 };
 
-pub use board::{initialize_sequences, Board, TilePointer};
+pub use board::{Board, TilePointer};
 use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
 pub use player::Player;
 // r# to allow reserved keyword as name

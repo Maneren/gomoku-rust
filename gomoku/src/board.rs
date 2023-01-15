@@ -37,18 +37,14 @@ type Sequences = Vec<Sequence>;
 
 static SEQUENCES: OnceCell<Sequences> = OnceCell::new();
 
-pub fn sequences() -> &'static Sequences {
-  if let Some(sequences) = SEQUENCES.get() {
-    sequences
-  } else {
-    panic!("Must initialize the sequences first!")
-  }
-}
+fn initialize_sequences(board_size: u8) {
+  let sequences = SEQUENCES.get_or_init(|| Board::generate_sequences(board_size));
 
-pub fn initialize_sequences(board_size: u8) {
-  SEQUENCES
-    .set(Board::generate_sequences(board_size))
-    .unwrap();
+  assert_eq!(
+    sequences.len(),
+    6 * board_size as usize - 2,
+    "Incompatible board size and sequences",
+  );
 }
 
 #[derive(Clone)]
@@ -77,6 +73,8 @@ impl Board {
     let board_size = data.len() as u8;
     let flat_data = data.into_iter().flatten().collect();
 
+    initialize_sequences(board_size);
+
     Ok(Board {
       data: flat_data,
       size: board_size,
@@ -86,6 +84,8 @@ impl Board {
   #[must_use]
   pub fn get_empty_board(size: u8) -> Board {
     let data = iter::repeat(None).take(size.pow(2) as usize).collect();
+
+    initialize_sequences(size);
 
     Board { size, data }
   }
@@ -154,6 +154,10 @@ impl Board {
       .collect()
   }
 
+  pub fn sequences(&self) -> &'static Sequences {
+    SEQUENCES.get().unwrap()
+  }
+
   #[must_use]
   pub fn get_relevant_sequences(&self, ptr: TilePointer) -> [&Sequence; 4] {
     let n = self.size as usize;
@@ -161,11 +165,13 @@ impl Board {
     let x = x as usize;
     let y = y as usize;
 
+    let sequences = self.sequences();
+
     [
-      &sequences()[y],                     // row
-      &sequences()[x + n],                 // column
-      &sequences()[x + y + 2 * n],         // diagonal
-      &sequences()[y + n - x + 4 * n - 2], // other diagonal
+      &sequences[y],                       // row
+      &sequences[n + x],                   // column
+      &sequences[2 * n + x + y],           // diagonal
+      &sequences[(4 * n - 2) + n + y - x], // other diagonal
     ]
   }
 
@@ -341,13 +347,13 @@ mod tests {
   fn test_initialize_sequences() {
     let board_size = BOARD_SIZE;
 
-    initialize_sequences(board_size);
+    let board = Board::get_empty_board(board_size);
 
-    assert!(!sequences().is_empty());
+    assert!(!board.sequences().is_empty());
 
     let mut visits = vec![0; board_size.pow(2) as usize];
 
-    for sequence in sequences() {
+    for sequence in board.sequences() {
       for index in sequence {
         visits[*index] += 1;
       }
