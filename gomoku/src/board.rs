@@ -91,15 +91,11 @@ impl Board {
   }
 
   fn make_row(size: usize, y: usize) -> Sequence {
-    let x = 0;
-
-    (0..size).map(|i| x + i + y * size).collect()
+    (0..size).map(|x| x + y * size).collect()
   }
 
   fn make_col(size: usize, x: usize) -> Sequence {
-    let y = 0;
-
-    (0..size).map(|i| x + (y + i) * size).collect()
+    (0..size).map(|y| x + y * size).collect()
   }
 
   fn make_diag1(size: usize, a: usize, b: usize) -> Sequence {
