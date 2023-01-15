@@ -379,17 +379,17 @@ mod tests {
   fn test_get_relevant_sequences() {
     let board = Board::from_string(BOARD_DATA).unwrap();
 
-    initialize_sequences(board.get_size());
+    for x in 0..BOARD_SIZE {
+      for y in 0..BOARD_SIZE {
+        let tile = TilePointer { x, y };
+        let target = Board::get_index(BOARD_SIZE, tile);
 
-    let x = 2;
-    let y = 3;
-    let tile = TilePointer { x, y };
-    let target = Board::get_index(BOARD_SIZE, tile);
+        let sequences = board.get_relevant_sequences(tile);
 
-    let sequences = board.get_relevant_sequences(tile);
-
-    sequences
-      .iter()
-      .for_each(|sequence| assert!(sequence.iter().any(|index| *index == target)));
+        sequences
+          .iter()
+          .for_each(|sequence| assert!(sequence.iter().any(|index| *index == target)));
+      }
+    }
   }
 }
