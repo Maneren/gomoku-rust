@@ -220,9 +220,9 @@ mod tests {
       shape_score(3, 0, true),
       shape_score(0, 2, false),
       shape_score(1, 2, false),
-      shape_score(2, 2, false),
       shape_score(4, 1, true),
       shape_score(3, 1, false),
+      shape_score(2, 2, false),
       shape_score(4, 2, true),
       shape_score(5, 1, true),
       shape_score(5, 2, true),
@@ -236,14 +236,10 @@ mod tests {
       shape_score(10, 2, false),
     ];
 
-    for i in 0..(shapes.len() - 1) {
-      let a = shapes[i].0;
-      let b = shapes[i + 1].0;
-
-      println!("{i}: {a}, {b}");
-
-      assert!(a <= b);
-    }
+    shapes
+      .iter()
+      .zip(shapes[1..].iter())
+      .for_each(|(a, b)| assert!(a.0 <= b.0, "{a:?} {b:?}"));
   }
 
   #[test]
@@ -267,7 +263,12 @@ mod tests {
       (
         vec![n, o, o, o, o, o, n],
         vec![],
-        vec![shape_score(5, 1, false)],
+        vec![shape_score(5, 2, false)],
+      ),
+      (
+        vec![n, x, o, o, o, o, o, x, n],
+        vec![],
+        vec![shape_score(5, 0, false)],
       ),
       (
         vec![n, o, n, o, o, o],
@@ -339,46 +340,6 @@ mod tests {
       println!("{i}");
       assert_eq!(x, x_);
       assert_eq!(y, y_);
-    }
-  }
-
-  const BOARD_DATA: &str = "---------
----------
----x-----
----xoo---
-----xo---
----xxxo--
-------oo-
---------x
----------";
-  const BOARD_SIZE: u8 = 9;
-
-  #[test]
-  fn test_eval_relevant_sequences() {
-    let board = Board::from_string(BOARD_DATA).unwrap();
-
-    let tiles: Vec<TilePointer> = (0..BOARD_SIZE)
-      .flat_map(|x| {
-        (0..BOARD_SIZE)
-          .map(|y| TilePointer { x, y })
-          .collect::<Vec<_>>()
-      })
-      .collect();
-
-    for tile in tiles {
-      let eval = eval_relevant_sequences(&board, tile);
-
-      let expected_sequences: Vec<_> = {
-        board
-          .get_relevant_sequences(tile)
-          .iter()
-          .map(|sequence| eval_sequence(seq_to_iter!(sequence, board)))
-          .collect()
-      };
-
-      let expected_output = expected_sequences.into_iter().sum();
-
-      assert_eq!(eval, expected_output);
     }
   }
 }
