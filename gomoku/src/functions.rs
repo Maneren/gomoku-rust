@@ -203,6 +203,12 @@ pub fn nodes_sorted_by_shallow_eval(
   nodes
 }
 
+pub fn score_sqrt(n: Score) -> Score {
+  let n = n as f32;
+  let sqrt = if n >= 0. { n.sqrt() } else { -n.abs().sqrt() };
+  sqrt as Score
+}
+
 #[cfg(test)]
 mod tests {
 

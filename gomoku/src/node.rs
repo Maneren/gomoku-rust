@@ -16,7 +16,7 @@ use super::{
   utils::do_run,
   Score,
 };
-use crate::functions::eval_structs::Eval;
+use crate::functions::{eval_structs::Eval, score_sqrt};
 
 #[derive(Clone)]
 pub struct MoveSequence {
@@ -145,7 +145,7 @@ impl Node {
   fn analyze_child_nodes(&mut self) {
     let best = self.child_nodes.get(0).expect("no children in eval");
 
-    self.score = self.original_score - best.score / 2;
+    self.score = self.original_score - best.score;
     self.state = best.state.inversed();
 
     self.best_moves = MoveSequence::new(self);
@@ -172,7 +172,7 @@ impl Node {
       .into_iter()
       .map(|tile| {
         let next_player = !self.player;
-        let mut score = self.original_score;
+        let mut score = self.original_score.pow(2);
 
         let Eval {
           score: prev_score, ..
@@ -236,14 +236,14 @@ impl Node {
       state,
       valid: true,
       score,
-      original_score: (score as f64).sqrt() as Score,
+      original_score: score_sqrt(score),
       player,
       child_nodes: Vec::new(),
       best_moves: MoveSequence {
         tile,
         player,
         score,
-        original_score: (score as f64).sqrt() as Score,
+        original_score: score_sqrt(score),
         state,
         next: None,
       },
