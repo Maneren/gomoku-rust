@@ -31,6 +31,11 @@ impl fmt::Debug for TilePointer {
     write!(f, "{}{}", (self.x + 0x61) as char, self.y + 1)
   }
 }
+impl fmt::Display for TilePointer {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{self:?}")
+  }
+}
 
 type Sequence = Vec<usize>;
 type Sequences = Vec<Sequence>;
