@@ -108,10 +108,6 @@ fn minimax_top_level(
     if nodes.len() <= 1 {
       break;
     }
-
-    if generation_number >= 4 {
-      nodes.truncate(threads);
-    }
   }
 
   println!();
@@ -129,18 +125,6 @@ fn minimax_top_level(
   let best_node = nodes.iter().max().unwrap();
 
   println!("Best moves: {best_node:#?}");
-  // {
-  //   let mut best_board = board.clone();
-
-  //   let mut current = best_node.best_moves.clone();
-
-  //   best_board.set_tile(current.tile, Some(current.player));
-  //   while current.next.is_some() {
-  //     current = *current.next.unwrap();
-  //     best_board.set_tile(current.tile, Some(current.player));
-  //   }
-  //   println!("Best board: \n{}", best_board);
-  // }
 
   Ok((best_node.to_move(), stats))
 }
