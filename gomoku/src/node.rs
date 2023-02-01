@@ -16,7 +16,7 @@ use super::{
   utils::do_run,
   Score,
 };
-use crate::functions::{eval_structs::Eval, score_sqrt};
+use crate::functions::{eval_structs::Eval, score_sqrt, score_square};
 
 #[derive(Clone)]
 pub struct MoveSequence {
@@ -170,14 +170,14 @@ impl Node {
       .into_iter()
       .map(|tile| {
         let next_player = !self.player;
-        let mut score = self.original_score.pow(2);
+        let mut score = score_square(self.original_score);
 
         let Eval {
           score: prev_score, ..
         } = eval_relevant_sequences(board, tile);
 
-        score += prev_score[self.player];
-        score -= prev_score[next_player];
+        score -= prev_score[self.player];
+        score += prev_score[next_player];
 
         board.set_tile(tile, Some(next_player));
 
@@ -187,9 +187,8 @@ impl Node {
         } = eval_relevant_sequences(board, tile);
 
         score *= -1;
-
-        score += new_score[next_player];
         score -= new_score[self.player];
+        score += new_score[next_player];
 
         board.set_tile(tile, None);
 

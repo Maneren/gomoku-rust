@@ -39,7 +39,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool, 
       _ => (0, false, 0),
     },
     2 => match open_ends {
-      2 => (300, false, 0),
+      2 => (50, false, 0),
       _ => (0, false, 0),
     },
     _ => (0, false, 0),
@@ -198,6 +198,13 @@ pub fn score_sqrt(n: Score) -> Score {
   let n = n as f32;
   let sqrt = if n >= 0. { n.sqrt() } else { -n.abs().sqrt() };
   sqrt as Score
+}
+pub fn score_square(n: Score) -> Score {
+  if n >= 0 {
+    n.pow(2)
+  } else {
+    -n.pow(2)
+  }
 }
 
 #[cfg(test)]

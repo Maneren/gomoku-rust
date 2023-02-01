@@ -80,6 +80,8 @@ fn minimax_top_level(
 
     print_status(&format!("computing depth {generation_number}"), &end_time);
 
+    let snapshot = nodes.clone();
+
     stats += nodes
       .par_iter_mut()
       .map(|node| {
@@ -90,6 +92,7 @@ fn minimax_top_level(
       .sum();
 
     if nodes.iter().any(|node| !node.valid) {
+      nodes = snapshot;
       break;
     }
 
