@@ -26,9 +26,24 @@ pub struct TilePointer {
   pub x: u8,
   pub y: u8,
 }
+impl TryFrom<&str> for TilePointer {
+  type Error = Box<dyn std::error::Error>;
+
+  fn try_from(value: &str) -> Result<Self, Self::Error> {
+    let mut chars = value.chars();
+
+    let x = chars.next().ok_or::<Self::Error>("No input".into())?;
+    let y = chars.collect::<String>().parse::<u8>()?;
+
+    let x = x as u8 - 'a' as u8;
+    let y = y - 1;
+
+    Ok(TilePointer { x, y })
+  }
+}
 impl fmt::Debug for TilePointer {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}{}", (self.x + 0x61) as char, self.y + 1)
+    write!(f, "{}{}", (self.x + 'a' as u8) as char, self.y + 1)
   }
 }
 impl fmt::Display for TilePointer {

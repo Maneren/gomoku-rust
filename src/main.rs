@@ -208,31 +208,23 @@ fn run(mut player: Player, time_limit: u64, threads: usize, board_size: u8) {
 
   loop {
     let line: String = read!("{}\n");
-    let line = line.trim().to_string();
+    let line = line.trim();
     println!("input: {line}");
 
     if line.starts_with('$') {
       return;
     }
 
-    let mut chars = line.chars().peekable();
+    let line = if line.starts_with(prefix) {
+      &line[1..]
+    } else {
+      line
+    };
 
-    if chars.peek() == Some(&prefix) {
-      chars.next();
-    }
-
-    let x = chars.next();
-    let y = chars.collect::<String>().parse::<u8>();
-
-    if x.is_none() || y.is_err() {
+    let Ok(tile_ptr) = TilePointer::try_from(line) else {
       println!("Invalid input: {line:?}");
       continue;
-    }
-
-    let x = x.unwrap() as u8 - 0x61;
-    let y = y.unwrap() - 1;
-
-    let tile_ptr = TilePointer { x, y };
+    };
 
     if board.get_tile(tile_ptr).is_some() {
       println!("Tile already used");
