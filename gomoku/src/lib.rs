@@ -57,11 +57,11 @@ fn minimax_top_level(
 
   let empty_tiles = board.get_empty_tiles()?;
   print_status("computing depth 1", &end_time);
-  let presorted_nodes =
+  let mut nodes =
     nodes_sorted_by_shallow_eval(board, empty_tiles, &mut stats, current_player, &end);
 
   // if there is winning move, return it
-  if let Some(winning_move) = check_winning(&presorted_nodes) {
+  if let Some(winning_move) = check_winning(&nodes) {
     return Ok((winning_move, stats));
   }
 
@@ -70,7 +70,6 @@ fn minimax_top_level(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
   )]
-  let mut nodes = presorted_nodes;
   let moves_count = (1.5 * (nodes.len() as f32).sqrt()) as usize;
   nodes.truncate(moves_count);
 
