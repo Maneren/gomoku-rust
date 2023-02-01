@@ -135,6 +135,11 @@ pub fn decide(
 ) -> Result<(Move, Stats), board::Error> {
   let time_limit = Duration::from_millis(time_limit);
 
+  rayon::ThreadPoolBuilder::new()
+    .num_threads(threads)
+    .build_global()
+    .unwrap();
+
   let (move_, stats) = minimax_top_level(board, player, time_limit)?;
 
   board.set_tile(move_.tile, Some(player));
@@ -146,6 +151,11 @@ pub fn decide(
 pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
   let time_limit = Duration::from_secs(time_limit);
   let end = Arc::new(AtomicBool::new(false));
+
+  rayon::ThreadPoolBuilder::new()
+    .num_threads(threads)
+    .build_global()
+    .unwrap();
 
   {
     let end = end.clone();
