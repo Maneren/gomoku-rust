@@ -35,7 +35,7 @@ impl TryFrom<&str> for TilePointer {
     let x = chars.next().ok_or::<Self::Error>("No input".into())?;
     let y = chars.collect::<String>().parse::<u8>()?;
 
-    let x = x as u8 - 'a' as u8;
+    let x = x as u8 - b'a';
     let y = y - 1;
 
     Ok(TilePointer { x, y })
@@ -43,7 +43,7 @@ impl TryFrom<&str> for TilePointer {
 }
 impl fmt::Debug for TilePointer {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}{}", (self.x + 'a' as u8) as char, self.y + 1)
+    write!(f, "{}{}", (self.x + b'a') as char, self.y + 1)
   }
 }
 impl fmt::Display for TilePointer {
@@ -284,14 +284,11 @@ impl Board {
   pub fn set_tile(&mut self, ptr: TilePointer, value: Tile) {
     let index = Self::get_index(self.size, ptr);
 
-    if (value.is_some() && self.get_tile_raw(index).is_some())
-      || (value.is_none() && self.get_tile_raw(index).is_none())
-    {
-      panic!(
-        "attempted to overwrite tile {:?} with value {:?} at board \n{}",
-        ptr, value, self
-      );
-    }
+    let tile = self.get_tile_raw(index);
+    assert!(
+      ((value.is_some() && tile.is_some()) || (value.is_none() && tile.is_none())),
+      "attempted to overwrite tile {ptr} with value {value:?} at board \n{self}"
+    );
 
     self.data[index] = value;
   }

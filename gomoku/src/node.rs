@@ -159,9 +159,7 @@ impl Node {
   }
 
   fn init_child_nodes(&mut self, board: &mut Board, stats: &mut Stats) {
-    let available_tiles = if let Ok(tiles) = board.get_empty_tiles() {
-      tiles
-    } else {
+    let Ok(available_tiles) = board.get_empty_tiles() else {
       // no empty tiles
       self.state = State::Draw;
       self.score = 0;
