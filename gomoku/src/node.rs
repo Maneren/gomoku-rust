@@ -178,8 +178,8 @@ impl Node {
           score: prev_score, ..
         } = eval_relevant_sequences(board, tile);
 
-        score -= prev_score[self.player];
-        score += prev_score[next_player];
+        score += prev_score[self.player];
+        score -= prev_score[next_player];
 
         board.set_tile(tile, Some(next_player));
 
@@ -216,7 +216,6 @@ impl Node {
 
     nodes.retain(|node| !node.state.is_lose());
     nodes.sort_unstable_by(|a, b| b.cmp(a));
-    nodes.truncate(20);
     self.child_nodes = nodes;
 
     self.analyze_child_nodes();
