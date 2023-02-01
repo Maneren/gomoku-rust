@@ -41,7 +41,6 @@ fn minimax_top_level(
   board: &mut Board,
   current_player: Player,
   time_limit: Duration,
-  threads: usize,
 ) -> Result<(Move, Stats), board::Error> {
   let mut stats = Stats::new();
   let end_time = Instant::now().checked_add(time_limit).unwrap();
@@ -137,7 +136,7 @@ pub fn decide(
 ) -> Result<(Move, Stats), board::Error> {
   let time_limit = Duration::from_millis(time_limit);
 
-  let (move_, stats) = minimax_top_level(board, player, time_limit, threads)?;
+  let (move_, stats) = minimax_top_level(board, player, time_limit)?;
 
   board.set_tile(move_.tile, Some(player));
 
