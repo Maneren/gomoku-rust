@@ -197,6 +197,7 @@ impl Node {
 
         let state = {
           match (new_win[next_player], new_win[self.player]) {
+            (true, true) => unreachable!(),
             (true, _) => State::Win,
             (_, true) => State::Lose,
             _ => State::NotEnd,
