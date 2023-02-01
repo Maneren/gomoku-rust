@@ -145,7 +145,7 @@ impl Node {
   fn analyze_child_nodes(&mut self) {
     let best = self.child_nodes.get(0).expect("no children in eval");
 
-    self.score = self.original_score - best.score;
+    self.score = self.original_score - best.score / 2;
     self.state = best.state.inversed();
 
     self.best_moves = MoveSequence::new(self);

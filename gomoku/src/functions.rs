@@ -41,7 +41,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool, 
       _ => (0, false, 0),
     },
     2 => match open_ends {
-      2 => (10, false, 0),
+      2 => (300, false, 0),
       _ => (0, false, 0),
     },
     _ => (0, false, 0),
