@@ -1,9 +1,8 @@
-use std::{error, fmt, iter};
+use std::{error, fmt};
 
 use once_cell::sync::OnceCell;
 
-use super::{Player, Tile};
-use crate::Score;
+use super::{Player, Score};
 
 #[derive(Debug)]
 pub struct Error {
@@ -20,6 +19,8 @@ impl error::Error for Error {
     None
   }
 }
+
+pub type Tile = Option<Player>;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct TilePointer {
@@ -103,7 +104,7 @@ impl Board {
 
   #[must_use]
   pub fn get_empty_board(size: u8) -> Board {
-    let data = iter::repeat(None).take(size.pow(2) as usize).collect();
+    let data = vec![None; size.pow(2) as usize];
 
     initialize_sequences(size);
 
@@ -286,8 +287,8 @@ impl Board {
 
     let tile = self.get_tile_raw(index);
     assert!(
-      ((value.is_some() && tile.is_some()) || (value.is_none() && tile.is_none())),
-      "attempted to overwrite tile {ptr} with value {value:?} at board \n{self}"
+      !((value.is_some() && tile.is_some()) || (value.is_none() && tile.is_none())),
+      "attempted to overwrite tile {ptr} ({tile:?}) with value {value:?} at board \n{self}"
     );
 
     self.data[index] = value;
@@ -316,6 +317,7 @@ impl fmt::Display for Board {
       } else {
         format!("{:?}", i + 1)
       };
+
       string.push_str(&tmp);
 
       let row_start = i * board_size;

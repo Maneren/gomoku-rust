@@ -25,7 +25,7 @@ use std::{
   time::{Duration, Instant},
 };
 
-pub use board::{Board, TilePointer};
+pub use board::{Board, Tile, TilePointer};
 use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
 pub use player::Player;
 // r# to allow reserved keyword as name
@@ -34,7 +34,6 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelI
 use stats::Stats;
 use utils::{do_run, format_number, print_status};
 
-type Tile = Option<Player>;
 type Score = i32;
 
 fn minimax_top_level(
