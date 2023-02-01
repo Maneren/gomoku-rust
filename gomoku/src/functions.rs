@@ -1,7 +1,5 @@
 use std::sync::{atomic::AtomicBool, Arc};
 
-use rayon::prelude::*;
-
 use self::eval_structs::{Eval, EvalWinPotential};
 use super::{
   board::{Board, TilePointer},
@@ -144,22 +142,15 @@ pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
 
   let (score, is_win) = board
     .sequences()
-    .into_par_iter()
-    .fold(
-      || (0, false),
-      |(total, is_win), sequence| {
-        let Eval { score, win } = eval_sequence(seq_to_iter!(sequence, board));
+    .iter()
+    .fold((0, false), |(total, is_win), sequence| {
+      let Eval { score, win } = eval_sequence(seq_to_iter!(sequence, board));
 
-        (
-          total + score[current_player] - score[opponent],
-          is_win | win[current_player],
-        )
-      },
-    )
-    .reduce(
-      || (0, false),
-      |(total, is_win), (score, win)| (total + score, is_win | win),
-    );
+      (
+        total + score[current_player] - score[opponent],
+        is_win | win[current_player],
+      )
+    });
 
   let state = if is_win { State::Win } else { State::NotEnd };
 
