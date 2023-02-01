@@ -30,7 +30,10 @@ use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
 pub use player::Player;
 // r# to allow reserved keyword as name
 pub use r#move::Move;
-use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::{
+  prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator},
+  ThreadPoolBuildError,
+};
 use stats::Stats;
 use utils::{do_run, format_number, print_status};
 
@@ -129,18 +132,19 @@ fn minimax_top_level(
   Ok((best_node.to_move(), stats))
 }
 
+pub fn set_thread_count(threads: usize) -> Result<(), Box<dyn std::error::Error>> {
+  rayon::ThreadPoolBuilder::new()
+    .num_threads(threads)
+    .build_global()
+    .map_err(|_| "Thread count already set".into())
+}
+
 pub fn decide(
   board: &mut Board,
   player: Player,
   time_limit: u64,
-  threads: usize,
 ) -> Result<(Move, Stats), board::Error> {
   let time_limit = Duration::from_millis(time_limit);
-
-  rayon::ThreadPoolBuilder::new()
-    .num_threads(threads)
-    .build_global()
-    .unwrap();
 
   let (move_, stats) = minimax_top_level(board, player, time_limit)?;
 
@@ -154,10 +158,7 @@ pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
   let time_limit = Duration::from_secs(time_limit);
   let end = Arc::new(AtomicBool::new(false));
 
-  rayon::ThreadPoolBuilder::new()
-    .num_threads(threads)
-    .build_global()
-    .unwrap();
+  set_thread_count(threads).unwrap();
 
   {
     let end = end.clone();
