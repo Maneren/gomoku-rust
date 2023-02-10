@@ -30,10 +30,7 @@ use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
 pub use player::Player;
 // r# to allow reserved keyword as name
 pub use r#move::Move;
-use rayon::{
-  prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator},
-  ThreadPoolBuildError,
-};
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use stats::Stats;
 use utils::{do_run, format_number, print_status};
 
