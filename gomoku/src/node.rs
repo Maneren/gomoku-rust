@@ -16,7 +16,7 @@ use super::{
   utils::do_run,
   Score,
 };
-use crate::functions::{eval_structs::Eval, score_sqrt};
+use crate::functions::{eval_structs::Eval, score_sqrt, score_square};
 
 #[derive(Clone)]
 pub struct MoveSequence {
@@ -145,7 +145,7 @@ impl Node {
   fn analyze_child_nodes(&mut self) {
     let best = self.child_nodes.get(0).expect("no children in eval");
 
-    self.score = self.original_score - best.score;
+    self.score = self.original_score - best.score / 2;
     self.state = best.state.inversed();
 
     self.best_moves = MoveSequence::new(self);
@@ -159,9 +159,7 @@ impl Node {
   }
 
   fn init_child_nodes(&mut self, board: &mut Board, stats: &mut Stats) {
-    let available_tiles = if let Ok(tiles) = board.get_empty_tiles() {
-      tiles
-    } else {
+    let Ok(available_tiles) = board.get_empty_tiles() else {
       // no empty tiles
       self.state = State::Draw;
       self.score = 0;
@@ -172,14 +170,14 @@ impl Node {
       .into_iter()
       .map(|tile| {
         let next_player = !self.player;
-        let mut score = self.original_score.pow(2);
+        let mut score = score_square(self.original_score);
 
         let Eval {
           score: prev_score, ..
         } = eval_relevant_sequences(board, tile);
 
-        score += prev_score[self.player];
-        score -= prev_score[next_player];
+        score -= prev_score[self.player];
+        score += prev_score[next_player];
 
         board.set_tile(tile, Some(next_player));
 
@@ -189,9 +187,8 @@ impl Node {
         } = eval_relevant_sequences(board, tile);
 
         score *= -1;
-
-        score += new_score[next_player];
         score -= new_score[self.player];
+        score += new_score[next_player];
 
         board.set_tile(tile, None);
 

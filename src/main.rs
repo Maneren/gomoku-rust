@@ -44,6 +44,8 @@ fn main() {
     .value_of_t("threads")
     .unwrap_or_else(|_| num_cpus::get());
 
+  gomoku_lib::set_thread_count(threads).unwrap();
+
   if let Some(matches) = matches.subcommand_matches("perf") {
     let time_limit = matches.value_of_t("time").unwrap_or(10);
 
@@ -62,12 +64,12 @@ fn main() {
   let board_size = matches.value_of_t("board").unwrap_or(15);
 
   if let Some(path) = matches.value_of("debug") {
-    match run_debug(path, player, time_limit, threads) {
+    match run_debug(path, player, time_limit) {
       Ok(_) => println!("Done!"),
       Err(msg) => println!("Error: {msg}"),
     }
   } else {
-    run(player, time_limit, threads, board_size);
+    run(player, time_limit, board_size);
   }
 }
 
@@ -144,12 +146,7 @@ fn parse_args() -> clap::ArgMatches {
     .get_matches()
 }
 
-fn run_debug(
-  path_to_input: &str,
-  player: Player,
-  time_limit: u64,
-  threads: usize,
-) -> Result<(), Error> {
+fn run_debug(path_to_input: &str, player: Player, time_limit: u64) -> Result<(), Error> {
   let input_string = load_input(path_to_input)?;
   let mut board = Board::from_string(&input_string)?;
 
@@ -159,7 +156,7 @@ fn run_debug(
 
   let start = Instant::now();
 
-  let result = gomoku_lib::decide(&mut board, player, time_limit, threads);
+  let result = gomoku_lib::decide(&mut board, player, time_limit);
   let run_time = start.elapsed().as_micros();
 
   let (best_move, stats) = match result {
@@ -189,7 +186,7 @@ fn load_input(path: &str) -> Result<String, Error> {
   Ok(contents)
 }
 
-fn run(mut player: Player, time_limit: u64, threads: usize, board_size: u8) {
+fn run(mut player: Player, time_limit: u64, board_size: u8) {
   use text_io::read;
   let mut board = Board::get_empty_board(board_size);
 
@@ -242,7 +239,7 @@ fn run(mut player: Player, time_limit: u64, threads: usize, board_size: u8) {
     player = !player;
 
     let start = Instant::now();
-    let result = gomoku_lib::decide(&mut board, player, time_limit, threads);
+    let result = gomoku_lib::decide(&mut board, player, time_limit);
     let run_time = start.elapsed().as_micros();
 
     let unwrapped = match result {

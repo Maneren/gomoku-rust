@@ -1,9 +1,8 @@
-use std::{error, fmt, iter};
+use std::{error, fmt};
 
 use once_cell::sync::OnceCell;
 
-use super::{Player, Tile};
-use crate::Score;
+use super::{Player, Score};
 
 #[derive(Debug)]
 pub struct Error {
@@ -21,6 +20,8 @@ impl error::Error for Error {
   }
 }
 
+pub type Tile = Option<Player>;
+
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct TilePointer {
   pub x: u8,
@@ -35,7 +36,7 @@ impl TryFrom<&str> for TilePointer {
     let x = chars.next().ok_or::<Self::Error>("No input".into())?;
     let y = chars.collect::<String>().parse::<u8>()?;
 
-    let x = x as u8 - 'a' as u8;
+    let x = x as u8 - b'a';
     let y = y - 1;
 
     Ok(TilePointer { x, y })
@@ -43,7 +44,7 @@ impl TryFrom<&str> for TilePointer {
 }
 impl fmt::Debug for TilePointer {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}{}", (self.x + 'a' as u8) as char, self.y + 1)
+    write!(f, "{}{}", (self.x + b'a') as char, self.y + 1)
   }
 }
 impl fmt::Display for TilePointer {
@@ -103,7 +104,7 @@ impl Board {
 
   #[must_use]
   pub fn get_empty_board(size: u8) -> Board {
-    let data = iter::repeat(None).take(size.pow(2) as usize).collect();
+    let data = vec![None; size.pow(2) as usize];
 
     initialize_sequences(size);
 
@@ -284,14 +285,11 @@ impl Board {
   pub fn set_tile(&mut self, ptr: TilePointer, value: Tile) {
     let index = Self::get_index(self.size, ptr);
 
-    if (value.is_some() && self.get_tile_raw(index).is_some())
-      || (value.is_none() && self.get_tile_raw(index).is_none())
-    {
-      panic!(
-        "attempted to overwrite tile {:?} with value {:?} at board \n{}",
-        ptr, value, self
-      );
-    }
+    let tile = self.get_tile_raw(index);
+    assert!(
+      !((value.is_some() && tile.is_some()) || (value.is_none() && tile.is_none())),
+      "attempted to overwrite tile {ptr} ({tile:?}) with value {value:?} at board \n{self}"
+    );
 
     self.data[index] = value;
   }
@@ -319,6 +317,7 @@ impl fmt::Display for Board {
       } else {
         format!("{:?}", i + 1)
       };
+
       string.push_str(&tmp);
 
       let row_start = i * board_size;

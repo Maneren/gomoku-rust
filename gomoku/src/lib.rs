@@ -25,16 +25,18 @@ use std::{
   time::{Duration, Instant},
 };
 
-pub use board::{Board, TilePointer};
+pub use board::{Board, Tile, TilePointer};
 use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
 pub use player::Player;
 // r# to allow reserved keyword as name
 pub use r#move::Move;
-use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::{
+  prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator},
+  ThreadPoolBuildError,
+};
 use stats::Stats;
 use utils::{do_run, format_number, print_status};
 
-type Tile = Option<Player>;
 type Score = i32;
 
 fn minimax_top_level(
@@ -57,11 +59,11 @@ fn minimax_top_level(
 
   let empty_tiles = board.get_empty_tiles()?;
   print_status("computing depth 1", &end_time);
-  let presorted_nodes =
+  let mut nodes =
     nodes_sorted_by_shallow_eval(board, empty_tiles, &mut stats, current_player, &end);
 
   // if there is winning move, return it
-  if let Some(winning_move) = check_winning(&presorted_nodes) {
+  if let Some(winning_move) = check_winning(&nodes) {
     return Ok((winning_move, stats));
   }
 
@@ -70,7 +72,6 @@ fn minimax_top_level(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
   )]
-  let mut nodes = presorted_nodes;
   let moves_count = (1.5 * (nodes.len() as f32).sqrt()) as usize;
   nodes.truncate(moves_count);
 
@@ -82,6 +83,8 @@ fn minimax_top_level(
 
     print_status(&format!("computing depth {generation_number}"), &end_time);
 
+    let snapshot = nodes.clone();
+
     stats += nodes
       .par_iter_mut()
       .map(|node| {
@@ -92,6 +95,7 @@ fn minimax_top_level(
       .sum();
 
     if nodes.iter().any(|node| !node.valid) {
+      nodes = snapshot;
       break;
     }
 
@@ -128,11 +132,17 @@ fn minimax_top_level(
   Ok((best_node.to_move(), stats))
 }
 
+pub fn set_thread_count(threads: usize) -> Result<(), Box<dyn std::error::Error>> {
+  rayon::ThreadPoolBuilder::new()
+    .num_threads(threads)
+    .build_global()
+    .map_err(|_| "Thread count already set".into())
+}
+
 pub fn decide(
   board: &mut Board,
   player: Player,
   time_limit: u64,
-  threads: usize,
 ) -> Result<(Move, Stats), board::Error> {
   let time_limit = Duration::from_millis(time_limit);
 
@@ -147,6 +157,8 @@ pub fn decide(
 pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
   let time_limit = Duration::from_secs(time_limit);
   let end = Arc::new(AtomicBool::new(false));
+
+  set_thread_count(threads).unwrap();
 
   {
     let end = end.clone();
