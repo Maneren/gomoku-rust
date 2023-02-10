@@ -18,10 +18,10 @@ pub mod eval_structs;
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool, u8) {
   if has_hole {
     return match consecutive {
-      5.. => (8000, false, 2),
+      5.. => (40_000, false, 2),
       4 => match open_ends {
-        2 => (1000, false, 1),
-        1 => (50, false, 0),
+        2 => (20_000, false, 1),
+        1 => (500, false, 0),
         _ => (0, false, 0),
       },
       _ => (0, false, 0),
@@ -29,19 +29,19 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool, 
   }
 
   match consecutive {
-    5.. => (10_000_000, true, 4),
+    5.. => (100_000_000, true, 4),
     4 => match open_ends {
-      2 => (1_000_000, false, 2),
-      1 => (10_000, false, 2),
+      2 => (10_000_000, false, 4),
+      1 => (100_000, false, 2),
       _ => (0, false, 0),
     },
     3 => match open_ends {
-      2 => (500_000, false, 2),
-      1 => (100, false, 0),
+      2 => (5_000_000, false, 2),
+      1 => (10_000, false, 0),
       _ => (0, false, 0),
     },
     2 => match open_ends {
-      2 => (10, false, 0),
+      2 => (2_000, false, 0),
       _ => (0, false, 0),
     },
     _ => (0, false, 0),
