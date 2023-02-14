@@ -100,10 +100,10 @@ impl Sum for Eval {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct EvalWinPotential(pub u8, pub u8);
+pub struct EvalWinPotential(pub i32, pub i32);
 
 impl Index<Player> for EvalWinPotential {
-  type Output = u8;
+  type Output = i32;
   fn index(&self, player: Player) -> &Self::Output {
     match player {
       Player::X => &self.0,

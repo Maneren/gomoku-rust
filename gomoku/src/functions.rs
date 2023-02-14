@@ -13,12 +13,13 @@ use super::{
 
 pub mod eval_structs;
 
-fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool, u8) {
+/// Return score, win and win potential modifier for the given shape
+fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool, Score) {
   if has_hole {
     return match consecutive {
       5.. => (40_000, false, 2),
       4 => match open_ends {
-        2 => (20_000, false, 1),
+        2 => (20_000, false, 2),
         1 => (500, false, 0),
         _ => (0, false, 0),
       },
@@ -113,12 +114,8 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> Eval {
     win_potentials[current] += win_potential;
   }
 
-  if win_potentials.0 >= 4 {
-    eval.win.0 = true;
-  }
-  if win_potentials.1 >= 4 {
-    eval.win.1 = true;
-  }
+  eval.score.0 *= win_potentials.0;
+  eval.score.1 *= win_potentials.1;
 
   eval
 }
