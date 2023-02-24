@@ -1,6 +1,6 @@
 use std::{
   iter::Sum,
-  ops::{Add, AddAssign, BitOr, BitOrAssign, Index, IndexMut},
+  ops::{Add, AddAssign, BitOr, BitOrAssign, Index, IndexMut, MulAssign},
 };
 
 use super::super::{player::Player, Score};
@@ -38,6 +38,13 @@ impl AddAssign for EvalScore {
   fn add_assign(&mut self, other: Self) {
     self.0 += other.0;
     self.1 += other.1;
+  }
+}
+
+impl MulAssign<EvalWinPotential> for EvalScore {
+  fn mul_assign(&mut self, other: EvalWinPotential) {
+    self.0 *= other.0;
+    self.1 *= other.1;
   }
 }
 

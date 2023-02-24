@@ -114,8 +114,7 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> Eval {
     win_potentials[current] += win_potential;
   }
 
-  eval.score.0 *= win_potentials.0;
-  eval.score.1 *= win_potentials.1;
+  eval.score *= win_potentials;
 
   eval
 }
