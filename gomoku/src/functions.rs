@@ -193,15 +193,10 @@ pub fn nodes_sorted_by_shallow_eval(
 
 pub fn score_sqrt(n: Score) -> Score {
   let n = n as f32;
-  let sqrt = if n >= 0. { n.sqrt() } else { -n.abs().sqrt() };
-  sqrt as Score
+  (n.signum() * n.abs().sqrt()) as Score
 }
 pub fn score_square(n: Score) -> Score {
-  if n >= 0 {
-    n.pow(2)
-  } else {
-    -n.pow(2)
-  }
+  n.signum() * n.pow(2)
 }
 
 #[cfg(test)]
