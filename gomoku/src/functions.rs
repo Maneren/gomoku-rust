@@ -338,4 +338,22 @@ mod tests {
       assert_eq!(y, y_);
     }
   }
+
+  #[test]
+  fn test_score_square() {
+    let data = vec![(10, 100), (-5, -25), (0, 0)];
+
+    for (src, target) in data {
+      assert_eq!(score_square(src), target);
+    }
+  }
+
+  #[test]
+  fn test_score_sqrt() {
+    let data = vec![(100, 10), (-25, -5), (0, 0), (30, 5)];
+
+    for (src, target) in data {
+      assert_eq!(score_sqrt(src), target);
+    }
+  }
 }
