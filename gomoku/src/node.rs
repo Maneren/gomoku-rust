@@ -69,15 +69,15 @@ impl fmt::Debug for MoveSequence {
 
 #[derive(Clone)]
 pub struct Node {
-  pub tile: TilePointer,
-  pub player: Player,
+  tile: TilePointer,
+  player: Player,
   pub state: State,
   pub valid: bool,
   pub child_nodes: Vec<Node>,
 
   score: Score,
   original_score: Score,
-  pub best_moves: MoveSequence,
+  best_moves: MoveSequence,
   depth: u8,
 
   end: Arc<AtomicBool>,
