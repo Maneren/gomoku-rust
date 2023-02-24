@@ -120,17 +120,15 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> Eval {
   eval
 }
 
-macro_rules! seq_to_iter {
-  ($sequence:expr, $board:expr) => {
-    $sequence.iter().map(|index| $board.get_tile_raw(*index))
-  };
+fn seq_to_iter<'a>(sequence: &'a [usize], board: &'a Board) -> impl Iterator<Item = &'a Tile> {
+  sequence.iter().map(|index| board.get_tile_raw(*index))
 }
 
 pub fn eval_relevant_sequences(board: &Board, tile: TilePointer) -> Eval {
   board
     .get_relevant_sequences(tile)
     .into_iter()
-    .map(|sequence| eval_sequence(seq_to_iter!(sequence, board)))
+    .map(|sequence| eval_sequence(seq_to_iter(sequence, board)))
     .sum()
 }
 
@@ -141,7 +139,7 @@ pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
     .sequences()
     .iter()
     .fold((0, false), |(total, is_win), sequence| {
-      let Eval { score, win } = eval_sequence(seq_to_iter!(sequence, board));
+      let Eval { score, win } = eval_sequence(seq_to_iter(sequence, board));
 
       (
         total + score[current_player] - score[opponent],
