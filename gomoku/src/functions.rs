@@ -217,8 +217,8 @@ mod tests {
       shape_score(0, 2, false),
       shape_score(1, 2, false),
       shape_score(4, 1, true),
-      shape_score(3, 1, false),
       shape_score(2, 2, false),
+      shape_score(3, 1, false),
       shape_score(4, 2, true),
       shape_score(5, 1, true),
       shape_score(5, 2, true),
@@ -235,7 +235,8 @@ mod tests {
     shapes
       .iter()
       .zip(shapes[1..].iter())
-      .for_each(|(a, b)| assert!(a.0 <= b.0, "{a:?} {b:?}"));
+      .enumerate()
+      .for_each(|(i, (a, b))| assert!(a.0 <= b.0, "{i}: {a:?} {b:?}"));
   }
 
   #[test]
@@ -309,11 +310,12 @@ mod tests {
 
     macro_rules! sum {
       ($vec:expr) => {
-        $vec
-          .iter()
-          .fold((0, false), |(total, is_win), (score, is_winning, ..)| {
-            (total + score, is_win | is_winning)
-          })
+        $vec.iter().fold(
+          (0, false),
+          |(total, is_win), (score, is_winning, modifier)| {
+            (total + score * modifier, is_win | is_winning)
+          },
+        )
       };
     }
 
@@ -330,12 +332,12 @@ mod tests {
       let y = (y_score, y_win);
 
       // sum the shapes and convert to format similar to x, y above
-      let x_ = sum!(x_vec);
-      let y_ = sum!(y_vec);
+      let expected_x = sum!(x_vec);
+      let expected_y = sum!(y_vec);
 
       println!("{i}");
-      assert_eq!(x, x_);
-      assert_eq!(y, y_);
+      assert_eq!(x, expected_x);
+      assert_eq!(y, expected_y);
     }
   }
 
