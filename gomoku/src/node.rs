@@ -84,9 +84,7 @@ pub struct Node {
 }
 impl Node {
   pub fn compute_next(&mut self, board: &mut Board, stats: &mut Stats) {
-    if self.state.is_end() {
-      return;
-    }
+    debug_assert!(!self.state.is_end());
 
     if !do_run(&self.end) {
       self.valid = false;

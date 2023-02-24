@@ -4,6 +4,9 @@ version = "6.0.0"
 authors = ["Maneren <maneren731@gmail.com>"]
 edition = "2021"
 
+[profile.dev]
+opt-level = 3
+
 [dependencies]
 clap = "3.2.23"
 num_cpus = "1.15.0"
