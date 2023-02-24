@@ -84,11 +84,7 @@ fn minimax_top_level(
 
     stats += nodes
       .par_iter_mut()
-      .map(|node| {
-        let mut stats = Stats::new();
-        node.compute_next(&mut board.clone(), &mut stats);
-        stats
-      })
+      .map(|node| node.compute_next(&mut board.clone()))
       .sum();
 
     if nodes.iter().any(|node| !node.valid) {

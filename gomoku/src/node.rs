@@ -83,22 +83,24 @@ pub struct Node {
   end: Arc<AtomicBool>,
 }
 impl Node {
-  pub fn compute_next(&mut self, board: &mut Board, stats: &mut Stats) {
+  pub fn compute_next(&mut self, board: &mut Board) -> Stats {
     debug_assert!(!self.state.is_end());
 
     if !do_run(&self.end) {
       self.valid = false;
-      return;
+      return Stats::new();
     }
 
     self.depth += 1;
 
     if self.depth <= 1 {
+      let mut stats = Stats::new();
+
       board.set_tile(self.tile, Some(self.player));
-      self.init_child_nodes(board, stats);
+      self.init_child_nodes(board, &mut stats);
       board.set_tile(self.tile, None);
 
-      return;
+      return stats;
     }
 
     let limit = match self.depth {
@@ -116,23 +118,19 @@ impl Node {
     board.set_tile(self.tile, Some(self.player));
 
     // evaluate all child nodes
-    let new_stats = self
+    let stats = self
       .child_nodes
       .par_iter_mut()
-      .map(|node| {
-        let mut stats = Stats::new();
-        node.compute_next(&mut board.clone(), &mut stats);
-        stats
-      })
+      .map(|node| node.compute_next(&mut board.clone()))
       .sum();
-
-    *stats += new_stats;
 
     board.set_tile(self.tile, None);
 
     if self.valid {
       self.eval();
     }
+
+    stats
   }
 
   fn eval(&mut self) {
