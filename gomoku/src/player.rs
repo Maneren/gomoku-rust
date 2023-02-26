@@ -7,7 +7,6 @@ pub enum Player {
 }
 
 impl Player {
-  #[must_use]
   pub fn char(self) -> char {
     match self {
       Player::X => 'x',
@@ -15,7 +14,6 @@ impl Player {
     }
   }
 
-  #[must_use]
   pub fn index(self) -> usize {
     match self {
       Player::X => 0,

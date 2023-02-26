@@ -21,7 +21,6 @@ pub fn print_status(msg: &str, end_time: &Instant) {
   );
 }
 
-#[must_use]
 pub fn format_number(input: f32) -> String {
   let sizes = ['-', 'k', 'M', 'G', 'T'];
   let base = 1000.0;
@@ -94,7 +93,6 @@ pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
     .map(|rows| rows.join("/"))
 }
 
-#[must_use]
 pub fn is_game_end(board: &Board, current_player: Player) -> bool {
   board
     .sequences()
