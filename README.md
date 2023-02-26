@@ -2,28 +2,28 @@
 
 ## Description
 
-simple gomoku engine written in Rust  
-uses AlphaBeta pruning, caching with zobrist hashing, multithreading and iterative deepening
+simple gomoku engine written in Rust with CLI
+
+uses multithreading and iterative deepening
 
 ## Modes
 
 ### 1. interactive
 
-`gomoku <player> <time> [start]`
+`gomoku <player> <time>`
 
-- player - which symbol should engine play as ('x' or 'o')
-- time - time limit for searching in milliseconds
-- start - should the engine be play first ('true' or 'false')
+- player - who should go first - engine is 'x', player is 'o'
+- time - time limit for computing in milliseconds
 
-reads from stdin in format `d6` (letter is horizontal, number is vertical)
+reads input from stdin in format `d6` (letter is horizontal, number is vertical)
 
 ### 2. single position
 
-`gomoku <player> <time> debug <input-file>`
+`gomoku <player> <time> -d <file>`
 
-- player - which symbol should engine play as ('x' or 'o')
+- player - which symbol should engine evaluate as ('x' or 'o')
 - time - time limit for searching in milliseconds
-- input-file - path to file in specified format
+- file - path to file with position to evaluate
 
 evaluates single positions and returns its move
 

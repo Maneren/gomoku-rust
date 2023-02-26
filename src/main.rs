@@ -75,7 +75,7 @@ fn main() {
 
 fn parse_args() -> clap::ArgMatches {
   Command::new("Gomoku")
-    .version("5.0")
+    .version("6.1.0")
     .subcommand(
       Command::new("perf")
         .arg(
@@ -116,7 +116,7 @@ fn parse_args() -> clap::ArgMatches {
     )
     .arg(
       Arg::new("time")
-        .help("Time limit in milliseconds (default is 1000)")
+        .help("Time limit in milliseconds (default is 5000)")
         .index(2),
     )
     .arg(
@@ -198,10 +198,11 @@ fn run(mut player: Player, time_limit: u64, board_size: u8) {
       y: middle,
     };
     board.set_tile(tile, Some(player));
-    println!("board:\n{board}");
     println!("{prefix}{tile:?}");
     player = !player;
   }
+
+  println!("board:\n{board}");
 
   loop {
     let line: String = read!("{}\n");
