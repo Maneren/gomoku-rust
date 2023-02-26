@@ -245,13 +245,10 @@ impl Board {
   }
 
   fn get_ptr_from_index(index: usize, size: u8) -> TilePointer {
-    let x = index % size as usize;
-    let y = index / size as usize;
+    let x = (index % size as usize) as u8;
+    let y = (index / size as usize) as u8;
 
-    TilePointer {
-      x: x as u8,
-      y: y as u8,
-    }
+    TilePointer { x, y }
   }
 
   fn get_index(size: u8, ptr: TilePointer) -> usize {
