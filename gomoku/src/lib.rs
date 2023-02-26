@@ -32,7 +32,7 @@ pub use player::Player;
 // r# to allow reserved keyword as name
 pub use r#move::Move;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-use stats::Stats;
+pub use stats::Stats;
 use utils::{do_run, format_number, print_status};
 
 type Score = i32;
