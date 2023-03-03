@@ -47,7 +47,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool, 
   }
 }
 
-fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> Eval {
+fn eval_sequence(sequence: impl Iterator<Item = Tile>) -> Eval {
   let mut sequence = sequence.peekable();
 
   let mut eval = Eval::default();
@@ -58,7 +58,7 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> Eval {
   let mut open_ends = 0;
   let mut has_hole = false;
 
-  while let Some(&tile) = sequence.next() {
+  while let Some(tile) = sequence.next() {
     if let Some(player) = tile {
       if player == current {
         consecutive += 1;
@@ -86,7 +86,7 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> Eval {
         continue;
       }
 
-      if !has_hole && sequence.peek() == Some(&&Some(current)) && consecutive < 5 {
+      if !has_hole && sequence.peek() == Some(&Some(current)) && consecutive < 5 {
         has_hole = true;
         consecutive += 1;
         continue;
@@ -119,8 +119,8 @@ fn eval_sequence<'a>(sequence: impl Iterator<Item = &'a Tile>) -> Eval {
   eval
 }
 
-fn seq_to_iter<'a>(sequence: &'a [usize], board: &'a Board) -> impl Iterator<Item = &'a Tile> {
-  sequence.iter().map(|index| board.get_tile_raw(*index))
+fn seq_to_iter<'a>(sequence: &'a [usize], board: &'a Board) -> impl Iterator<Item = Tile> + 'a {
+  sequence.iter().map(|&index| *board.get_tile_raw(index))
 }
 
 pub fn eval_relevant_sequences(board: &Board, tile: TilePointer) -> Eval {
@@ -319,12 +319,12 @@ mod tests {
 
     // this is kinda wonky, but it works
     // basically it compares the output of eval_sequence with sum of shapes from expected_outputs
-    for (i, (sequence, x_vec, y_vec)) in test_sequences.iter().enumerate() {
+    for (i, (sequence, x_vec, y_vec)) in test_sequences.into_iter().enumerate() {
       // unpack eval_sequence output
       let Eval {
         score: EvalScore(x_score, y_score),
         win: EvalWin(x_win, y_win),
-      } = eval_sequence(sequence.iter().peekable());
+      } = eval_sequence(sequence.into_iter().peekable());
 
       let x = (x_score, x_win);
       let y = (y_score, y_win);
