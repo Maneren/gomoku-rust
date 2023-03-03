@@ -127,7 +127,8 @@ pub fn eval_relevant_sequences(board: &Board, tile: TilePointer) -> Eval {
   board
     .get_relevant_sequences(tile)
     .into_iter()
-    .map(|sequence| eval_sequence(seq_to_iter(sequence, board)))
+    .map(|sequence| seq_to_iter(sequence, board))
+    .map(eval_sequence)
     .sum()
 }
 
