@@ -121,7 +121,7 @@ checksum = "7fcaabb2fef8c910e7f4c7ce9f67a1283a1715879a7c230ca9d6d1ae31f16d91"
 
 [[package]]
 name = "gomoku"
-version = "6.1.1"
+version = "6.2.0"
 dependencies = [
  "clap",
  "gomoku_lib",
@@ -131,7 +131,7 @@ dependencies = [
 
 [[package]]
 name = "gomoku_lib"
-version = "6.1.1"
+version = "6.2.0"
 dependencies = [
  "jemallocator",
  "once_cell",
