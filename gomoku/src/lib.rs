@@ -28,12 +28,18 @@ use std::{
 
 pub use board::{Board, Tile, TilePointer};
 use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
+#[cfg(feature = "jemalloc")]
+use jemallocator::Jemalloc;
 pub use player::Player;
 // r# to allow reserved keyword as name
 pub use r#move::Move;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 pub use stats::Stats;
 use utils::{do_run, format_number, print_status};
+
+#[cfg(feature = "jemalloc")]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 
 type Score = i32;
 

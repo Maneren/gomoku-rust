@@ -11,4 +11,4 @@ opt-level = 3
 clap = "3.2.23"
 num_cpus = "1.15.0"
 text_io = "0.1.12"
-gomoku_lib = { path = "./gomoku" }
+gomoku_lib = { path = "./gomoku", features = ["jemalloc"] }
