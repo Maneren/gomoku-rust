@@ -25,7 +25,7 @@ use std::{
 
 pub use board::{Board, Tile, TilePointer};
 use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
-#[cfg(feature = "jemalloc")]
+#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 use jemallocator::Jemalloc;
 pub use player::Player;
 // r# to allow reserved keyword as name
@@ -34,7 +34,7 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelI
 pub use stats::Stats;
 use utils::{do_run, format_number, print_status};
 
-#[cfg(feature = "jemalloc")]
+#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
