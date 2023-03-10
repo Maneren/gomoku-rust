@@ -1,5 +1,3 @@
-use std::sync::{atomic::AtomicBool, Arc};
-
 use self::eval_structs::{Eval, EvalWinPotential};
 use super::{
   board::{Board, TilePointer},
@@ -164,7 +162,6 @@ pub fn nodes_sorted_by_shallow_eval(
   empty_tiles: Vec<TilePointer>,
   stats: &mut Stats,
   target_player: Player,
-  end: &Arc<AtomicBool>,
 ) -> Vec<Node> {
   let mut nodes: Vec<_> = empty_tiles
     .into_iter()
@@ -178,7 +175,6 @@ pub fn nodes_sorted_by_shallow_eval(
         target_player,
         analysis - board.squared_distance_from_center(tile),
         state,
-        end.clone(),
         stats,
       )
     })

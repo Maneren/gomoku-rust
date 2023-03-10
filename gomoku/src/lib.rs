@@ -18,10 +18,7 @@ mod stats;
 pub mod utils;
 
 use std::{
-  sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-  },
+  sync::atomic::{AtomicBool, Ordering},
   thread::{sleep, spawn},
   time::{Duration, Instant},
 };
@@ -41,6 +38,8 @@ use utils::{do_run, format_number, print_status};
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
+static END: AtomicBool = AtomicBool::new(false);
+
 type Score = i32;
 
 fn minimax_top_level(
@@ -51,20 +50,16 @@ fn minimax_top_level(
   let mut stats = Stats::new();
   let end_time = Instant::now().checked_add(time_limit).unwrap();
 
-  let end = Arc::new(AtomicBool::new(false));
+  END.store(false, Ordering::Relaxed);
 
-  {
-    let end = end.clone();
-    spawn(move || {
-      sleep(time_limit);
-      end.store(true, Ordering::Relaxed);
-    });
-  }
+  spawn(move || {
+    sleep(time_limit);
+    END.store(true, Ordering::Release);
+  });
 
   let empty_tiles = board.get_empty_tiles()?;
   print_status("computing depth 1", &end_time);
-  let mut nodes =
-    nodes_sorted_by_shallow_eval(board, empty_tiles, &mut stats, current_player, &end);
+  let mut nodes = nodes_sorted_by_shallow_eval(board, empty_tiles, &mut stats, current_player);
 
   // if there is winning move, return it
   if let Some(winning_move) = check_winning(&nodes) {
@@ -82,7 +77,7 @@ fn minimax_top_level(
   let mut generation_number = 1;
   let mut stats = Stats::new();
 
-  while do_run(&end) {
+  while do_run() {
     generation_number += 1;
 
     print_status(&format!("computing depth {generation_number}"), &end_time);
@@ -156,17 +151,15 @@ pub fn decide(
 #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
   let time_limit = Duration::from_secs(time_limit);
-  let end = Arc::new(AtomicBool::new(false));
+
+  END.store(false, Ordering::Relaxed);
 
   set_thread_count(threads).unwrap();
 
-  {
-    let end = end.clone();
-    spawn(move || {
-      sleep(time_limit);
-      end.store(true, Ordering::Relaxed);
-    });
-  }
+  spawn(move || {
+    sleep(time_limit);
+    END.store(true, Ordering::Relaxed);
+  });
 
   let board = Board::get_empty_board(board_size);
   let tile = TilePointer {
@@ -181,7 +174,7 @@ pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
       let mut board_clone = board.clone();
 
       let mut i = 0;
-      while do_run(&end) {
+      while do_run() {
         board_clone.set_tile(tile, Some(Player::X));
         let (..) = evaluate_board(&board_clone, Player::O);
         board_clone.set_tile(tile, None);

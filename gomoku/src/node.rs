@@ -1,8 +1,4 @@
-use std::{
-  cmp::Ordering,
-  fmt,
-  sync::{atomic::AtomicBool, Arc},
-};
+use std::{cmp::Ordering, fmt};
 
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 
@@ -79,14 +75,12 @@ pub struct Node {
   original_score: Score,
   best_moves: MoveSequence,
   depth: u8,
-
-  end: Arc<AtomicBool>,
 }
 impl Node {
   pub fn compute_next(&mut self, board: &mut Board) -> Stats {
     debug_assert!(!self.state.is_end());
 
-    if !do_run(&self.end) {
+    if !do_run() {
       self.valid = false;
       return Stats::new();
     }
@@ -204,7 +198,6 @@ impl Node {
           next_player,
           score - board.squared_distance_from_center(tile),
           state,
-          self.end.clone(),
           stats,
         )
       })
@@ -222,7 +215,6 @@ impl Node {
     player: Player,
     score: Score,
     state: State,
-    end: Arc<AtomicBool>,
     stats: &mut Stats,
   ) -> Node {
     stats.create_node();
@@ -243,7 +235,6 @@ impl Node {
         next: None,
       },
       depth: 0,
-      end,
     }
   }
 

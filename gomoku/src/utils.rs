@@ -1,14 +1,11 @@
 use std::{
-  sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-  },
+  sync::atomic::Ordering,
   time::{Duration, Instant},
 };
 
 #[inline]
-pub fn do_run(end: &Arc<AtomicBool>) -> bool {
-  !end.load(Ordering::Relaxed)
+pub fn do_run() -> bool {
+  !END.load(Ordering::Relaxed)
 }
 
 pub fn print_status(msg: &str, end_time: &Instant) {
@@ -44,7 +41,7 @@ use std::error::Error;
 
 use regex::{Captures, Regex};
 
-use crate::{Board, Player};
+use crate::{Board, Player, END};
 
 pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
   let input = input.trim();
