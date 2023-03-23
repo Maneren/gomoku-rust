@@ -258,7 +258,12 @@ impl PartialOrd for Node {
 impl Eq for Node {}
 impl Ord for Node {
   fn cmp(&self, other: &Self) -> Ordering {
-    self.score.cmp(&other.score)
+    match (self.state, other.state) {
+      (State::Win, State::Win) => self.score.cmp(&other.score),
+      (State::Win, _) => Ordering::Greater,
+      (_, State::Win) => Ordering::Less,
+      (_, _) => self.score.cmp(&other.score),
+    }
   }
 }
 impl fmt::Debug for Node {
