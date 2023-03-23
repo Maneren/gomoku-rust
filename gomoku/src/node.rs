@@ -183,7 +183,7 @@ impl Node {
         let state = {
           match (new_win[next_player], new_win[self.player]) {
             (true, true) => {
-              unreachable!("Invalid win state: {new_win:?} for child node {tile} of node {self:?}")
+              unreachable!("Invalid win state: {new_win:?} for child node {tile} of node {self:?} on board:\n{board}")
             }
             (true, _) => State::Win,
             (_, true) => State::Lose,
