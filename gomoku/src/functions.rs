@@ -72,6 +72,7 @@ fn eval_sequence(sequence: impl Iterator<Item = Tile>) -> Eval {
         win_potentials[current] += win_potential;
 
         open_ends = 0;
+        has_hole = false;
       }
 
       consecutive = 1;
