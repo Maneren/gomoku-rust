@@ -207,13 +207,12 @@ impl Board {
   }
 
   pub fn squared_distance_from_center(&self, p: TilePointer) -> Score {
-    let center = f32::from(self.size - 1) / 2.0; // -1 to adjust for 0-indexing
+    let center = Score::from(self.size - 1) / 2; // -1 to adjust for 0-indexing
 
-    let x = f32::from(p.x);
-    let y = f32::from(p.y);
-    let dist = (x - center).powi(2) + (y - center).powi(2);
+    let x = Score::from(p.x);
+    let y = Score::from(p.y);
 
-    dist.round() as Score
+    (x - center).pow(2) + (y - center).pow(2)
   }
 
   pub fn from_string(input_string: &str) -> Result<Board, Error> {
@@ -394,6 +393,23 @@ mod tests {
           .iter()
           .for_each(|sequence| assert!(sequence.iter().any(|index| *index == target)));
       }
+    }
+  }
+
+  #[test]
+  fn test_squared_distance_from_center() {
+    let board = Board::get_empty_board(BOARD_SIZE);
+
+    let tests = [
+      (TilePointer { x: 0, y: 0 }, 16 + 16),
+      (TilePointer { x: 8, y: 8 }, 16 + 16),
+      (TilePointer { x: 4, y: 4 }, 0),
+      (TilePointer { x: 5, y: 5 }, 1 + 1),
+      (TilePointer { x: 2, y: 3 }, 4 + 1),
+    ];
+
+    for (tile, dist) in tests {
+      assert_eq!(board.squared_distance_from_center(tile), dist);
     }
   }
 }
