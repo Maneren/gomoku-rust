@@ -4,6 +4,8 @@ version = "6.2.0"
 authors = ["Maneren <maneren731@gmail.com>"]
 edition = "2021"
 
+[workspace]
+
 [profile.dev]
 opt-level = 3
 
