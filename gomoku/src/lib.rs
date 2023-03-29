@@ -34,6 +34,8 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelI
 pub use stats::Stats;
 use utils::{do_run, format_number, print_status};
 
+use crate::node::Node;
+
 #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
@@ -80,7 +82,13 @@ fn minimax_top_level(
   while do_run() {
     generation_number += 1;
 
-    print_status(&format!("computing depth {generation_number}"), &end_time);
+    print_status(
+      &format!(
+        "computing depth {generation_number} for {} nodes",
+        nodes.iter().map(Node::node_count).sum::<usize>()
+      ),
+      &end_time,
+    );
 
     let snapshot = nodes.clone();
 

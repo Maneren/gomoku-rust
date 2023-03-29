@@ -208,6 +208,10 @@ impl Node {
     self.analyze_child_nodes();
   }
 
+  pub fn node_count(&self) -> usize {
+    self.child_nodes.iter().map(Node::node_count).sum::<usize>() + 1
+  }
+
   pub fn new(
     tile: TilePointer,
     player: Player,
