@@ -75,7 +75,7 @@ fn main() {
 
 fn parse_args() -> clap::ArgMatches {
   Command::new("Gomoku")
-    .version("6.1.0")
+    .version("6.2.1")
     .subcommand(
       Command::new("perf")
         .arg(
