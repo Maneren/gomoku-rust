@@ -1,6 +1,6 @@
 use std::{
   iter::Sum,
-  ops::{Add, AddAssign, BitOr, BitOrAssign, Index, IndexMut, MulAssign},
+  ops::{Add, AddAssign, BitOr, BitOrAssign, Index, IndexMut},
 };
 
 use super::super::{player::Player, Score};
@@ -38,13 +38,6 @@ impl AddAssign for EvalScore {
   fn add_assign(&mut self, other: Self) {
     self.0 += other.0;
     self.1 += other.1;
-  }
-}
-
-impl MulAssign<EvalWinPotential> for EvalScore {
-  fn mul_assign(&mut self, other: EvalWinPotential) {
-    self.0 *= other.0;
-    self.1 *= other.1;
   }
 }
 
@@ -103,27 +96,5 @@ impl Add for Eval {
 impl Sum for Eval {
   fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
     iter.fold(Eval::default(), |acc, x| acc + x)
-  }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct EvalWinPotential(pub i32, pub i32);
-
-impl Index<Player> for EvalWinPotential {
-  type Output = i32;
-  fn index(&self, player: Player) -> &Self::Output {
-    match player {
-      Player::X => &self.0,
-      Player::O => &self.1,
-    }
-  }
-}
-
-impl IndexMut<Player> for EvalWinPotential {
-  fn index_mut(&mut self, player: Player) -> &mut Self::Output {
-    match player {
-      Player::X => &mut self.0,
-      Player::O => &mut self.1,
-    }
   }
 }

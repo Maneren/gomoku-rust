@@ -1,4 +1,4 @@
-use self::eval_structs::{Eval, EvalWinPotential};
+use self::eval_structs::Eval;
 use super::{
   board::{Board, TilePointer},
   node::Node,
@@ -12,42 +12,41 @@ use super::{
 pub mod eval_structs;
 
 /// Return score, win and win potential modifier for the given shape
-fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool, Score) {
+fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) {
   if has_hole {
     return match consecutive {
-      5.. => (40_000, false, 2),
+      5.. => (40_000, false),
       4 => match open_ends {
-        2 => (20_000, false, 2),
-        1 => (500, false, 0),
-        _ => (0, false, 0),
+        2 => (20_000, false),
+        1 => (500, false),
+        _ => (0, false),
       },
-      _ => (0, false, 0),
+      _ => (0, false),
     };
   }
 
   match consecutive {
-    5.. => (100_000_000, true, 4),
+    5.. => (100_000_000, true),
     4 => match open_ends {
-      2 => (10_000_000, false, 4),
-      1 => (100_000, false, 2),
-      _ => (0, false, 0),
+      2 => (10_000_000, false),
+      1 => (100_000, false),
+      _ => (0, false),
     },
     3 => match open_ends {
-      2 => (5_000_000, false, 2),
-      1 => (10_000, false, 0),
-      _ => (0, false, 0),
+      2 => (5_000_000, false),
+      1 => (10_000, false),
+      _ => (0, false),
     },
     2 => match open_ends {
-      2 => (2_000, false, 0),
-      _ => (0, false, 0),
+      2 => (2_000, false),
+      _ => (0, false),
     },
-    _ => (0, false, 0),
+    _ => (0, false),
   }
 }
 
 fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
   let mut eval = Eval::default();
-  let mut win_potentials = EvalWinPotential::default();
 
   let tile = |i: usize| *board.get_tile_raw(sequence[i]);
 
@@ -65,11 +64,9 @@ fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
 
       // opponent's tile
       if consecutive > 0 {
-        let (shape_score, is_win_shape, win_potential) =
-          shape_score(consecutive, open_ends, has_hole);
+        let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
         eval.score[current] += shape_score;
         eval.win[current] |= is_win_shape;
-        win_potentials[current] += win_potential;
 
         open_ends = 0;
         has_hole = false;
@@ -93,12 +90,10 @@ fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
 
       open_ends += 1;
 
-      let (shape_score, is_win_shape, win_potential) =
-        shape_score(consecutive, open_ends, has_hole);
+      let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
 
       eval.score[current] += shape_score;
       eval.win[current] |= is_win_shape;
-      win_potentials[current] += win_potential;
 
       consecutive = 0;
       open_ends = 1;
@@ -107,13 +102,10 @@ fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
   }
 
   if consecutive > 0 {
-    let (shape_score, is_win_shape, win_potential) = shape_score(consecutive, open_ends, has_hole);
+    let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
     eval.score[current] += shape_score;
     eval.win[current] |= is_win_shape;
-    win_potentials[current] += win_potential;
   }
-
-  eval.score *= win_potentials;
 
   eval
 }
