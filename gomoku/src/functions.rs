@@ -11,7 +11,7 @@ use super::{
 
 pub mod eval_structs;
 
-/// Return score, win and win potential modifier for the given shape
+/// Return score and win state for the given shape
 fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) {
   if has_hole {
     return match consecutive {
@@ -50,10 +50,10 @@ fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
 
   let tile = |i: usize| *board.get_tile_raw(sequence[i]);
 
-  let mut current = Player::X;
-  let mut consecutive = 0;
-  let mut open_ends = 0;
-  let mut has_hole = false;
+  let mut current = Player::X; // current player
+  let mut consecutive = 0; // consecutive tiles of the current player
+  let mut open_ends = 0; // open ends of consecutive tiles
+  let mut has_hole = false; // is there a hole in the consecutive tiles
 
   for i in 0..sequence.len() {
     if let Some(player) = tile(i) {
@@ -77,11 +77,13 @@ fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
     } else {
       // empty tile
       if consecutive == 0 {
-        open_ends = 1;
+        open_ends = 1; // If there were no consecutive tiles yet, mark as an open end
         has_hole = false;
         continue;
       }
 
+      // If there is no hole yet, and the next tile is of the current player,
+      // and consecutive count is less than 5, mark as a hole
       if !has_hole && i + 1 < sequence.len() && tile(i + 1) == Some(current) && consecutive < 5 {
         has_hole = true;
         consecutive += 1;
@@ -91,7 +93,6 @@ fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
       open_ends += 1;
 
       let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
-
       eval.score[current] += shape_score;
       eval.win[current] |= is_win_shape;
 
@@ -101,6 +102,7 @@ fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
     }
   }
 
+  // If there are consecutive tiles at the end of the sequence
   if consecutive > 0 {
     let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
     eval.score[current] += shape_score;
