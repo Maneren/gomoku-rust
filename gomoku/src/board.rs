@@ -173,18 +173,16 @@ impl Board {
   }
 
   pub fn get_relevant_sequences(&self, ptr: TilePointer) -> [&Sequence; 4] {
-    let n = self.size as usize;
+    let n = self.size;
     let TilePointer { x, y } = ptr;
-    let x = x as usize;
-    let y = y as usize;
 
     let sequences = self.sequences();
 
     [
-      &sequences[y],                       // row
-      &sequences[n + x],                   // column
-      &sequences[2 * n + x + y],           // diagonal
-      &sequences[(4 * n - 2) + n + y - x], // other diagonal
+      &sequences[usize::from(y)],                       // row
+      &sequences[usize::from(n + x)],                   // column
+      &sequences[usize::from(2 * n + x + y)],           // diagonal
+      &sequences[usize::from((4 * n - 2) + n + y - x)], // other diagonal
     ]
   }
 
