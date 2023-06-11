@@ -48,7 +48,7 @@ fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) 
 fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
   let mut eval = Eval::default();
 
-  let tile = |i: usize| *board.get_tile_raw(sequence[i]);
+  let tile = |i: usize| *board.get_tile_raw(i);
 
   let mut current = Player::X; // current player
   let mut consecutive = 0; // consecutive tiles of the current player
@@ -56,7 +56,7 @@ fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
   let mut has_hole = false; // is there a hole in the consecutive tiles
 
   for i in 0..sequence.len() {
-    if let Some(player) = tile(i) {
+    if let Some(player) = tile(sequence[i]) {
       if player == current {
         consecutive += 1;
         continue;
@@ -84,7 +84,10 @@ fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
 
       // If there is no hole yet, and the next tile is of the current player,
       // and consecutive count is less than 5, mark as a hole
-      if !has_hole && i + 1 < sequence.len() && tile(i + 1) == Some(current) && consecutive < 5 {
+      if !has_hole
+        && consecutive < 5
+        && sequence.get(i + 1).and_then(|&idx| tile(idx)) == Some(current)
+      {
         has_hole = true;
         consecutive += 1;
         continue;
