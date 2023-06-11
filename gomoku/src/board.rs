@@ -274,8 +274,10 @@ impl Board {
     let index = Self::get_index(self.size, ptr);
 
     let tile = self.get_tile_raw(index);
+
+    // either write Some to empty tile (play) or None to occupied tile (undo)
     assert!(
-      !((value.is_some() && tile.is_some()) || (value.is_none() && tile.is_none())),
+      matches!((value, tile), (Some(_), None) | (None, Some(_))),
       "attempted to overwrite tile {ptr} ({tile:?}) with value {value:?} at board \n{self}"
     );
 
