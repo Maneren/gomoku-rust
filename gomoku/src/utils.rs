@@ -37,58 +37,63 @@ pub fn format_number(input: f32) -> String {
   }
 }
 
-use std::error::Error;
+#[cfg(feature = "fen")]
+pub use fen::parse_fen_string;
 
-use regex::{Captures, Regex};
+#[cfg(feature = "fen")]
+mod fen {
+  use regex::{Captures, Regex};
+  use std::error::Error;
+
+  pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
+    let input = input.trim();
+
+    let (prefix, data) = {
+      let splitted: Vec<_> = input.split('|').collect();
+
+      match splitted[..] {
+        [prefix, data] => Ok((prefix, data)),
+        _ => Err("Incorrect format"),
+      }
+    }?;
+
+    let size = prefix.parse()?;
+
+    let parts: Vec<_> = data.split('/').collect();
+
+    if parts.len() != size {
+      return Err("Incorrect row count".into());
+    }
+
+    let re = Regex::new(r#"\d+"#).unwrap();
+
+    let replace_function = |captures: &Captures| {
+      let number = captures[0].parse().unwrap();
+      "-".repeat(number)
+    };
+
+    let parse_row = |part| -> Result<String, Box<dyn Error>> {
+      // calls replace_function for each match
+      let parsed = re.replace_all(part, replace_function).to_string();
+
+      if parsed.len() > size {
+        return Err("Row too long".into());
+      }
+
+      let padding = "-".repeat(size - parsed.len());
+
+      Ok(parsed + &padding)
+    };
+
+    parts
+      .into_iter()
+      .map(|row| parse_row(row))
+      .collect::<Result<Vec<_>, _>>()
+      .map(|rows| rows.join("/"))
+  }
+}
 
 use crate::{Board, Player, END};
-
-pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
-  let input = input.trim();
-
-  let (prefix, data) = {
-    let splitted: Vec<_> = input.split('|').collect();
-
-    match splitted[..] {
-      [prefix, data] => Ok((prefix, data)),
-      _ => Err("Incorrect format"),
-    }
-  }?;
-
-  let size = prefix.parse()?;
-
-  let parts: Vec<_> = data.split('/').collect();
-
-  if parts.len() != size {
-    return Err("Incorrect row count".into());
-  }
-
-  let re = Regex::new(r#"\d+"#).unwrap();
-
-  let replace_function = |captures: &Captures| {
-    let number = captures[0].parse().unwrap();
-    "-".repeat(number)
-  };
-
-  let parse_row = |part| -> Result<String, Box<dyn Error>> {
-    // calls replace_function for each match
-    let parsed = re.replace_all(part, replace_function).to_string();
-
-    if parsed.len() > size {
-      return Err("Row too long".into());
-    }
-
-    let padding = "-".repeat(size - parsed.len());
-
-    Ok(parsed + &padding)
-  };
-
-  parts
-    .into_iter()
-    .map(|row| parse_row(row))
-    .collect::<Result<Vec<_>, _>>()
-    .map(|rows| rows.join("/"))
-}
 
 pub fn is_game_end(board: &Board, current_player: Player) -> bool {
   board

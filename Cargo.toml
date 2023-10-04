@@ -6,11 +6,13 @@ edition = "2021"
 
 [workspace]
 
-[profile.dev]
-opt-level = 3
+[profile.release-debug]
+inherits = "release"
+strip = false
+debug = true
 
 [dependencies]
 clap = "3.2.23"
 num_cpus = "1.15.0"
 text_io = "0.1.12"
-gomoku_lib = { path = "./gomoku", features = ["jemalloc"] }
+gomoku_lib = { path = "./gomoku", features = ["jemalloc", "fen"] }
