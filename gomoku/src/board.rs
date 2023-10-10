@@ -4,7 +4,7 @@ use once_cell::sync::OnceCell;
 
 use super::{Player, Score};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Error {
   msg: String,
 }
@@ -68,7 +68,7 @@ fn initialize_sequences(board_size: u8) {
   );
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Board {
   size: u8,
   data: Vec<Tile>,
