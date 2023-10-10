@@ -204,6 +204,10 @@ impl Board {
     }
   }
 
+  pub fn get_all_tiles(&self) -> &[Tile] {
+    &self.data
+  }
+
   pub fn squared_distance_from_center(&self, p: TilePointer) -> Score {
     let center = f32::from(self.size - 1) / 2.0; // -1 to adjust for 0-indexing
 

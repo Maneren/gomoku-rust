@@ -38,12 +38,15 @@ pub fn format_number(input: f32) -> String {
 }
 
 #[cfg(feature = "fen")]
-pub use fen::parse_fen_string;
+pub use fen::{parse_fen_string, to_fen_string};
 
 #[cfg(feature = "fen")]
 mod fen {
-  use regex::{Captures, Regex};
   use std::error::Error;
+
+  use regex::{Captures, Regex};
+
+  use crate::Board;
 
   pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
     let input = input.trim();
@@ -90,6 +93,35 @@ mod fen {
       .map(|row| parse_row(row))
       .collect::<Result<Vec<_>, _>>()
       .map(|rows| rows.join("/"))
+  }
+
+  pub fn to_fen_string(board: &Board) -> String {
+    let re = Regex::new(r#"-+"#).unwrap();
+
+    let replace_function = |captures: &Captures| captures[0].len().to_string();
+
+    let compress_row = |row: String| -> String {
+      re.replace_all(row.trim_end_matches('-'), replace_function)
+        .to_string()
+    };
+
+    let data = board
+      .get_all_tiles()
+      .chunks(board.get_size() as usize)
+      .map(|row| {
+        row
+          .iter()
+          .map(|tile| match tile {
+            Some(player) => player.char(),
+            None => '-',
+          })
+          .collect()
+      })
+      .map(compress_row)
+      .collect::<Vec<_>>()
+      .join("/");
+
+    format!("{}|{}", board.get_size(), data)
   }
 }
 
