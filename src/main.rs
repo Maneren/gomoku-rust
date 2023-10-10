@@ -61,7 +61,7 @@ fn main() {
 
   if let Some(path) = matches.value_of("debug") {
     match run_debug(path, player, time_limit) {
-      Ok(_) => println!("Done!"),
+      Ok(()) => println!("Done!"),
       Err(msg) => println!("Error: {msg}"),
     }
   } else {

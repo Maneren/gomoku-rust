@@ -68,7 +68,7 @@ mod fen {
       return Err("Incorrect row count".into());
     }
 
-    let re = Regex::new(r#"\d+"#).unwrap();
+    let re = Regex::new(r"\d+").unwrap();
 
     let replace_function = |captures: &Captures| {
       let number = captures[0].parse().unwrap();
@@ -90,7 +90,7 @@ mod fen {
 
     parts
       .into_iter()
-      .map(|row| parse_row(row))
+      .map(parse_row)
       .collect::<Result<Vec<_>, _>>()
       .map(|rows| rows.join("/"))
   }

@@ -7,13 +7,13 @@ pub enum Player {
 }
 
 #[derive(Debug)]
-pub struct PlayerError(&'static str);
-impl fmt::Display for PlayerError {
+pub struct Error(&'static str);
+impl fmt::Display for Error {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "{}", self.0)
   }
 }
-impl std::error::Error for PlayerError {}
+impl std::error::Error for Error {}
 
 impl Player {
   pub fn char(self) -> char {
@@ -30,19 +30,19 @@ impl Player {
     }
   }
 
-  pub fn from_char(c: char) -> Result<Self, PlayerError> {
+  pub fn from_char(c: char) -> Result<Self, Error> {
     match c {
       'x' => Ok(Player::X),
       'o' => Ok(Player::O),
-      _ => Err(PlayerError("Unexpected character!")),
+      _ => Err(Error("Unexpected character!")),
     }
   }
 
-  pub fn from_string(c: &str) -> Result<Self, PlayerError> {
+  pub fn from_string(c: &str) -> Result<Self, Error> {
     match c {
       "x" => Ok(Player::X),
       "o" => Ok(Player::O),
-      _ => Err(PlayerError("Unexpected character!")),
+      _ => Err(Error("Unexpected character!")),
     }
   }
 }
@@ -74,10 +74,9 @@ impl fmt::Display for Player {
   }
 }
 impl FromStr for Player {
-  type Err = PlayerError;
+  type Err = Error;
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     Player::from_string(s)
   }
 }
-
