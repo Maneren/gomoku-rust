@@ -54,11 +54,7 @@ fn main() {
     return;
   }
 
-  let player = match matches.value_of("player").unwrap_or("o") {
-    "x" | "X" => Player::X,
-    "o" | "O" => Player::O,
-    _ => panic!("Invalid player"),
-  };
+  let player = matches.value_of_t("player").unwrap_or(Player::O);
 
   let time_limit = matches.value_of_t("time").unwrap_or(1000);
   let board_size = matches.value_of_t("board").unwrap_or(15);
