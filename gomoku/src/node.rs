@@ -119,15 +119,11 @@ impl Node {
     board.set_tile(self.tile, None);
 
     if self.valid {
-      self.eval();
+      self.child_nodes.sort_unstable_by(|a, b| b.cmp(a));
+      self.analyze_child_nodes();
     }
 
     stats
-  }
-
-  fn eval(&mut self) {
-    self.child_nodes.sort_unstable_by(|a, b| b.cmp(a));
-    self.analyze_child_nodes();
   }
 
   fn analyze_child_nodes(&mut self) {
