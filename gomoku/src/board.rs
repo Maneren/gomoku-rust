@@ -1,8 +1,9 @@
-use std::{error, fmt};
-
-use once_cell::sync::OnceCell;
+mod sequences;
 
 use super::{Player, Score};
+use once_cell::sync::OnceCell;
+use sequences::generate_sequences;
+use std::{error, fmt};
 
 #[derive(Debug, Clone)]
 pub struct Error {
@@ -59,7 +60,7 @@ type Sequences = Vec<Sequence>;
 static SEQUENCES: OnceCell<Sequences> = OnceCell::new();
 
 fn initialize_sequences(board_size: u8) {
-  let sequences = SEQUENCES.get_or_init(|| Board::generate_sequences(board_size));
+  let sequences = SEQUENCES.get_or_init(|| generate_sequences(board_size));
 
   assert_eq!(
     sequences.len(),
@@ -107,65 +108,6 @@ impl Board {
     initialize_sequences(size);
 
     Board { size, data }
-  }
-
-  fn make_row(size: usize, y: usize) -> Sequence {
-    (0..size).map(|x| x + y * size).collect()
-  }
-
-  fn make_col(size: usize, x: usize) -> Sequence {
-    (0..size).map(|y| x + y * size).collect()
-  }
-
-  fn make_diag1(size: usize, a: usize, b: usize) -> Sequence {
-    let min = a.min(b);
-
-    let a = a - min;
-    let b = b - min;
-
-    let len = size - a - b;
-
-    let a = size - a - 1;
-
-    let base = a + b * size;
-    let offset = size - 1;
-
-    (0..len).map(|i| base + i * offset).collect()
-  }
-
-  fn make_diag2(size: usize, a: usize, b: usize) -> Sequence {
-    let min = a.min(b);
-
-    let a = a - min;
-    let b = b - min;
-
-    let len = size - a - b;
-
-    let base = a + b * size;
-    let offset = size + 1;
-
-    (0..len).map(|i| base + i * offset).collect()
-  }
-
-  pub fn generate_sequences(size: u8) -> Sequences {
-    let size = size as usize;
-
-    let rows = (0..size).map(|y| Self::make_row(size, y));
-    let columns = (0..size).map(|x| Self::make_col(size, x));
-
-    let diag11 = (0..size).map(|k| Self::make_diag1(size, k, 0)).rev();
-    let diag12 = (0..size).map(|k| Self::make_diag1(size, 0, k)).skip(1);
-
-    let diag21 = (0..size).map(|k| Self::make_diag2(size, k, 0)).rev();
-    let diag22 = (0..size).map(|k| Self::make_diag2(size, 0, k)).skip(1);
-
-    rows
-      .chain(columns)
-      .chain(diag11)
-      .chain(diag12)
-      .chain(diag21)
-      .chain(diag22)
-      .collect()
   }
 
   pub fn sequences(&self) -> &'static Sequences {
