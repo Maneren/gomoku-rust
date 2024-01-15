@@ -3,16 +3,35 @@ mod sequences;
 use super::{Player, Score};
 use once_cell::sync::OnceCell;
 use sequences::generate_sequences;
-use std::{error, fmt};
+use std::{error, fmt, usize};
 
 #[derive(Debug, Clone)]
-pub struct Error {
-  msg: String,
+pub enum Error {
+  TooSmall {
+    size: usize,
+  },
+  NotSquare {
+    height: usize,
+    line: usize,
+    width: usize,
+  },
 }
 
 impl fmt::Display for Error {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}", self.msg)
+    match self {
+      Error::TooSmall { size } => write!(f, "board too small: {size}, but minimum is 9"),
+      Error::NotSquare {
+        height,
+        line,
+        width,
+      } => {
+        write!(
+          f,
+          "board is not a square: line {line} is {width} tiles wide, but {height} was expected"
+        )
+      }
+    }
   }
 }
 impl error::Error for Error {
@@ -78,15 +97,15 @@ pub struct Board {
 impl Board {
   pub fn new(data: Vec<Vec<Tile>>) -> Result<Board, Error> {
     if data.len() <= 8 {
-      return Err(Error {
-        msg: "Too small board".into(),
-      });
+      return Err(Error::TooSmall { size: data.len() });
     }
 
     for (index, row) in data.iter().enumerate() {
       if row.len() != data.len() {
-        return Err(Error {
-          msg: format!("Invalid board width {} on row {}", row.len(), index + 1),
+        return Err(Error::NotSquare {
+          height: data.len(),
+          line: index + 1,
+          width: row.len(),
         });
       }
     }

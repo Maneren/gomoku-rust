@@ -9,6 +9,7 @@
 #![allow(clippy::must_use_candidate)]
 
 mod board;
+mod error;
 mod functions;
 mod r#move; // r# to allow reserved keyword as name
 mod node;
@@ -24,6 +25,7 @@ use std::{
 };
 
 pub use board::{Board, Tile, TilePointer};
+use error::GomokuError;
 use functions::evaluate_board;
 #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 use jemallocator::Jemalloc;
@@ -48,7 +50,7 @@ fn minimax_top_level(
   board: &mut Board,
   current_player: Player,
   time_limit: Duration,
-) -> Result<(Move, Stats), board::Error> {
+) -> Result<(Move, Stats), GomokuError> {
   let mut stats = Stats::new();
   let end_time = Instant::now().checked_add(time_limit).unwrap();
 
@@ -76,6 +78,7 @@ fn minimax_top_level(
   let (initial_score, initial_state) = evaluate_board(board, !current_player);
   if initial_state.is_end() {
     println!("The game already ended");
+    return Err(GomokuError::GameEnd);
   }
 
   while do_run() {
@@ -152,7 +155,7 @@ pub fn decide(
   board: &mut Board,
   player: Player,
   time_limit: u64,
-) -> Result<(Move, Stats), board::Error> {
+) -> Result<(Move, Stats), GomokuError> {
   let time_limit = Duration::from_millis(time_limit);
 
   let (move_, stats) = minimax_top_level(board, player, time_limit)?;
