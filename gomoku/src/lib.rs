@@ -46,7 +46,7 @@ static END: AtomicBool = AtomicBool::new(false);
 
 type Score = i32;
 
-fn minimax_top_level(
+fn minimax(
   board: &mut Board,
   current_player: Player,
   time_limit: Duration,
@@ -158,7 +158,7 @@ pub fn decide(
 ) -> Result<(Move, Stats), GomokuError> {
   let time_limit = Duration::from_millis(time_limit);
 
-  let (move_, stats) = minimax_top_level(board, player, time_limit)?;
+  let (move_, stats) = minimax(board, player, time_limit)?;
 
   board.set_tile(move_.tile, Some(player));
 
