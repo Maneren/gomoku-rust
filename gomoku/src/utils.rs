@@ -5,7 +5,7 @@ use std::{
 
 #[inline]
 pub fn do_run() -> bool {
-  !END.load(Ordering::Relaxed)
+  !END.load(Ordering::Acquire)
 }
 
 pub fn print_status(msg: &str, end_time: &Instant) {

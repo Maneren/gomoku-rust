@@ -52,7 +52,7 @@ fn minimax(
   time_limit: Duration,
 ) -> Result<(Move, Stats), GomokuError> {
   let mut stats = Stats::new();
-  let end_time = Instant::now().checked_add(time_limit).unwrap();
+  let end_time = Instant::now() + time_limit - time_limit / 10;
 
   END.store(false, Ordering::Relaxed);
 
