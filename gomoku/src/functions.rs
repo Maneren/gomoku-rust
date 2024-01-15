@@ -52,8 +52,8 @@ fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
   let mut open_ends = 0; // open ends of consecutive tiles
   let mut has_hole = false; // is there a hole in the consecutive tiles
 
-  for i in 0..sequence.len() {
-    if let Some(player) = tile(sequence[i]) {
+  for (i, &tile_idx) in sequence.iter().enumerate() {
+    if let Some(player) = tile(tile_idx) {
       if player == current {
         consecutive += 1;
         continue;
