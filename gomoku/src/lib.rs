@@ -139,7 +139,7 @@ fn minimax(
 
   let best_node = nodes.iter().max().unwrap();
 
-  println!("Best moves: {best_node:#?}");
+  println!("Best move sequence: {best_node:#?}");
 
   Ok((best_node.to_move(), stats))
 }
