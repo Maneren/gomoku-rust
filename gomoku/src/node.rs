@@ -12,13 +12,13 @@ use super::{
   utils::do_run,
   Score,
 };
-use crate::functions::{eval_structs::Eval, score_sqrt, score_square};
+use crate::functions::{eval_structs::Eval, score_sqrt};
 
 #[derive(Clone)]
 pub struct MoveSequence {
   pub tile: TilePointer,
   pub score: Score,
-  pub original_score: Score,
+  pub first_score: Score,
   pub player: Player,
   pub state: State,
   pub next: Option<Box<Self>>,
@@ -28,7 +28,7 @@ impl MoveSequence {
     MoveSequence {
       tile: node.tile,
       score: node.score,
-      original_score: node.original_score,
+      first_score: node.first_score,
       player: node.player,
       state: node.state,
       next: node
@@ -45,19 +45,19 @@ impl fmt::Debug for MoveSequence {
       write!(
         f,
         "({:?}, {}, {}, {}) => {child:#?}",
-        self.tile, self.score, self.original_score, self.player
+        self.tile, self.score, self.first_score, self.player
       )
     } else if self.state.is_end() {
       write!(
         f,
         "({:?}, {}, {}, {}, {})",
-        self.tile, self.score, self.original_score, self.player, self.state
+        self.tile, self.score, self.first_score, self.player, self.state
       )
     } else {
       write!(
         f,
         "({:?}, {}, {}, {})",
-        self.tile, self.score, self.original_score, self.player
+        self.tile, self.score, self.first_score, self.player
       )
     }
   }
@@ -72,12 +72,13 @@ pub struct Node {
   pub child_nodes: Vec<Node>,
 
   score: Score,
-  original_score: Score,
+  first_score: Score,
+  first_score_sqrt: Score,
   best_moves: MoveSequence,
   depth: u8,
 }
 impl Node {
-  pub fn compute_next(&mut self, board: &mut Board) -> Stats {
+  pub fn compute_next(&mut self, board: &mut Board, parent_score: Score) -> Stats {
     debug_assert!(!self.state.is_end());
 
     if !do_run() {
@@ -87,49 +88,66 @@ impl Node {
 
     self.depth += 1;
 
-    if self.depth <= 1 {
-      let mut stats = Stats::new();
+    let mut stats = Stats::new();
 
-      board.set_tile(self.tile, Some(self.player));
-      self.init_child_nodes(board, &mut stats);
-      board.set_tile(self.tile, None);
-
+    if self.depth == 1 {
+      self.initialize(board, parent_score);
       return stats;
     }
 
+    board.set_tile(self.tile, Some(self.player));
+
+    if self.depth == 2 {
+      self.child_nodes = board
+        .get_empty_tiles()
+        .unwrap_or_else(Vec::new)
+        .into_iter()
+        .map(|tile| Node::new(tile, !self.player, State::NotEnd, &mut stats))
+        .collect();
+    }
+
+    stats += self
+      .child_nodes
+      .par_iter_mut()
+      .map(|node| node.compute_next(&mut board.clone(), self.first_score))
+      .sum();
+
+    self.evaluate_children();
+
+    stats
+  }
+
+  fn evaluate_children(&mut self) {
+    if self.child_nodes.is_empty() {
+      self.state = State::Draw;
+      self.score = 0;
+      return;
+    }
+
+    if self.child_nodes.iter().any(|node| !node.valid) {
+      self.valid = false;
+      return;
+    }
+
+    self.child_nodes.sort_unstable_by(|a, b| b.cmp(a));
+
     let limit = match self.depth {
       0 | 1 => unreachable!(),
-      2 => 16.max(self.child_nodes.len() / 2),
-      3..=5 => 6,
-      6..=8 => 4,
+      2 => 24,
+      3 => 16,
+      4..=7 => 8,
+      8 => 4,
       9.. => 2,
     };
 
     self.child_nodes.truncate(limit);
 
-    board.set_tile(self.tile, Some(self.player));
-
-    // evaluate all child nodes
-    let stats = self
+    let best = self
       .child_nodes
-      .par_iter_mut()
-      .map(|node| node.compute_next(&mut board.clone()))
-      .sum();
+      .get(0)
+      .expect("we checked that the list is not empty");
 
-    board.set_tile(self.tile, None);
-
-    if self.valid {
-      self.child_nodes.sort_unstable_by(|a, b| b.cmp(a));
-      self.analyze_child_nodes();
-    }
-
-    stats
-  }
-
-  fn analyze_child_nodes(&mut self) {
-    let best = self.child_nodes.get(0).expect("no children in eval");
-
-    self.score = self.original_score - best.score / 2;
+    self.score = self.first_score_sqrt - best.score / 2;
     self.state = best.state.inversed();
 
     self.best_moves = MoveSequence::new(self);
@@ -142,93 +160,71 @@ impl Node {
     self.child_nodes.retain(|child| !child.state.is_lose());
   }
 
-  fn init_child_nodes(&mut self, board: &mut Board, stats: &mut Stats) {
-    let Ok(available_tiles) = board.get_empty_tiles() else {
-      // no empty tiles
-      self.state = State::Draw;
-      self.score = 0;
-      return;
+  fn initialize(&mut self, board: &mut Board, parent_score: Score) {
+    let opponent = !self.player;
+    let mut score = parent_score;
+    let tile = self.tile;
+
+    let Eval {
+      score: prev_score, ..
+    } = eval_relevant_sequences(board, tile);
+
+    score += prev_score[self.player];
+    score -= prev_score[opponent];
+
+    board.set_tile(tile, Some(self.player));
+
+    let Eval {
+      score: new_score,
+      win: new_win,
+    } = eval_relevant_sequences(board, tile);
+
+    score *= -1;
+    score += new_score[self.player];
+    score -= new_score[opponent];
+
+    board.set_tile(tile, None);
+
+    score += board.squared_distance_from_center(tile);
+
+    self.score = score;
+    self.first_score = score;
+    self.first_score_sqrt = score_sqrt(score);
+
+    self.state = {
+      match (new_win[self.player], new_win[opponent]) {
+        (true, true) => {
+          unreachable!("Invalid win state: {new_win:?} for child node {tile} of node {self:?} on board:\n{board}")
+        }
+        (true, _) => State::Win,
+        (_, true) => State::Lose,
+        _ => State::NotEnd,
+      }
     };
 
-    let mut nodes: Vec<Node> = available_tiles
-      .into_iter()
-      .map(|tile| {
-        let next_player = !self.player;
-        let mut score = score_square(self.original_score);
-
-        let Eval {
-          score: prev_score, ..
-        } = eval_relevant_sequences(board, tile);
-
-        score -= prev_score[self.player];
-        score += prev_score[next_player];
-
-        board.set_tile(tile, Some(next_player));
-
-        let Eval {
-          score: new_score,
-          win: new_win,
-        } = eval_relevant_sequences(board, tile);
-
-        score *= -1;
-        score -= new_score[self.player];
-        score += new_score[next_player];
-
-        board.set_tile(tile, None);
-
-        let state = {
-          match (new_win[next_player], new_win[self.player]) {
-            (true, true) => {
-              unreachable!("Invalid win state: {new_win:?} for child node {tile} of node {self:?} on board:\n{board}")
-            }
-            (true, _) => State::Win,
-            (_, true) => State::Lose,
-            _ => State::NotEnd,
-          }
-        };
-
-        Node::new(
-          tile,
-          next_player,
-          score - board.squared_distance_from_center(tile),
-          state,
-          stats,
-        )
-      })
-      .collect();
-
-    nodes.retain(|node| !node.state.is_lose());
-    nodes.sort_unstable_by(|a, b| b.cmp(a));
-    self.child_nodes = nodes;
-
-    self.analyze_child_nodes();
+    self.best_moves = MoveSequence::new(self);
   }
 
   pub fn node_count(&self) -> usize {
     self.child_nodes.iter().map(Node::node_count).sum::<usize>() + 1
   }
 
-  pub fn new(
-    tile: TilePointer,
-    player: Player,
-    score: Score,
-    state: State,
-    stats: &mut Stats,
-  ) -> Node {
+  pub fn new(tile: TilePointer, player: Player, state: State, stats: &mut Stats) -> Node {
     stats.create_node();
     Node {
       tile,
       state,
       valid: true,
-      score,
-      original_score: score_sqrt(score),
+      score: 0,
+      first_score: 0,
+      first_score_sqrt: 0,
       player,
       child_nodes: Vec::new(),
       best_moves: MoveSequence {
         tile,
         player,
-        score,
-        original_score: score_sqrt(score),
+        score: 0,
+        first_score: 0,
         state,
         next: None,
       },

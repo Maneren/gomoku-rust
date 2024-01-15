@@ -128,7 +128,7 @@ impl Board {
     ]
   }
 
-  pub fn get_empty_tiles(&self) -> Result<Vec<TilePointer>, Error> {
+  pub fn get_empty_tiles(&self) -> Option<Vec<TilePointer>> {
     let tiles: Vec<_> = self
       .data
       .iter()
@@ -138,11 +138,9 @@ impl Board {
       .collect();
 
     if tiles.is_empty() {
-      Err(Error {
-        msg: "No empty tiles found".into(),
-      })
+      None
     } else {
-      Ok(tiles)
+      Some(tiles)
     }
   }
 

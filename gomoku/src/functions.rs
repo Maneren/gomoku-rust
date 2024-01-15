@@ -1,11 +1,8 @@
 use self::eval_structs::Eval;
 use super::{
   board::{Board, TilePointer},
-  node::Node,
   player::Player,
-  r#move::Move,
   state::State,
-  stats::Stats,
   Score,
 };
 
@@ -143,47 +140,9 @@ pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
   (score, state)
 }
 
-pub fn check_winning(presorted_nodes: &[Node]) -> Option<Move> {
-  presorted_nodes
-    .iter()
-    .find(|node| node.state.is_win())
-    .map(Node::to_move)
-}
-
-pub fn nodes_sorted_by_shallow_eval(
-  board: &mut Board,
-  empty_tiles: Vec<TilePointer>,
-  stats: &mut Stats,
-  target_player: Player,
-) -> Vec<Node> {
-  let mut nodes: Vec<_> = empty_tiles
-    .into_iter()
-    .map(|tile| {
-      board.set_tile(tile, Some(target_player));
-      let (analysis, state) = evaluate_board(board, target_player);
-      board.set_tile(tile, None);
-
-      Node::new(
-        tile,
-        target_player,
-        analysis - board.squared_distance_from_center(tile),
-        state,
-        stats,
-      )
-    })
-    .collect();
-
-  nodes.sort_unstable_by(|a, b| b.cmp(a));
-
-  nodes
-}
-
 pub fn score_sqrt(n: Score) -> Score {
   let n = n as f32;
   (n.signum() * n.abs().sqrt()) as Score
-}
-pub fn score_square(n: Score) -> Score {
-  n.signum() * n.pow(2)
 }
 
 #[cfg(test)]
@@ -328,15 +287,6 @@ mod tests {
   //     assert_eq!(y, expected_y);
   //   }
   // }
-
-  #[test]
-  fn test_score_square() {
-    let data = vec![(10, 100), (-5, -25), (0, 0)];
-
-    for (src, target) in data {
-      assert_eq!(score_square(src), target);
-    }
-  }
 
   #[test]
   fn test_score_sqrt() {

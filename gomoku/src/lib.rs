@@ -24,7 +24,7 @@ use std::{
 };
 
 pub use board::{Board, Tile, TilePointer};
-use functions::{check_winning, evaluate_board, nodes_sorted_by_shallow_eval};
+use functions::evaluate_board;
 #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 use jemallocator::Jemalloc;
 pub use player::Player;
@@ -34,7 +34,7 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelI
 pub use stats::Stats;
 use utils::{do_run, format_number, print_status};
 
-use crate::node::Node;
+use crate::{node::Node, state::State};
 
 #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 #[global_allocator]
@@ -59,32 +59,31 @@ fn minimax_top_level(
     END.store(true, Ordering::Release);
   });
 
-  let empty_tiles = board.get_empty_tiles()?;
-  print_status("computing depth 1", &end_time);
-  let mut nodes = nodes_sorted_by_shallow_eval(board, empty_tiles, &mut stats, current_player);
+  let empty_tiles = board.get_empty_tiles();
 
-  // if there is winning move, return it
-  if let Some(winning_move) = check_winning(&nodes) {
-    return Ok((winning_move, stats));
-  }
+  let Some(empty_tiles) = empty_tiles else {
+    return Err(GomokuError::NoEmptyTiles);
+  };
 
-  #[allow(
-    clippy::cast_precision_loss,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss
-  )]
-  let moves_count = (1.5 * (nodes.len() as f32).sqrt()) as usize;
-  nodes.truncate(moves_count);
+  let mut nodes = empty_tiles
+    .into_iter()
+    .map(|tile| Node::new(tile, current_player, State::NotEnd, &mut stats))
+    .collect::<Vec<_>>();
 
-  let mut generation_number = 1;
+  let mut total_depth = 0;
   let mut stats = Stats::new();
 
+  let (initial_score, initial_state) = evaluate_board(board, !current_player);
+  if initial_state.is_end() {
+    println!("The game already ended");
+  }
+
   while do_run() {
-    generation_number += 1;
+    total_depth += 1;
 
     print_status(
       &format!(
-        "computing depth {generation_number} for {} nodes",
+        "computing depth {total_depth} for {} nodes",
         nodes.iter().map(Node::node_count).sum::<usize>()
       ),
       &end_time,
@@ -94,37 +93,44 @@ fn minimax_top_level(
 
     stats += nodes
       .par_iter_mut()
-      .map(|node| node.compute_next(&mut board.clone()))
+      .map(|node| node.compute_next(&mut board.clone(), initial_score))
       .sum();
 
     if nodes.iter().any(|node| !node.valid) {
       nodes = snapshot;
+      total_depth -= 1;
       break;
     }
 
     nodes.sort_unstable_by(|a, b| b.cmp(a));
 
-    if nodes.iter().any(|node| node.state.is_win()) || nodes.iter().all(|node| node.state.is_lose())
-    {
+    if nodes.iter().any(|node| node.state.is_win()) {
+      println!("Winning move found!");
+      break;
+    }
+
+    if nodes.iter().all(|node| node.state.is_lose()) {
+      println!("All moves are losing :(");
       break;
     }
 
     nodes.retain(|child| !child.state.is_lose());
 
     if nodes.len() <= 1 {
+      println!("Only one viable move left");
       break;
     }
+
+    #[allow(
+      clippy::cast_precision_loss,
+      clippy::cast_possible_truncation,
+      clippy::cast_sign_loss
+    )]
+    let moves_count = (1.5 * (nodes.len() as f32).sqrt()) as usize;
+    nodes.truncate(moves_count.max(3));
   }
 
-  println!();
-
-  if nodes.iter().any(|node| node.state.is_win()) {
-    println!("Winning move found!",);
-  } else if nodes.iter().all(|node| node.state.is_lose()) {
-    println!("All moves are losing :(");
-  }
-
-  println!("Searched to depth {:?}!", generation_number - 1);
+  println!("Searched to depth {total_depth:?}!");
 
   println!();
 
