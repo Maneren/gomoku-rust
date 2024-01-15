@@ -14,6 +14,8 @@ fen = ["regex"]
 [dependencies]
 regex = { version = "1.7.1", optional = true }
 rayon = "1.6.1"
+
+# use this in favor of std's, because it's Sync
 once_cell = "1.17.0"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
