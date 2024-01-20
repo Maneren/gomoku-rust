@@ -51,7 +51,6 @@ fn minimax(
   current_player: Player,
   time_limit: Duration,
 ) -> Result<(Move, Stats), GomokuError> {
-  let mut stats = Stats::new();
   let end_time = Instant::now() + time_limit - time_limit / 10;
 
   END.store(false, Ordering::Relaxed);
@@ -65,7 +64,7 @@ fn minimax(
 
 
   let mut nodes = empty_tiles
-    .map(|tile| Node::new(tile, current_player, State::NotEnd, &mut stats))
+    .map(|tile| Node::new(tile, current_player, State::NotEnd))
     .collect::<Vec<_>>();
 
   if nodes.is_empty() {

@@ -81,17 +81,17 @@ impl Node {
   pub fn compute_next(&mut self, board: &mut Board, parent_score: Score) -> Stats {
     debug_assert!(!self.state.is_end());
 
+    let mut stats = Stats::new();
+
     if !do_run() {
       self.valid = false;
-      return Stats::new();
+      return stats;
     }
 
     self.depth += 1;
 
-    let mut stats = Stats::new();
-
     if self.depth == 1 {
-      self.initialize(board, parent_score);
+      self.initialize(board, parent_score, &mut stats);
       return stats;
     }
 
@@ -100,7 +100,7 @@ impl Node {
     if self.depth == 2 {
       self.child_nodes = board
         .get_empty_tiles()
-        .map(|tile| Node::new(tile, !self.player, State::NotEnd, &mut stats))
+        .map(|tile| Node::new(tile, !self.player, State::NotEnd))
         .collect();
     }
 
@@ -158,7 +158,9 @@ impl Node {
     self.child_nodes.retain(|child| !child.state.is_lose());
   }
 
-  fn initialize(&mut self, board: &mut Board, parent_score: Score) {
+  fn initialize(&mut self, board: &mut Board, parent_score: Score, stats: &mut Stats) {
+    stats.evaluate_node();
+
     let opponent = !self.player;
     let mut score = parent_score;
     let tile = self.tile;
@@ -207,8 +209,7 @@ impl Node {
     self.child_nodes.iter().map(Node::node_count).sum::<usize>() + 1
   }
 
-  pub fn new(tile: TilePointer, player: Player, state: State, stats: &mut Stats) -> Node {
-    stats.create_node();
+  pub fn new(tile: TilePointer, player: Player, state: State) -> Node {
     Node {
       tile,
       state,

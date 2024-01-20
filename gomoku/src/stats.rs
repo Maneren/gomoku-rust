@@ -15,7 +15,7 @@ impl Stats {
     Stats { nodes_evaluated: 0 }
   }
 
-  pub fn create_node(&mut self) {
+  pub fn evaluate_node(&mut self) {
     self.nodes_evaluated += 1;
   }
 }
