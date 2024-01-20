@@ -63,14 +63,14 @@ fn minimax(
 
   let empty_tiles = board.get_empty_tiles();
 
-  let Some(empty_tiles) = empty_tiles else {
-    return Err(GomokuError::NoEmptyTiles);
-  };
 
   let mut nodes = empty_tiles
-    .into_iter()
     .map(|tile| Node::new(tile, current_player, State::NotEnd, &mut stats))
     .collect::<Vec<_>>();
+
+  if nodes.is_empty() {
+    return Err(GomokuError::NoEmptyTiles);
+  };
 
   let mut total_depth = 0;
   let mut stats = Stats::new();

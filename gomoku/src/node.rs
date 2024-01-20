@@ -100,8 +100,6 @@ impl Node {
     if self.depth == 2 {
       self.child_nodes = board
         .get_empty_tiles()
-        .unwrap_or_else(Vec::new)
-        .into_iter()
         .map(|tile| Node::new(tile, !self.player, State::NotEnd, &mut stats))
         .collect();
     }

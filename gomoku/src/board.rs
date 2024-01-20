@@ -147,20 +147,13 @@ impl Board {
     ]
   }
 
-  pub fn get_empty_tiles(&self) -> Option<Vec<TilePointer>> {
-    let tiles: Vec<_> = self
+  pub fn get_empty_tiles(&self) -> impl Iterator<Item = TilePointer> + '_ {
+    self
       .data
       .iter()
       .enumerate()
       .filter(|(.., tile)| tile.is_none())
       .map(|(index, ..)| self.get_ptr_from_index(index))
-      .collect();
-
-    if tiles.is_empty() {
-      None
-    } else {
-      Some(tiles)
-    }
   }
 
   pub fn get_all_tiles(&self) -> &[Tile] {
