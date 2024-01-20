@@ -32,9 +32,9 @@ use jemallocator::Jemalloc;
 pub use player::Player;
 // r# to allow reserved keyword as name
 pub use r#move::Move;
-use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 pub use stats::Stats;
-use utils::{do_run, format_number, print_status};
+use utils::{do_run, print_status};
 
 use crate::{node::Node, state::State};
 
@@ -162,54 +162,4 @@ pub fn decide(
   board.set_tile(move_.tile, Some(player));
 
   Ok((move_, stats))
-}
-
-#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-pub fn perf(time_limit: u64, threads: usize, board_size: u8) {
-  let time_limit = Duration::from_secs(time_limit);
-
-  END.store(false, Ordering::Relaxed);
-
-  set_thread_count(threads).unwrap();
-
-  spawn(move || {
-    sleep(time_limit);
-    END.store(true, Ordering::Relaxed);
-  });
-
-  let board = Board::get_empty_board(board_size);
-  let tile = TilePointer {
-    x: board_size / 2,
-    y: board_size / 2,
-  };
-
-  let start = Instant::now();
-  let counter: u64 = (0..threads)
-    .into_par_iter()
-    .map(|_| {
-      let mut board_clone = board.clone();
-
-      let mut i = 0;
-      while do_run() {
-        board_clone.set_tile(tile, Some(Player::X));
-        let (..) = evaluate_board(&board_clone, Player::O);
-        board_clone.set_tile(tile, None);
-        i += 1;
-      }
-      i
-    })
-    .sum();
-
-  let elapsed = start.elapsed().as_millis() as u64;
-  let per_second = counter * 1000 / elapsed; // * 1000 to account for milliseconds
-  println!(
-    "total evals = {} ({})",
-    counter,
-    format_number(counter as f32)
-  );
-  println!(
-    "evals/s = {} ({})",
-    per_second,
-    format_number(per_second as f32),
-  );
 }

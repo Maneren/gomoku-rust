@@ -7,7 +7,7 @@ use std::{
   time::Instant,
 };
 
-use gomoku_lib::{self, perf, utils, Board, Move, Player, TilePointer};
+use gomoku_lib::{self, utils, Board, Move, Player, TilePointer};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -46,14 +46,6 @@ fn main() {
 
   gomoku_lib::set_thread_count(threads).unwrap();
 
-  if let Some(matches) = matches.subcommand_matches("perf") {
-    let time_limit = matches.value_of_t("time").unwrap_or(10);
-
-    perf(time_limit, threads, 15);
-
-    return;
-  }
-
   let player = matches.value_of_t("player").unwrap_or(Player::O);
 
   let time_limit = matches.value_of_t("time").unwrap_or(1000);
@@ -72,30 +64,6 @@ fn main() {
 fn parse_args() -> clap::ArgMatches {
   Command::new("Gomoku")
     .version("6.2.1")
-    .subcommand(
-      Command::new("perf")
-        .arg(
-          Arg::new("threads")
-            .short('t')
-            .long("threads")
-            .help("How many threads to use (default is thread count of your CPU)")
-            .takes_value(true),
-        )
-        .arg(
-          Arg::new("time")
-            .short('m')
-            .long("time")
-            .help("Time limit in seconds (default is 10)")
-            .takes_value(true),
-        )
-        .arg(
-          Arg::new("board")
-            .short('b')
-            .long("board")
-            .help("Size of game board")
-            .takes_value(true),
-        ),
-    )
     .subcommand(
       Command::new("fen").arg(
         Arg::new("string")
