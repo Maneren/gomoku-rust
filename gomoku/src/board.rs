@@ -91,7 +91,7 @@ fn initialize_sequences(board_size: u8) {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Board {
   size: u8,
-  data: Vec<Tile>,
+  data: Box<[Tile]>,
 }
 
 impl Board {
@@ -122,7 +122,7 @@ impl Board {
   }
 
   pub fn get_empty_board(size: u8) -> Board {
-    let data = vec![None; size.pow(2) as usize];
+    let data = vec![None; size.pow(2) as usize].into_boxed_slice();
 
     initialize_sequences(size);
 
