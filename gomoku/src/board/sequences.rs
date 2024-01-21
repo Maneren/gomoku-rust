@@ -45,7 +45,7 @@ fn make_diag2(size: usize, a: usize, b: usize) -> Sequence {
 }
 
 /// Generate all possible sequences for the given board size
-pub fn generate_sequences(size: u8) -> Sequences {
+pub fn generate(size: u8) -> Sequences {
   let size = size as usize;
 
   let rows = (0..size).map(|y| make_row(size, y));

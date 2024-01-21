@@ -6,15 +6,22 @@ use std::{
 
 use super::utils::format_number;
 
+/// Stats for the engine
+///
+/// Currently only contains the number of nodes evaluated, but more can be added in the future.
 #[derive(Debug, Copy, Clone)]
+#[non_exhaustive]
 pub struct Stats {
+  /// The number of nodes evaluated by the engine
   pub nodes_evaluated: u32,
 }
 impl Stats {
+  /// Create a new stats initialized to 0
   pub fn new() -> Stats {
     Stats { nodes_evaluated: 0 }
   }
 
+  /// Increase the number of nodes evaluated by 1
   pub fn evaluate_node(&mut self) {
     self.nodes_evaluated += 1;
   }

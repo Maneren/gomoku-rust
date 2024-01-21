@@ -1,12 +1,13 @@
+//! Gomoku engine
+
 #![warn(clippy::pedantic)]
 #![allow(clippy::cast_lossless)]
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_precision_loss)]
 #![allow(clippy::cast_sign_loss)]
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
 #![allow(clippy::similar_names)]
 #![allow(clippy::must_use_candidate)]
+#![warn(missing_docs)]
 
 mod board;
 mod error;
@@ -16,6 +17,7 @@ mod node;
 mod player;
 mod state;
 mod stats;
+/// Utility functions for creating a frontend
 pub mod utils;
 
 use std::{
@@ -51,7 +53,10 @@ fn minimax(
   current_player: Player,
   time_limit: Duration,
 ) -> Result<(Move, Stats), GomokuError> {
-  let end_time = Instant::now() + time_limit - time_limit / 10;
+  let end_time = Instant::now()
+    + time_limit
+      .checked_sub(time_limit / 10)
+      .expect("1 - 1/10 > 0");
 
   END.store(false, Ordering::Relaxed);
 
@@ -61,7 +66,6 @@ fn minimax(
   });
 
   let empty_tiles = board.get_empty_tiles();
-
 
   let mut nodes = empty_tiles
     .map(|tile| Node::new(tile, current_player, State::NotEnd))
@@ -143,6 +147,10 @@ fn minimax(
   Ok((best_node.to_move(), stats))
 }
 
+/// Sets the thread count for the rayon threadpool
+///
+/// # Errors
+/// Returns an error if the thread count is already set.
 pub fn set_thread_count(threads: usize) -> Result<(), Box<dyn std::error::Error>> {
   rayon::ThreadPoolBuilder::new()
     .num_threads(threads)
@@ -150,6 +158,10 @@ pub fn set_thread_count(threads: usize) -> Result<(), Box<dyn std::error::Error>
     .map_err(|_| "Thread count already set".into())
 }
 
+/// Returns the best move and stats for the given board.
+///
+/// # Errors
+/// Returns an error if the engine failed to find a move. See [`GomokuError`] for possible errors.
 pub fn decide(
   board: &mut Board,
   player: Player,

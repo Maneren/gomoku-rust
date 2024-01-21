@@ -2,7 +2,7 @@ mod sequences;
 
 use super::{Player, Score};
 use once_cell::sync::OnceCell;
-use sequences::generate_sequences;
+use sequences::generate;
 use std::{error, fmt, usize};
 
 #[derive(Debug, Clone)]
@@ -40,11 +40,20 @@ impl error::Error for Error {
   }
 }
 
+/// Represents a tile on the board.
+///
+/// Some(Player) indicates that the tile is occupied.
+/// None indicates that the tile is empty.
 pub type Tile = Option<Player>;
 
+/// Represents a pointer to a tile on the board.
+///
+/// Doesn't provide any bounds checking or other guarantees.
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct TilePointer {
+  /// x coordinate
   pub x: u8,
+  /// y coordinate
   pub y: u8,
 }
 impl TryFrom<&str> for TilePointer {
@@ -79,7 +88,7 @@ type Sequences = Vec<Sequence>;
 static SEQUENCES: OnceCell<Sequences> = OnceCell::new();
 
 fn initialize_sequences(board_size: u8) {
-  let sequences = SEQUENCES.get_or_init(|| generate_sequences(board_size));
+  let sequences = SEQUENCES.get_or_init(|| generate(board_size));
 
   assert_eq!(
     sequences.len(),
@@ -88,6 +97,9 @@ fn initialize_sequences(board_size: u8) {
   );
 }
 
+/// A Gomoku board.
+///
+/// The board is guaranteed to be a square and at least 9x9.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Board {
   size: u8,
@@ -95,6 +107,12 @@ pub struct Board {
 }
 
 impl Board {
+  /// Create a new board from a 2D vector of tiles.
+  ///
+  /// The board must be a square and at least 9x9.
+  ///
+  /// # Errors
+  /// Returns an error if the board is not a square or is too small.
   pub fn new(data: Vec<Vec<Tile>>) -> Result<Board, Error> {
     if data.len() <= 8 {
       return Err(Error::TooSmall { size: data.len() });
@@ -121,6 +139,7 @@ impl Board {
     })
   }
 
+  /// Create an empty board of the given size.
   pub fn get_empty_board(size: u8) -> Board {
     let data = vec![None; size.pow(2) as usize].into_boxed_slice();
 
@@ -129,10 +148,17 @@ impl Board {
     Board { size, data }
   }
 
+  /// Get a reference to the sequences table.
+  ///
+  /// # Panics
+  /// Panics if the sequences table has not been initialized.
   pub fn sequences(&self) -> &'static Sequences {
-    SEQUENCES.get().unwrap()
+    SEQUENCES.get().expect("Sequences are initialized")
   }
 
+  /// Get sequences relevant for the given tile.
+  ///
+  /// Relevant means the column, row and both diagonals that include the tile.
   pub fn get_relevant_sequences(&self, ptr: TilePointer) -> [&Sequence; 4] {
     let n = self.size;
     let TilePointer { x, y } = ptr;
@@ -147,6 +173,7 @@ impl Board {
     ]
   }
 
+  /// Get iterator over all empty tiles in the board.
   pub fn get_empty_tiles(&self) -> impl Iterator<Item = TilePointer> + '_ {
     self
       .data
@@ -156,10 +183,12 @@ impl Board {
       .map(|(index, ..)| self.get_ptr_from_index(index))
   }
 
+  /// Get reference to slice of all tiles in the board.
   pub fn get_all_tiles(&self) -> &[Tile] {
     &self.data
   }
 
+  /// Calculate the square of the distance from the center of the board.
   pub fn squared_distance_from_center(&self, p: TilePointer) -> Score {
     let center = f32::from(self.size - 1) / 2.0; // -1 to adjust for 0-indexing
 
@@ -170,6 +199,12 @@ impl Board {
     dist.round() as Score
   }
 
+  /// Parse a string into a board.
+  ///
+  /// Expects the same format, that is produced by `Board::to_string`.
+  ///
+  /// # Errors
+  /// Returns an error if the board is not a square or is too small.
   pub fn from_string(input_string: &str) -> Result<Board, Error> {
     // split string into Vec<Vec<chars>>
     let rows = input_string
@@ -198,6 +233,7 @@ impl Board {
     Ok(board)
   }
 
+  /// Convert a raw index to `TilePointer`.
   pub fn get_ptr_from_index(&self, index: usize) -> TilePointer {
     let x = (index % self.size as usize) as u8;
     let y = (index / self.size as usize) as u8;
@@ -214,11 +250,19 @@ impl Board {
     usize::from(size) * usize::from(y) + usize::from(x)
   }
 
+  /// Get value of a tile at the given pointer.
+  ///
+  /// # Panics
+  /// Panics if the pointer is out of bounds.
   pub fn get_tile(&self, ptr: TilePointer) -> &Tile {
     let index = Self::get_index(self.size, ptr);
     self.get_tile_raw(index)
   }
 
+  /// Get value of a tile at the given index.
+  ///
+  /// # Panics
+  /// Panics if the index is out of bounds.
   pub fn get_tile_raw(&self, index: usize) -> &Tile {
     self
       .data
@@ -226,6 +270,10 @@ impl Board {
       .unwrap_or_else(|| panic!("Tile index out of bounds: {index}"))
   }
 
+  /// Set a tile at the given pointer.
+  ///
+  /// # Panics
+  /// Panics at attempt to overwrite an already occupied tile.
   pub fn set_tile(&mut self, ptr: TilePointer, value: Tile) {
     let index = Self::get_index(self.size, ptr);
 
@@ -240,6 +288,7 @@ impl Board {
     self.data[index] = value;
   }
 
+  /// Get the size of the board.
   pub fn get_size(&self) -> u8 {
     self.size
   }

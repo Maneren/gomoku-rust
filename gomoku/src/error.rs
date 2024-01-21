@@ -3,6 +3,7 @@ use std::{error::Error, fmt::Display};
 use crate::board;
 
 #[derive(Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub enum GomokuError {
   NoEmptyTiles,
   GameEnd,
