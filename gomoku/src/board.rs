@@ -302,36 +302,26 @@ impl fmt::Display for Board {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let board_size = self.size as usize;
 
-    let mut string: String = String::new()
-      + if board_size >= 10 { "  " } else { " " }
-      + &"abcdefghijklmnopqrstuvwxyz"
-        .chars()
-        .take(board_size)
-        .collect::<String>()
-      + "\n";
+    let indent = if board_size >= 10 { " " } else { "" };
 
-    for i in 0..board_size {
-      let tmp = if i + 1 < 10 && board_size >= 10 {
-        format!(" {:?}", i + 1)
-      } else {
-        format!("{:?}", i + 1)
-      };
+    writeln!(
+      f,
+      "{indent} {}",
+      &"abcdefghijklmnopqrstuvwxyz"[..board_size]
+    )?;
 
-      string.push_str(&tmp);
+    for (i, row) in self.data.chunks(board_size).enumerate() {
+      write!(f, "{indent}{}{}", if i + 1 < 10 { " " } else { "" }, i + 1)?;
 
-      let row_start = i * board_size;
-      let row_end = (i + 1) * board_size;
-
-      let row = &self.data[row_start..row_end];
-      let row_string: String = row
+      row
         .iter()
         .map(|field| field.map_or('-', Player::char))
-        .collect();
+        .try_for_each(|c| write!(f, "{c}"))?;
 
-      string.push_str(&(row_string + "\n"));
+      writeln!(f)?;
     }
 
-    write!(f, "{string}")
+    Ok(())
   }
 }
 
