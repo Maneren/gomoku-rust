@@ -15,55 +15,6 @@ use super::{
 use crate::functions::{eval_structs::Eval, score_sqrt};
 
 #[derive(Clone)]
-pub struct MoveSequence {
-  pub tile: TilePointer,
-  pub score: Score,
-  pub first_score: Score,
-  pub player: Player,
-  pub state: State,
-  pub next: Option<Box<Self>>,
-}
-impl MoveSequence {
-  fn new(node: &Node) -> Self {
-    MoveSequence {
-      tile: node.tile,
-      score: node.score,
-      first_score: node.first_score,
-      player: node.player,
-      state: node.state,
-      next: node
-        .child_nodes
-        .get(0)
-        .map(|node| Box::new(node.best_moves.clone())),
-    }
-  }
-}
-
-impl fmt::Debug for MoveSequence {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    if let Some(child) = &self.next {
-      write!(
-        f,
-        "({:?}, {}, {}, {}) => {child:#?}",
-        self.tile, self.score, self.first_score, self.player
-      )
-    } else if self.state.is_end() {
-      write!(
-        f,
-        "({:?}, {}, {}, {}, {})",
-        self.tile, self.score, self.first_score, self.player, self.state
-      )
-    } else {
-      write!(
-        f,
-        "({:?}, {}, {}, {})",
-        self.tile, self.score, self.first_score, self.player
-      )
-    }
-  }
-}
-
-#[derive(Clone)]
 pub struct Node {
   tile: TilePointer,
   player: Player,
@@ -74,7 +25,6 @@ pub struct Node {
   score: Score,
   first_score: Score,
   first_score_sqrt: Score,
-  best_moves: MoveSequence,
   depth: u8,
 }
 impl Node {
@@ -148,8 +98,6 @@ impl Node {
     self.score = self.first_score_sqrt - best.score / 2;
     self.state = best.state.inversed();
 
-    self.best_moves = MoveSequence::new(self);
-
     if self.state != State::NotEnd {
       self.child_nodes = Vec::new();
       return;
@@ -201,8 +149,6 @@ impl Node {
         _ => State::NotEnd,
       }
     };
-
-    self.best_moves = MoveSequence::new(self);
   }
 
   pub fn node_count(&self) -> usize {
@@ -219,14 +165,6 @@ impl Node {
       first_score_sqrt: 0,
       player,
       child_nodes: Vec::new(),
-      best_moves: MoveSequence {
-        tile,
-        player,
-        score: 0,
-        first_score: 0,
-        state,
-        next: None,
-      },
       depth: 0,
     }
   }
@@ -262,11 +200,29 @@ impl Ord for Node {
 impl fmt::Debug for Node {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     if f.alternate() {
-      write!(f, "{:?}", self.best_moves)
+      if self.state.is_end() {
+        return write!(
+          f,
+          "({}, {}, {}, {}, {})",
+          self.tile, self.score, self.depth, self.player, self.state
+        );
+      }
+
+      write!(
+        f,
+        "({}, {}, {}, {})",
+        self.tile, self.score, self.depth, self.player,
+      )?;
+
+      if let Some(best) = self.child_nodes.get(0) {
+        write!(f, " -> {best:#?}")?;
+      }
+
+      Ok(())
     } else {
       write!(
         f,
-        "({:?}, {}, {}, {}, {:?}, {})",
+        "({}, {}, {}, {}, {}, {})",
         self.tile,
         self.score,
         self.depth,
