@@ -65,7 +65,7 @@ fn minimax(
     END.store(true, Ordering::Release);
   });
 
-  let empty_tiles = board.get_empty_tiles();
+  let empty_tiles = board.pointers_to_empty_tiles();
 
   let mut nodes = empty_tiles
     .map(|tile| Node::new(tile, current_player, State::NotEnd))

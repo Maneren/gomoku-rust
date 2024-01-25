@@ -3,7 +3,7 @@ mod sequences;
 use super::{Player, Score};
 use once_cell::sync::OnceCell;
 use sequences::generate;
-use std::{error, fmt, usize};
+use std::{error, fmt, str::FromStr, usize};
 
 #[derive(Debug, Clone)]
 pub enum Error {
@@ -140,7 +140,7 @@ impl Board {
   }
 
   /// Create an empty board of the given size.
-  pub fn get_empty_board(size: u8) -> Board {
+  pub fn new_empty(size: u8) -> Board {
     let data = vec![None; size.pow(2) as usize].into_boxed_slice();
 
     initialize_sequences(size);
@@ -159,7 +159,7 @@ impl Board {
   /// Get sequences relevant for the given tile.
   ///
   /// Relevant means the column, row and both diagonals that include the tile.
-  pub fn get_relevant_sequences(&self, ptr: TilePointer) -> [&Sequence; 4] {
+  pub fn relevant_sequences(&self, ptr: TilePointer) -> [&Sequence; 4] {
     let n = self.size;
     let TilePointer { x, y } = ptr;
 
@@ -174,7 +174,7 @@ impl Board {
   }
 
   /// Get iterator over all empty tiles in the board.
-  pub fn get_empty_tiles(&self) -> impl Iterator<Item = TilePointer> + '_ {
+  pub fn pointers_to_empty_tiles(&self) -> impl Iterator<Item = TilePointer> + '_ {
     self
       .data
       .iter()
@@ -184,7 +184,7 @@ impl Board {
   }
 
   /// Get reference to slice of all tiles in the board.
-  pub fn get_all_tiles(&self) -> &[Tile] {
+  pub fn tiles(&self) -> &[Tile] {
     &self.data
   }
 
@@ -289,7 +289,7 @@ impl Board {
   }
 
   /// Get the size of the board.
-  pub fn get_size(&self) -> u8 {
+  pub fn size(&self) -> u8 {
     self.size
   }
 }
@@ -349,14 +349,14 @@ mod tests {
   fn test_from_string() {
     let board = Board::from_string(BOARD_DATA).unwrap();
 
-    assert_eq!(board.get_size(), BOARD_SIZE);
+    assert_eq!(board.size(), BOARD_SIZE);
   }
 
   #[test]
   fn test_initialize_sequences() {
     let board_size = BOARD_SIZE;
 
-    let board = Board::get_empty_board(board_size);
+    let board = Board::new_empty(board_size);
 
     assert!(!board.sequences().is_empty());
 
@@ -393,7 +393,7 @@ mod tests {
         let tile = TilePointer { x, y };
         let target = Board::get_index(BOARD_SIZE, tile);
 
-        let sequences = board.get_relevant_sequences(tile);
+        let sequences = board.relevant_sequences(tile);
 
         sequences
           .iter()

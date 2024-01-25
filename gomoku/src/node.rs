@@ -99,7 +99,7 @@ impl Node {
 
     if self.depth == 2 {
       self.child_nodes = board
-        .get_empty_tiles()
+        .pointers_to_empty_tiles()
         .map(|tile| Node::new(tile, !self.player, State::NotEnd))
         .collect();
     }

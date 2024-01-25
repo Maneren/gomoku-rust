@@ -157,8 +157,8 @@ mod fen {
     };
 
     let data = board
-      .get_all_tiles()
-      .chunks(board.get_size() as usize)
+      .tiles()
+      .chunks(board.size() as usize)
       .map(|row| {
         row
           .iter()
@@ -172,7 +172,7 @@ mod fen {
       .collect::<Vec<_>>()
       .join("/");
 
-    format!("{}|{}", board.get_size(), data)
+    format!("{}|{}", board.size(), data)
   }
 }
 

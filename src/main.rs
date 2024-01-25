@@ -4,6 +4,7 @@
 use std::{
   fs::File,
   io::{self, prelude::Read},
+  str::FromStr,
   time::Instant,
 };
 
@@ -152,7 +153,7 @@ fn load_input(path: &str) -> Result<String, Error> {
 
 fn run(mut player: Player, time_limit: u64, board_size: u8) {
   use text_io::read;
-  let mut board = Board::get_empty_board(board_size);
+  let mut board = Board::new_empty(board_size);
 
   let prefix = '!';
   if player == Player::X {

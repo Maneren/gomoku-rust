@@ -114,7 +114,7 @@ fn eval_sequence(board: &Board, sequence: &[usize]) -> Eval {
 
 pub fn eval_relevant_sequences(board: &Board, tile: TilePointer) -> Eval {
   board
-    .get_relevant_sequences(tile)
+    .relevant_sequences(tile)
     .into_iter()
     .map(|seq| eval_sequence(board, seq))
     .sum()
