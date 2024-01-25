@@ -10,38 +10,31 @@ fn make_col(size: usize, x: usize) -> Sequence {
   (0..size).map(|y| x + y * size).collect()
 }
 
-/// Create `Sequence` representing given diagonal going
-/// from top left to bottom right
-fn make_diag1(size: usize, a: usize, b: usize) -> Sequence {
-  let min = a.min(b);
-
-  let a = a - min;
-  let b = b - min;
-
-  let len = size - a - b;
-
-  let a = size - a - 1;
-
-  let base = a + b * size;
-  let offset = size - 1;
-
-  (0..len).map(|i| base + i * offset).collect()
+/// Direction of a diagonal, always goes from top to bottom
+#[derive(Copy, Clone, Debug)]
+enum DiagonalDir {
+  LeftToRight = 1,
+  RightToLeft = -1,
 }
 
-/// Create `Sequence` representing given diagonal going
-/// from top right to bottom left
-fn make_diag2(size: usize, a: usize, b: usize) -> Sequence {
-  let min = a.min(b);
+/// Create `Sequence` representing given diagonal.
+/// `k` is the index of the diagonal and should be in the range `1..2 * size`.
+/// Note that the indexing starts at the respective top corner.
+fn make_diagonal(size: usize, k: usize, direction: DiagonalDir) -> Sequence {
+  let count = if k <= size { k } else { 2 * size - k };
 
-  let a = a - min;
-  let b = b - min;
+  let starting_idx = match (direction, k <= size) {
+    (DiagonalDir::LeftToRight, true) => size - k,
+    (DiagonalDir::LeftToRight, false) => (k - size) * size,
+    (DiagonalDir::RightToLeft, true) => k - 1,
+    (DiagonalDir::RightToLeft, false) => (k - size + 1) * size - 1,
+  };
 
-  let len = size - a - b;
+  let step = size
+    .checked_add_signed(direction as isize)
+    .expect("direction should be ±1 and size << usize::MAX");
 
-  let base = a + b * size;
-  let offset = size + 1;
-
-  (0..len).map(|i| base + i * offset).collect()
+  (0..count).map(|i| starting_idx + i * step).collect()
 }
 
 /// Generate all possible sequences for the given board size
@@ -51,19 +44,11 @@ pub fn generate(size: u8) -> Sequences {
   let rows = (0..size).map(|y| make_row(size, y));
   let columns = (0..size).map(|x| make_col(size, x));
 
-  let diag11 = (0..size).map(|k| make_diag1(size, k, 0)).rev();
-  let diag12 = (0..size).map(|k| make_diag1(size, 0, k)).skip(1);
+  let diagonals = [DiagonalDir::RightToLeft, DiagonalDir::LeftToRight]
+    .into_iter()
+    .flat_map(|direction| (1..2 * size).map(move |k| make_diagonal(size, k, direction)));
 
-  let diag21 = (0..size).map(|k| make_diag2(size, k, 0)).rev();
-  let diag22 = (0..size).map(|k| make_diag2(size, 0, k)).skip(1);
-
-  rows
-    .chain(columns)
-    .chain(diag11)
-    .chain(diag12)
-    .chain(diag21)
-    .chain(diag22)
-    .collect()
+  rows.chain(columns).chain(diagonals).collect()
 }
 
 #[cfg(test)]
