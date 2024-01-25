@@ -113,7 +113,7 @@ fn parse_args() -> clap::ArgMatches {
 
 fn run_debug(path_to_input: &str, player: Player, time_limit: u64) -> Result<(), Error> {
   let input_string = load_input(path_to_input)?;
-  let mut board = Board::from_string(&input_string)?;
+  let mut board = Board::from_str(&input_string)?;
 
   println!("{board}");
 

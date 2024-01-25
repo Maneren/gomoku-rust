@@ -199,40 +199,6 @@ impl Board {
     dist.round() as Score
   }
 
-  /// Parse a string into a board.
-  ///
-  /// Expects the same format, that is produced by `Board::to_string`.
-  ///
-  /// # Errors
-  /// Returns an error if the board is not a square or is too small.
-  pub fn from_string(input_string: &str) -> Result<Board, Error> {
-    // split string into Vec<Vec<chars>>
-    let rows = input_string
-      .trim()
-      .split('\n')
-      .map(|row| row.chars().collect())
-      .collect::<Vec<Vec<char>>>();
-
-    // parse Vec<Vec<char>> into Vec<Vec<Tile>>
-    let parsed_data: Vec<Vec<Tile>> = rows
-      .iter()
-      .map(|row| {
-        row
-          .iter()
-          .map(|tile| match *tile {
-            'x' | 'X' => Some(Player::X),
-            'o' | 'O' => Some(Player::O),
-            _ => None,
-          })
-          .collect()
-      })
-      .collect();
-
-    let board = Board::new(parsed_data)?;
-
-    Ok(board)
-  }
-
   /// Convert a raw index to `TilePointer`.
   pub fn get_ptr_from_index(&self, index: usize) -> TilePointer {
     let x = (index % self.size as usize) as u8;
@@ -293,6 +259,45 @@ impl Board {
     self.size
   }
 }
+
+impl FromStr for Board {
+  type Err = Error;
+
+  /// Parse a string into a board.
+  ///
+  /// Expects the same format, that is produced by [`Board::to_string`].
+  ///
+  /// # Errors
+  /// Returns an error if the board is not a square or is too small.
+  fn from_str(input_string: &str) -> Result<Board, Self::Err> {
+    // split string into Vec<Vec<chars>>
+    let rows = input_string
+      .trim()
+      .split('\n')
+      .map(|row| row.chars().collect())
+      .collect::<Vec<Vec<char>>>();
+
+    // parse Vec<Vec<char>> into Vec<Vec<Tile>>
+    let parsed_data: Vec<Vec<Tile>> = rows
+      .iter()
+      .map(|row| {
+        row
+          .iter()
+          .map(|tile| match *tile {
+            'x' | 'X' => Some(Player::X),
+            'o' | 'O' => Some(Player::O),
+            _ => None,
+          })
+          .collect()
+      })
+      .collect();
+
+    let board = Board::new(parsed_data)?;
+
+    Ok(board)
+  }
+}
+
 impl fmt::Display for Board {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let board_size = self.size as usize;
@@ -347,7 +352,7 @@ mod tests {
 
   #[test]
   fn test_from_string() {
-    let board = Board::from_string(BOARD_DATA).unwrap();
+    let board = Board::from_str(BOARD_DATA).unwrap();
 
     assert_eq!(board.size(), BOARD_SIZE);
   }
@@ -386,7 +391,7 @@ mod tests {
 
   #[test]
   fn test_get_relevant_sequences() {
-    let board = Board::from_string(BOARD_DATA).unwrap();
+    let board = Board::from_str(BOARD_DATA).unwrap();
 
     for x in 0..BOARD_SIZE {
       for y in 0..BOARD_SIZE {
