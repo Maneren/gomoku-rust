@@ -22,7 +22,7 @@ pub mod utils;
 
 use std::{
   sync::atomic::{AtomicBool, Ordering},
-  thread::{sleep, spawn},
+  thread,
   time::{Duration, Instant},
 };
 
@@ -53,20 +53,18 @@ fn minimax(
   current_player: Player,
   time_limit: Duration,
 ) -> Result<(Move, Stats), GomokuError> {
-  let end_time = Instant::now()
-    + time_limit
-      .checked_sub(time_limit / 10)
-      .expect("1 - 1/10 > 0");
+  let end_time = Instant::now() + time_limit;
 
   END.store(false, Ordering::Relaxed);
 
-  spawn(move || {
-    sleep(time_limit);
+  thread::spawn(move || {
+    thread::sleep(time_limit * 99 / 100);
     END.store(true, Ordering::Release);
   });
 
   let empty_tiles = board.pointers_to_empty_tiles();
 
+  // if there's just one symbol on the board, play manually
   let mut nodes = empty_tiles
     .map(|tile| Node::new(tile, current_player, State::NotEnd))
     .collect::<Vec<_>>();
