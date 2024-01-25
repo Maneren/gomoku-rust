@@ -1,5 +1,7 @@
 mod sequences;
 
+use self::sequences::{Sequence, Sequences};
+
 use super::{Player, Score};
 use once_cell::sync::OnceCell;
 use sequences::generate;
@@ -81,9 +83,6 @@ impl fmt::Display for TilePointer {
     write!(f, "{self:?}")
   }
 }
-
-type Sequence = Vec<usize>;
-type Sequences = Vec<Sequence>;
 
 static SEQUENCES: OnceCell<Sequences> = OnceCell::new();
 
@@ -357,8 +356,8 @@ mod tests {
 
     let mut visits = vec![0; board_size.pow(2) as usize];
 
-    for sequence in board.sequences() {
-      for index in sequence {
+    for sequence in board.sequences().iter() {
+      for index in sequence.iter() {
         visits[*index] += 1;
       }
     }

@@ -1,4 +1,5 @@
-use super::{Sequence, Sequences};
+pub type Sequence = Box<[usize]>;
+pub type Sequences = Box<[Sequence]>;
 
 /// Create `Sequence` representing given row
 fn make_row(size: usize, y: usize) -> Sequence {
@@ -149,7 +150,8 @@ mod tests {
       .chain(EXPECTED_RL_DIAGONALS.iter())
       .chain(EXPECTED_LR_DIAGONALS.iter())
       .cloned()
-      .collect::<Vec<_>>();
+      .map(Vec::into_boxed_slice)
+      .collect::<Box<_>>();
 
     assert_eq!(expected, sequences);
   }
