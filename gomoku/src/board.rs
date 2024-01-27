@@ -310,7 +310,7 @@ impl fmt::Display for Board {
     )?;
 
     for (i, row) in self.data.chunks(board_size).enumerate() {
-      write!(f, "{indent}{}{}", if i + 1 < 10 { " " } else { "" }, i + 1)?;
+      write!(f, "{}{}", if i + 1 < 10 { indent } else { "" }, i + 1)?;
 
       row
         .iter()
