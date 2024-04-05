@@ -2,32 +2,38 @@
 
 ## Description
 
-simple gomoku engine written in Rust with CLI
+Simple gomoku engine written in Rust with CLI and [GUI](https://github.com/Maneren/gomoku-gui-dioxus).
 
-uses multithreading and iterative deepening
+## Installation
 
-## Modes
+Requires [Rust](https://www.rust-lang.org/tools/install) installed.
 
-### 1. interactive
+```sh
+cargo install --path .
+```
+
+## Usage
+
+### Interactive
 
 `gomoku <player> <time>`
 
-- player - who should go first - engine is 'x', player is 'o'
+- player - who should go first - engine always plays as `x`, player as `o`
 - time - time limit for computing in milliseconds
 
-reads input from stdin in format `d6` (letter is horizontal, number is vertical)
+Reads input from `stdin` in format `d6` (letter is horizontal, number is vertical)
 
-### 2. single position
+### Single position evaluation
 
 `gomoku <player> <time> -d <file>`
 
-- player - which symbol should engine evaluate as ('x' or 'o')
+- player - which symbol should engine evaluate as (`x` or `o`)
 - time - time limit for searching in milliseconds
 - file - path to file with position to evaluate
 
-evaluates single positions and returns its move
+Evaluates single positions and returns the best move.
 
-input file example:
+Input file example:
 
 ```txt
 ---------
@@ -40,3 +46,7 @@ input file example:
 --------x
 ---------
 ```
+
+### GUI
+
+Available here: [Gomoku GUI](https://github.com/Maneren/gomoku-gui-dioxus).
