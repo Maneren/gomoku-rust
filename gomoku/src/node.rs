@@ -113,6 +113,8 @@ impl Node {
     let mut score = parent_score;
     let tile = self.tile;
 
+    score += 20 * board.squared_distance_from_center(tile);
+
     let Eval {
       score: prev_score, ..
     } = eval_relevant_sequences(board, tile);
@@ -132,8 +134,6 @@ impl Node {
     score -= new_score[opponent];
 
     board.set_tile(tile, None);
-
-    score += board.squared_distance_from_center(tile);
 
     self.score = score;
     self.first_score = score;
