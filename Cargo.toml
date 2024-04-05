@@ -1,6 +1,6 @@
 [package]
 name = "gomoku"
-version = "7.0.1"
+version = "7.0.2"
 authors = ["Maneren <maneren731@gmail.com>"]
 edition = "2021"
 
