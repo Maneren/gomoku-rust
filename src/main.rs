@@ -18,7 +18,9 @@ fn main() {
   let matches = parse_args();
 
   if let Some(matches) = matches.subcommand_matches("fen") {
-    let mut string = matches.value_of_t("string").unwrap();
+    let mut string = matches
+      .value_of_t("string")
+      .expect("string is required by clap");
 
     // if argument is "--" read from stdin instead
     if string == "--" {
@@ -45,7 +47,7 @@ fn main() {
     .value_of_t("threads")
     .unwrap_or_else(|_| num_cpus::get());
 
-  gomoku_lib::set_thread_count(threads).unwrap();
+  gomoku_lib::set_thread_count(threads).expect("main is run only once");
 
   let player = matches.value_of_t("player").unwrap_or(Player::O);
 

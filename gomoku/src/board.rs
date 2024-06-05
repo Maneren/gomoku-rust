@@ -271,8 +271,7 @@ impl FromStr for Board {
   fn from_str(input_string: &str) -> Result<Board, Self::Err> {
     // split string into Vec<Vec<chars>>
     let rows = input_string
-      .trim()
-      .split('\n')
+      .lines()
       .map(|row| row.chars().collect())
       .collect::<Vec<Vec<char>>>();
 

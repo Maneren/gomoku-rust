@@ -138,7 +138,7 @@ fn minimax(
 
   println!();
 
-  let best_node = nodes.iter().max().unwrap();
+  let best_node = nodes.iter().max().expect("we never remove all nodes");
 
   println!("Best move sequence: {best_node:#?}");
 

@@ -80,7 +80,7 @@ impl Node {
     self.child_nodes.sort_unstable_by(|a, b| b.cmp(a));
 
     let limit = match self.depth {
-      0 | 1 => unreachable!(),
+      0 | 1 => unreachable!("depth 0 or 1 means the chilren are yet to be initialized"),
       2 => (self.child_nodes.len() / 2).max(24),
       3 => 16,
       4..=7 => 8,
@@ -92,8 +92,10 @@ impl Node {
 
     let best = self
       .child_nodes
-      .get(0)
-      .expect("we checked that the list is not empty");
+      .first()
+      // TODO: figure out the weird compiler optimizations going on here
+      // .expect("we checked that the list is not empty");
+      .expect("we checked that the list is not empty at the beggining");
 
     self.score = self.first_score_sqrt - best.score / 2;
     self.state = best.state.inversed();
@@ -214,7 +216,7 @@ impl fmt::Debug for Node {
         self.tile, self.score, self.depth, self.player,
       )?;
 
-      if let Some(best) = self.child_nodes.get(0) {
+      if let Some(best) = self.child_nodes.first() {
         write!(f, " -> {best:#?}")?;
       }
 

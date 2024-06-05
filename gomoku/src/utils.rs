@@ -147,7 +147,7 @@ mod fen {
   #[must_use]
   #[allow(clippy::missing_panics_doc)] // https://github.com/rust-lang/rust-clippy/issues/11436
   pub fn to_fen_string(board: &Board) -> String {
-    let re = Regex::new(r#"-+"#).expect("the regex is valid");
+    let re = Regex::new(r"-+").expect("the regex is valid");
 
     let replace_function = |captures: &Captures| captures[0].len().to_string();
 
