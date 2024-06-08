@@ -20,7 +20,7 @@ pub struct Node {
   player: Player,
   pub state: State,
   pub valid: bool,
-  pub child_nodes: Vec<Node>,
+  child_nodes: Vec<Node>,
 
   score: Score,
   first_score: Score,
@@ -52,6 +52,12 @@ impl Node {
         .pointers_to_empty_tiles()
         .map(|tile| Node::new(tile, !self.player, State::NotEnd))
         .collect();
+
+      if self.child_nodes.is_empty() {
+        self.state = State::Draw;
+        self.score = 0;
+        return stats;
+      }
     }
 
     stats += self
@@ -66,11 +72,11 @@ impl Node {
   }
 
   fn evaluate_children(&mut self) {
-    if self.child_nodes.is_empty() {
-      self.state = State::Draw;
-      self.score = 0;
-      return;
-    }
+    debug_assert!(
+      !self.child_nodes.is_empty(),
+      "Children empty while state is {}",
+      self.state
+    );
 
     if self.child_nodes.iter().any(|node| !node.valid) {
       self.valid = false;
@@ -105,7 +111,9 @@ impl Node {
       return;
     }
 
-    self.child_nodes.retain(|child| !child.state.is_lose());
+    self
+      .child_nodes
+      .retain(|child| child.state == State::NotEnd);
   }
 
   fn initialize(&mut self, board: &mut Board, parent_score: Score, stats: &mut Stats) {

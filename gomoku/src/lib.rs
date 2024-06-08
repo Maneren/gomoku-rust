@@ -118,7 +118,12 @@ fn minimax(
       break;
     }
 
-    nodes.retain(|child| !child.state.is_lose());
+    if nodes.iter().all(|node| node.state == State::Draw) {
+      println!("All moves are draws.");
+      break;
+    }
+
+    nodes.retain(|child| child.state == State::NotEnd);
 
     if nodes.len() <= 1 {
       println!("Only one viable move left");
