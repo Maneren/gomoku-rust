@@ -99,8 +99,8 @@ impl Node {
     let best = self
       .child_nodes
       .first()
-      // PERF: for some reason beyond my comprehesion, the length of the following message has
-      // may have negative impact on performance, so benchmarks have to be checked when changing it
+      // PERF: for some reason beyond my comprehesion, the length of the following message may have
+      // negative impact on performance, so benchmarks have to be checked when changing it
       .expect("we already checked that the list is not empty");
 
     self.score = self.first_score_sqrt - best.score / 2;
