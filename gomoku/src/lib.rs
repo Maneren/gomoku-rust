@@ -130,7 +130,7 @@ fn minimax(
       clippy::cast_possible_truncation,
       clippy::cast_sign_loss
     )]
-    let moves_count = (1.5 * (nodes.len() as f32).sqrt()) as usize;
+    let moves_count = (2.0 * (nodes.len() as f32).sqrt()) as usize;
     nodes.truncate(moves_count.max(3));
   }
 
