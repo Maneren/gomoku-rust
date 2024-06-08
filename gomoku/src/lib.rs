@@ -62,10 +62,8 @@ fn minimax(
     END.store(true, Ordering::Release);
   });
 
-  let empty_tiles = board.pointers_to_empty_tiles();
-
-  // if there's just one symbol on the board, play manually
-  let mut nodes = empty_tiles
+  let mut nodes = board
+    .pointers_to_empty_tiles()
     .map(|tile| Node::new(tile, current_player, State::NotEnd))
     .collect::<Vec<_>>();
 
