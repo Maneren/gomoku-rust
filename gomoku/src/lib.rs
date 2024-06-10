@@ -11,7 +11,6 @@
 
 mod board;
 mod error;
-mod functions;
 mod r#move; // r# to allow reserved keyword as name
 mod node;
 mod player;
@@ -28,7 +27,6 @@ use std::{
 
 pub use board::{Board, Tile, TilePointer};
 use error::GomokuError;
-use functions::evaluate_board;
 #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 use jemallocator::Jemalloc;
 pub use player::Player;
@@ -74,7 +72,7 @@ fn minimax(
   let mut total_depth = 0;
   let mut stats = Stats::new();
 
-  let (initial_score, initial_state) = evaluate_board(board, !current_player);
+  let (initial_score, initial_state) = board.evaluate_for(!current_player);
   if initial_state.is_end() {
     println!("The game already ended");
     return Err(GomokuError::GameEnd);

@@ -1,12 +1,14 @@
+pub(crate) mod evaluation;
 mod sequences;
 
 use std::{error, fmt, str::FromStr};
 
+use evaluation::{shape_score, Eval};
 use once_cell::sync::OnceCell;
-use sequences::generate;
+use sequences::{generate, Sequence, Sequences};
 
-use self::sequences::{Sequence, Sequences};
 use super::{Player, Score};
+use crate::state::State;
 
 #[derive(Debug, Clone)]
 pub enum Error {
@@ -260,6 +262,109 @@ impl Board {
   /// Get the size of the board.
   pub fn size(&self) -> u8 {
     self.size
+  }
+
+  fn evaluate_sequence(&self, sequence: &[usize]) -> Eval {
+    let mut eval = Eval::default();
+
+    let mut current = Player::X; // current player
+    let mut consecutive = 0; // consecutive tiles of the current player
+    let mut open_ends = 0; // open ends of consecutive tiles
+    let mut has_hole = false; // is there a hole in the consecutive tiles
+
+    for (i, &tile_idx) in sequence.iter().enumerate() {
+      if let Some(player) = self.data[tile_idx] {
+        if player == current {
+          consecutive += 1;
+          continue;
+        }
+
+        // opponent's tile
+        if consecutive > 0 {
+          let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
+          eval.score[current] += shape_score;
+          eval.win[current] |= is_win_shape;
+
+          open_ends = 0;
+          has_hole = false;
+        }
+
+        consecutive = 1;
+        current = player;
+      } else {
+        // empty tile
+        if consecutive == 0 {
+          open_ends = 1; // If there were no consecutive tiles yet, mark as an open end
+          has_hole = false;
+          continue;
+        }
+
+        // If there is no hole yet, and the next tile is of the current player,
+        // and consecutive count is less than 5, mark as a hole
+        if !has_hole
+          && consecutive < 5
+          && sequence.get(i + 1).and_then(|&idx| self.data[idx]) == Some(current)
+        {
+          has_hole = true;
+          consecutive += 1;
+          continue;
+        }
+
+        open_ends += 1;
+
+        let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
+        eval.score[current] += shape_score;
+        eval.win[current] |= is_win_shape;
+
+        consecutive = 0;
+        open_ends = 1;
+        has_hole = false;
+      }
+    }
+
+    // If there are consecutive tiles at the end of the sequence
+    if consecutive > 0 {
+      let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
+      eval.score[current] += shape_score;
+      eval.win[current] |= is_win_shape;
+    }
+
+    eval
+  }
+
+  /// Evaluate sequences relevat to given tile
+  ///
+  /// Relevant means the column, row and both diagonals that include the tile.
+  pub fn evaluate_sequences_relevant_to(&self, tile: TilePointer) -> Eval {
+    self
+      .relevant_sequences(tile)
+      .into_iter()
+      .map(|seq| self.evaluate_sequence(seq))
+      .sum()
+  }
+
+  /// Evaluate the whole board and return summary for both players
+  pub fn evaluate(&self) -> Eval {
+    self
+      .sequences()
+      .iter()
+      .map(|seq| self.evaluate_sequence(seq))
+      .sum()
+  }
+
+  /// Evaluate the whole board and return result for target player
+  pub fn evaluate_for(&self, target: Player) -> (Score, State) {
+    let Eval { score, win } = self.evaluate();
+
+    let score = score[target] - score[!target];
+
+    let state = if win[target] {
+      State::Win
+    } else {
+      State::NotEnd
+    };
+
+    (score, state)
   }
 }
 

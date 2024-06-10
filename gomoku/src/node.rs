@@ -3,8 +3,7 @@ use std::{cmp::Ordering, fmt};
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 
 use super::{
-  board::{Board, TilePointer},
-  functions::{eval_relevant_sequences, eval_structs::Eval},
+  board::{evaluation::Eval, Board, TilePointer},
   player::Player,
   r#move::Move,
   state::State,
@@ -126,7 +125,7 @@ impl Node {
 
     let Eval {
       score: prev_score, ..
-    } = eval_relevant_sequences(board, tile);
+    } = board.evaluate_sequences_relevant_to(tile);
 
     score += prev_score[self.player];
     score -= prev_score[opponent];
@@ -136,7 +135,7 @@ impl Node {
     let Eval {
       score: new_score,
       win: new_win,
-    } = eval_relevant_sequences(board, tile);
+    } = board.evaluate_sequences_relevant_to(tile);
 
     score *= -1;
     score += new_score[self.player];
