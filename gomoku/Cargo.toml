@@ -15,7 +15,7 @@ fen = ["regex"]
 regex = { version = "1.10.2", optional = true }
 rayon = "1.8.1"
 
-# use this in favor of std's, because it's Sync
+# TODO: replace with std's version, once LazyCell gets onto stable branch
 once_cell = "1.19.0"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
