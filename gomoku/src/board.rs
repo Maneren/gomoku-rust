@@ -1,11 +1,12 @@
 mod sequences;
 
-use self::sequences::{Sequence, Sequences};
+use std::{error, fmt, str::FromStr};
 
-use super::{Player, Score};
 use once_cell::sync::OnceCell;
 use sequences::generate;
-use std::{error, fmt, str::FromStr, usize};
+
+use self::sequences::{Sequence, Sequences};
+use super::{Player, Score};
 
 #[derive(Debug, Clone)]
 pub enum Error {
