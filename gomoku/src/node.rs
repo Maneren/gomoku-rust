@@ -4,15 +4,14 @@ use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 
 use super::{
   board::{Board, TilePointer},
-  functions::eval_relevant_sequences,
+  functions::{eval_relevant_sequences, eval_structs::Eval},
   player::Player,
   r#move::Move,
   state::State,
   stats::Stats,
-  utils::do_run,
+  utils::{do_run, signed_sqrt},
   Score,
 };
-use crate::functions::{eval_structs::Eval, score_sqrt};
 
 #[derive(Clone)]
 pub struct Node {
@@ -147,7 +146,7 @@ impl Node {
 
     self.score = score;
     self.first_score = score;
-    self.first_score_sqrt = score_sqrt(score);
+    self.first_score_sqrt = signed_sqrt(score);
 
     self.state = {
       match (new_win[self.player], new_win[opponent]) {

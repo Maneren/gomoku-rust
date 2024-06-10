@@ -176,31 +176,48 @@ mod fen {
   }
 }
 
-use crate::{Board, Player, END};
+use crate::{Board, Player, Score, END};
 
 /// Check if the game has ended.
 ///
 /// Iterate over all sequences and check if any of them is a win or loss for the current player.
 pub fn is_game_end(board: &Board, current_player: Player) -> bool {
   fn is_game_end_sequence(sequence: &[usize], current_player: Player, board: &Board) -> bool {
-    let mut consecutive = 0;
-
-    for &tile in sequence {
-      if board.get_tile_raw(tile) == &Some(current_player) {
-        consecutive += 1;
-        if consecutive >= 5 {
-          return true;
+    sequence
+      .iter()
+      .scan(0, |consecutive, &idx| {
+        if *board.get_tile_raw(idx) == Some(current_player) {
+          *consecutive += 1;
+        } else {
+          *consecutive = 0;
         }
-      } else {
-        consecutive = 0;
-      };
-    }
-
-    false
+        Some(*consecutive)
+      })
+      .any(|consecutive| consecutive == 5)
   }
 
   board
     .sequences()
     .iter()
     .any(|sequence| is_game_end_sequence(sequence, current_player, board))
+}
+
+/// Calculate square root of the score and preserve the sign.
+pub(crate) fn signed_sqrt(n: Score) -> Score {
+  let n = n as f32;
+  (n.signum() * n.abs().sqrt()) as Score
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_signed_sqrt() {
+    let data = vec![(100, 10), (-25, -5), (0, 0), (30, 5)];
+
+    for (src, target) in data {
+      assert_eq!(signed_sqrt(src), target);
+    }
+  }
 }

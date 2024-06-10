@@ -140,11 +140,6 @@ pub fn evaluate_board(board: &Board, current_player: Player) -> (Score, State) {
   (score, state)
 }
 
-pub fn score_sqrt(n: Score) -> Score {
-  let n = n as f32;
-  (n.signum() * n.abs().sqrt()) as Score
-}
-
 #[cfg(test)]
 mod tests {
 
@@ -287,13 +282,4 @@ mod tests {
   //     assert_eq!(y, expected_y);
   //   }
   // }
-
-  #[test]
-  fn test_score_sqrt() {
-    let data = vec![(100, 10), (-25, -5), (0, 0), (30, 5)];
-
-    for (src, target) in data {
-      assert_eq!(score_sqrt(src), target);
-    }
-  }
 }
