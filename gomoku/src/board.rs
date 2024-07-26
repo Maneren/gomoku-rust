@@ -2,11 +2,10 @@ mod error;
 pub(crate) mod evaluation;
 mod sequences;
 
-use std::{fmt, str::FromStr};
+use std::{fmt, str::FromStr, sync::OnceLock};
 
 pub use error::Error;
 use evaluation::{shape_score, Eval};
-use once_cell::sync::OnceCell;
 use sequences::{generate, Sequence, Sequences};
 
 use super::{Player, Score};
@@ -57,7 +56,7 @@ impl fmt::Display for TilePointer {
 /// Cached sequences for very fast board access
 // HACK: Relies on the fact that the board size is the same thoroughout the whole runtime.
 // This is good enough for now, but **should** be refactored in the future.
-static SEQUENCES: OnceCell<Sequences> = OnceCell::new();
+static SEQUENCES: OnceLock<Sequences> = OnceLock::new();
 
 fn initialize_sequences(board_size: u8) {
   let sequences = SEQUENCES.get_or_init(|| generate(board_size));

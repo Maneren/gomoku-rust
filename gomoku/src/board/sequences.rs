@@ -54,13 +54,13 @@ pub fn generate(size: u8) -> Sequences {
 
 #[cfg(test)]
 mod tests {
-  use once_cell::sync::Lazy;
+  use std::sync::LazyLock;
 
   use super::*;
 
   const BOARD_SIZE: u8 = 10;
 
-  static EXPECTED_ROWS: Lazy<[Vec<usize>; BOARD_SIZE as usize]> = Lazy::new(|| {
+  static EXPECTED_ROWS: LazyLock<[Vec<usize>; BOARD_SIZE as usize]> = LazyLock::new(|| {
     [
       vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
       vec![10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
@@ -75,7 +75,7 @@ mod tests {
     ]
   });
 
-  static EXPECTED_COLUMNS: Lazy<[Vec<usize>; BOARD_SIZE as usize]> = Lazy::new(|| {
+  static EXPECTED_COLUMNS: LazyLock<[Vec<usize>; BOARD_SIZE as usize]> = LazyLock::new(|| {
     [
       vec![0, 10, 20, 30, 40, 50, 60, 70, 80, 90],
       vec![1, 11, 21, 31, 41, 51, 61, 71, 81, 91],
@@ -90,8 +90,8 @@ mod tests {
     ]
   });
 
-  static EXPECTED_RL_DIAGONALS: Lazy<[Vec<usize>; (2 * BOARD_SIZE - 1) as usize]> =
-    Lazy::new(|| {
+  static EXPECTED_RL_DIAGONALS: LazyLock<[Vec<usize>; (2 * BOARD_SIZE - 1) as usize]> =
+    LazyLock::new(|| {
       [
         vec![0],
         vec![1, 10],
@@ -115,8 +115,8 @@ mod tests {
       ]
     });
 
-  static EXPECTED_LR_DIAGONALS: Lazy<[Vec<usize>; (2 * BOARD_SIZE - 1) as usize]> =
-    Lazy::new(|| {
+  static EXPECTED_LR_DIAGONALS: LazyLock<[Vec<usize>; (2 * BOARD_SIZE - 1) as usize]> =
+    LazyLock::new(|| {
       [
         vec![9],
         vec![8, 19],
