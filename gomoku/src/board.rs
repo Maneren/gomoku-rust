@@ -430,8 +430,8 @@ mod tests {
 
     let mut visits = vec![0; board_size.pow(2) as usize];
 
-    for sequence in board.sequences().iter() {
-      for index in sequence.iter() {
+    for sequence in board.sequences() {
+      for index in sequence {
         visits[*index] += 1;
       }
     }
