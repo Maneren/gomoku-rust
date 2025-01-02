@@ -54,8 +54,9 @@ impl fmt::Display for TilePointer {
 }
 
 /// Cached sequences for very fast board access
-// HACK: Relies on the fact that the board size is the same thoroughout the whole runtime.
-// This is good enough for now, but **should** be refactored in the future.
+// HACK: Relies on the fact that the board size is the same thoroughout the
+// whole runtime. This is good enough for now, but **should** be refactored in
+// the future.
 static SEQUENCES: OnceLock<Sequences> = OnceLock::new();
 
 fn initialize_sequences(board_size: u8) {

@@ -160,7 +160,8 @@ pub fn set_thread_count(threads: usize) -> Result<(), Box<dyn std::error::Error>
 /// Returns the best move and stats for the given board.
 ///
 /// # Errors
-/// Returns an error if the engine failed to find a move. See [`GomokuError`] for possible errors.
+/// Returns an error if the engine failed to find a move. See [`GomokuError`]
+/// for possible errors.
 pub fn decide(
   board: &mut Board,
   player: Player,

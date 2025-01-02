@@ -8,7 +8,8 @@ use super::utils::format_number;
 
 /// Stats for the engine
 ///
-/// Currently only contains the number of nodes evaluated, but more can be added in the future.
+/// Currently only contains the number of nodes evaluated, but more can be added
+/// in the future.
 #[derive(Debug, Copy, Clone)]
 #[non_exhaustive]
 pub struct Stats {

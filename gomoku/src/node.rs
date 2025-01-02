@@ -150,8 +150,11 @@ impl Node {
     self.state = {
       match (new_win[self.player], new_win[opponent]) {
         (true, true) => {
-          unreachable!("Invalid win state: {new_win:?} for child node {tile} of node {self:?} on board:\n{board}")
-        }
+          unreachable!(
+            "Invalid win state: {new_win:?} for child node {tile} of node {self:?} on \
+             board:\n{board}"
+          )
+        },
         (true, _) => State::Win,
         (_, true) => State::Lose,
         _ => State::NotEnd,

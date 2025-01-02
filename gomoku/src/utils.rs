@@ -70,7 +70,8 @@ mod fen {
 
   use crate::Board;
 
-  /// Helper function for replacing all matches in a string using a replacement function
+  /// Helper function for replacing all matches in a string using a replacement
+  /// function
   fn replace_all<E>(
     re: &Regex,
     haystack: &str,
@@ -90,12 +91,13 @@ mod fen {
 
   /// Parses an shortened FEN string to full one
   ///
-  /// Expects the input to be in the format `size|data`, where data is a string of rows
-  /// separated by `/` and each row contains `x`, `o`, `-` or a number specifying the count of `-`.
+  /// Expects the input to be in the format `size|data`, where data is a string
+  /// of rows separated by `/` and each row contains `x`, `o`, `-` or a number
+  /// specifying the count of `-`.
   ///
   /// # Errors
-  /// Returns an error if the format is incorrect, size doesn't match the line count or line length,
-  /// or the data contains invalid characters.
+  /// Returns an error if the format is incorrect, size doesn't match the line
+  /// count or line length, or the data contains invalid characters.
   #[allow(clippy::missing_panics_doc)] // https://github.com/rust-lang/rust-clippy/issues/11436
   pub fn parse_fen_string(input: &str) -> Result<String, Box<dyn Error>> {
     let input = input.trim();
@@ -180,7 +182,8 @@ use crate::{Board, Player, Score, END};
 
 /// Check if the game has ended.
 ///
-/// Iterate over all sequences and check if any of them is a win or loss for the current player.
+/// Iterate over all sequences and check if any of them is a win or loss for the
+/// current player.
 pub fn is_game_end(board: &Board, current_player: Player) -> bool {
   fn is_game_end_sequence(sequence: &[usize], current_player: Player, board: &Board) -> bool {
     sequence

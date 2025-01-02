@@ -7,8 +7,8 @@ use super::super::{player::Player, Score};
 
 /// Return score and win state for the given shape
 ///
-/// Shape is defined by number of consecutive symbols, number of open ends and if the shape contains
-/// a hole (in that case it is included in consecutive).
+/// Shape is defined by number of consecutive symbols, number of open ends and
+/// if the shape contains a hole (in that case it is included in consecutive).
 pub fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) {
   if has_hole {
     return match consecutive {

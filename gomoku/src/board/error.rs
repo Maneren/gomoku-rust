@@ -25,7 +25,7 @@ impl fmt::Display for Error {
           f,
           "board is not a square: line {line} is {width} tiles wide, but {height} was expected"
         )
-      }
+      },
     }
   }
 }

@@ -131,7 +131,7 @@ fn run_debug(path_to_input: &str, player: Player, time_limit: u64) -> Result<(),
     Err(err) => {
       println!("Error occured: {err:?}");
       return Ok(());
-    }
+    },
   };
 
   println!();
@@ -215,7 +215,7 @@ fn run(mut player: Player, time_limit: u64, board_size: u8) {
       Err(err) => {
         println!("Error occured: {err:?}");
         continue;
-      }
+      },
     };
 
     let (Move { tile, score }, stats) = unwrapped;
