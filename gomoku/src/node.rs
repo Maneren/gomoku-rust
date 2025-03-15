@@ -130,7 +130,11 @@ impl Node {
     score += prev_score[self.player];
     score -= prev_score[opponent];
 
+    let hash_prev = board.zobrist_hash();
+
     board.set_tile(tile, Some(self.player));
+
+    let hash_new = board.zobrist_hash();
 
     let Eval {
       score: new_score,
@@ -142,6 +146,17 @@ impl Node {
     score -= new_score[opponent];
 
     board.set_tile(tile, None);
+
+    let hash_after = board.zobrist_hash();
+
+    debug_assert_eq!(
+      hash_prev, hash_after,
+      "Zobrist hash changed after evaluation"
+    );
+    debug_assert_ne!(
+      hash_prev, hash_new,
+      "Zobrist hash did not change after play"
+    );
 
     self.score = score;
     self.first_score = score;

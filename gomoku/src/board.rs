@@ -2,10 +2,11 @@ mod error;
 pub(crate) mod evaluation;
 mod sequences;
 
-use std::{fmt, str::FromStr, sync::OnceLock};
+use std::{fmt, num::NonZeroU64, str::FromStr, sync::OnceLock};
 
 pub use error::Error;
 use evaluation::{shape_score, Eval};
+use rand::Rng;
 use sequences::{generate, Sequence, Sequences};
 
 use super::{Player, Score};
@@ -69,13 +70,54 @@ fn initialize_sequences(board_size: u8) {
   );
 }
 
+pub type ZobristHash = u64;
+
+static ZOBRIST_TABLE: OnceLock<Box<[(NonZeroU64, NonZeroU64)]>> = OnceLock::new();
+
+/// Initialize the zobrist table
+fn initialize_zobrist(size: usize) -> Box<[(NonZeroU64, NonZeroU64)]> {
+  let mut rng = rand::rng();
+  (0..size.pow(2))
+    .map(|_| (rng.random(), rng.random()))
+    .collect()
+}
+
+/// Update the zobrist hash with the given tile
+///
+/// Since it uses XOR, it is reversible - removing a tile is the same as adding
+/// it again
+fn update_zobrist_hash(
+  hash: &mut ZobristHash,
+  (x_value, o_value): (NonZeroU64, NonZeroU64),
+  player: Player,
+) {
+  *hash ^= u64::from(match player {
+    Player::X => x_value,
+    Player::O => o_value,
+  });
+}
+
+/// Compute the zobrist hash for the given board data
+fn zobrist_hash(size: usize, data: &[Tile]) -> ZobristHash {
+  let table = ZOBRIST_TABLE.get_or_init(|| initialize_zobrist(size));
+
+  let mut hash: u64 = 0;
+  for (tile, &tile_value) in data.iter().zip(table) {
+    if let Some(player) = tile {
+      update_zobrist_hash(&mut hash, tile_value, *player);
+    }
+  }
+  hash
+}
+
 /// A Gomoku board.
 ///
 /// The board is guaranteed to be a square and at least 9x9.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Board {
-  size: u8,
   data: Box<[Tile]>,
+  hash: ZobristHash,
+  size: u8,
 }
 
 impl Board {
@@ -101,12 +143,15 @@ impl Board {
     }
 
     let board_size = data.len() as u8;
-    let flat_data = data.into_iter().flatten().collect();
+    let flat_data: Box<[Tile]> = data.into_iter().flatten().collect();
 
     initialize_sequences(board_size);
 
+    let hash = zobrist_hash(board_size as usize, &flat_data);
+
     Ok(Board {
       data: flat_data,
+      hash,
       size: board_size,
     })
   }
@@ -117,7 +162,11 @@ impl Board {
 
     initialize_sequences(size);
 
-    Board { size, data }
+    Board {
+      data,
+      hash: 0,
+      size,
+    }
   }
 
   /// Get a reference to the sequences table.
@@ -222,6 +271,15 @@ impl Board {
       matches!((value, tile), (Some(_), None) | (None, Some(_))),
       "attempted to overwrite tile {ptr} ({tile:?}) with value {value:?} at board \n{self}"
     );
+
+    let table = ZOBRIST_TABLE.get_or_init(|| initialize_zobrist(self.size as usize));
+
+    if let Some(player) = value {
+      update_zobrist_hash(&mut self.hash, table[index], player);
+    } else {
+      let player = tile.unwrap();
+      update_zobrist_hash(&mut self.hash, table[index], player);
+    }
 
     self.data[index] = value;
   }
@@ -332,6 +390,11 @@ impl Board {
     };
 
     (score, state)
+  }
+
+  /// Return the zobrist hash of the board
+  pub fn zobrist_hash(&self) -> ZobristHash {
+    self.hash
   }
 }
 
