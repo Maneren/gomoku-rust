@@ -464,9 +464,9 @@ mod tests {
 
         let sequences = board.relevant_sequences(tile);
 
-        sequences
-          .iter()
-          .for_each(|sequence| assert!(sequence.iter().any(|index| *index == target)));
+        for sequence in sequences {
+          assert!(sequence.contains(&target), "{target} not in {sequence:?}");
+        }
       }
     }
   }

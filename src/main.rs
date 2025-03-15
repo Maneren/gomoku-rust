@@ -38,7 +38,7 @@ fn main() {
     match utils::parse_fen_string(&string) {
       Ok(s) => println!("{s}"),
       Err(err) => println!("{err}"),
-    };
+    }
 
     return;
   }

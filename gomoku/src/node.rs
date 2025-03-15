@@ -147,18 +147,16 @@ impl Node {
     self.first_score = score;
     self.first_score_sqrt = signed_sqrt(score);
 
-    self.state = {
-      match (new_win[self.player], new_win[opponent]) {
-        (true, true) => {
-          unreachable!(
-            "Invalid win state: {new_win:?} for child node {tile} of node {self:?} on \
-             board:\n{board}"
-          )
-        },
-        (true, _) => State::Win,
-        (_, true) => State::Lose,
-        _ => State::NotEnd,
-      }
+    self.state = match (new_win[self.player], new_win[opponent]) {
+      (true, true) => {
+        unreachable!(
+          "Invalid win state: {new_win:?} for child node {tile} of node {self:?} on \
+           board:\n{board}"
+        )
+      },
+      (true, _) => State::Win,
+      (_, true) => State::Lose,
+      _ => State::NotEnd,
     };
   }
 

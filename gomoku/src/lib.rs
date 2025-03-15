@@ -67,7 +67,7 @@ fn minimax(
 
   if nodes.is_empty() {
     return Err(GomokuError::NoEmptyTiles);
-  };
+  }
 
   let mut total_depth = 0;
   let mut stats = Stats::new();
