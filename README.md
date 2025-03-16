@@ -7,7 +7,7 @@ CLI and optional [GUI](https://github.com/Maneren/gomoku-gui-dioxus).
 
 ## Features
 
-- minimax search
+- minimax search with alpha-beta pruning
 - heavily parallelized using [`rayon`](https://crates.io/crates/rayon)
 - iterative deepening with time limit
 - 100% safe Rust

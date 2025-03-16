@@ -126,12 +126,21 @@ fn minimax(
       break;
     }
 
+    for node in &mut nodes {
+      if END.load(Ordering::Acquire) {
+        nodes = snapshot;
+        total_depth -= 1;
+        break;
+      }
+      node.alpha_beta_pruning(&mut stats, Score::MIN, Score::MAX);
+    }
+
     #[allow(
       clippy::cast_precision_loss,
       clippy::cast_possible_truncation,
       clippy::cast_sign_loss
     )]
-    let moves_count = (2.0 * (nodes.len() as f32).sqrt()) as usize;
+    let moves_count = (4.0 * (nodes.len() as f32).sqrt()) as usize;
     nodes.truncate(moves_count.max(3));
   }
 

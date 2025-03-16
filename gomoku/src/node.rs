@@ -69,6 +69,38 @@ impl Node {
     stats
   }
 
+  pub fn alpha_beta_pruning(&mut self, stats: &mut Stats, mut alpha: Score, beta: Score) -> Score {
+    debug_assert!(!self.state.is_end());
+    debug_assert!(self.depth >= 1);
+
+    if self.child_nodes.is_empty() {
+      return self.score;
+    }
+
+    let mut best = Score::MIN;
+
+    for i in 0..self.child_nodes.len() {
+      let child = &mut self.child_nodes[i];
+      debug_assert!(child.valid);
+
+      let score = -child.alpha_beta_pruning(stats, -beta, -alpha);
+      if score > best {
+        best = score;
+        if score > alpha {
+          alpha = score;
+        }
+      }
+
+      if score >= beta {
+        stats.prune_nodes((self.child_nodes.len() - i) as u32);
+        self.child_nodes.truncate(i + 1);
+        return score;
+      }
+    }
+
+    best
+  }
+
   fn evaluate_children(&mut self) {
     debug_assert!(
       !self.child_nodes.is_empty(),
@@ -85,11 +117,10 @@ impl Node {
 
     let limit = match self.depth {
       0 | 1 => unreachable!("depth 0 or 1 means the chilren are yet to be initialized"),
-      2 => (self.child_nodes.len() / 2).max(24),
-      3 => 16,
-      4..=7 => 8,
-      8 => 4,
-      9.. => 2,
+      2 | 3 => (self.child_nodes.len() / 2).max(24),
+      4..=7 => 16,
+      8 => 6,
+      9.. => 4,
     };
 
     self.child_nodes.truncate(limit);
