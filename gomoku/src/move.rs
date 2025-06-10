@@ -5,6 +5,7 @@ use super::{Score, TilePointer};
 /// A move in the game
 ///
 /// Consists of a target tile and a score, independent of the player
+#[derive(Copy, Clone)]
 pub struct Move {
   /// Target tile
   pub tile: TilePointer,

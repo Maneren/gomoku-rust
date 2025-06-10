@@ -1,11 +1,11 @@
 use std::fmt;
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum State {
-  NotEnd,
   Win,
-  Lose,
+  NotEnd,
   Draw,
+  Lose,
 }
 impl State {
   pub fn is_end(self) -> bool {

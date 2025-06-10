@@ -7,9 +7,11 @@
 #![allow(clippy::cast_sign_loss)]
 #![allow(clippy::similar_names)]
 #![allow(clippy::must_use_candidate)]
+#![allow(dead_code)]
 #![warn(missing_docs)]
 
 mod board;
+mod cache;
 mod error;
 mod r#move; // r# to allow reserved keyword as name
 mod node;
@@ -22,7 +24,7 @@ pub mod utils;
 use std::{
   sync::atomic::{AtomicBool, Ordering},
   thread,
-  time::{Duration, Instant},
+  time::Duration,
 };
 
 pub use board::{Board, Tile, TilePointer};
@@ -32,11 +34,8 @@ use jemallocator::Jemalloc;
 pub use player::Player;
 // r# to allow reserved keyword as name
 pub use r#move::Move;
-use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 pub use stats::Stats;
-use utils::{do_run, print_status};
-
-use crate::{node::Node, state::State};
 
 #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 #[global_allocator]
@@ -51,7 +50,7 @@ fn minimax(
   current_player: Player,
   time_limit: Duration,
 ) -> Result<(Move, Stats), GomokuError> {
-  let end_time = Instant::now() + time_limit;
+  // let end_time = Instant::now() + time_limit;
 
   END.store(false, Ordering::Relaxed);
 
@@ -60,99 +59,49 @@ fn minimax(
     END.store(true, Ordering::Release);
   });
 
-  let mut nodes = board
-    .pointers_to_empty_tiles()
-    .map(|tile| Node::new(tile, current_player, State::NotEnd))
-    .collect::<Vec<_>>();
-
-  if nodes.is_empty() {
+  let empty_tiles = board.pointers_to_empty_tiles().collect::<Vec<_>>();
+  if empty_tiles.is_empty() {
     return Err(GomokuError::NoEmptyTiles);
   }
 
-  let mut total_depth = 0;
-  let mut stats = Stats::new();
+  let mut depth = 2;
 
-  let (initial_score, initial_state) = board.evaluate_for(!current_player);
-  if initial_state.is_end() {
-    println!("The game already ended");
-    return Err(GomokuError::GameEnd);
-  }
+  let (best_move, stats) = loop {
+    let moves: Vec<_> = empty_tiles
+      .par_iter()
+      .map(|&tile| {
+        let mut board = board.clone();
+        let mut stats = Stats::new();
+        board.set_tile(tile, Some(current_player));
+        let (score, _) = node::alpha_beta_negamax(
+          &mut board,
+          !current_player,
+          depth,
+          -Score::MAX,
+          Score::MAX,
+          &mut stats,
+        );
+        board.set_tile(tile, None);
 
-  while do_run() {
-    total_depth += 1;
+        (Move { tile, score }, stats)
+      })
+      .collect();
 
-    print_status(
-      &format!(
-        "computing depth {total_depth} for {} nodes",
-        nodes.iter().map(Node::node_count).sum::<usize>()
-      ),
-      &end_time,
-    );
+    let &(best_move, _) = moves.iter().min_by_key(|(move_, _)| move_.score).unwrap();
 
-    let snapshot = nodes.clone();
+    let stats = moves.iter().map(|(_, stats)| *stats).sum::<Stats>();
 
-    stats += nodes
-      .par_iter_mut()
-      .map(|node| node.compute_next(&mut board.clone(), initial_score))
-      .sum();
-
-    if nodes.iter().any(|node| !node.valid) {
-      nodes = snapshot;
-      total_depth -= 1;
-      break;
+    if !utils::do_run() {
+      break (best_move, stats);
     }
 
-    nodes.sort_unstable_by(|a, b| b.cmp(a));
+    depth += 1;
+  };
 
-    if nodes.iter().any(|node| node.state.is_win()) {
-      println!("Winning move found!");
-      break;
-    }
+  println!("Searched to depth {depth:?}!");
+  println!("Best move sequence: {best_move:#?}");
 
-    if nodes.iter().all(|node| node.state.is_lose()) {
-      println!("All moves are losing :(");
-      break;
-    }
-
-    if nodes.iter().all(|node| node.state == State::Draw) {
-      println!("All moves are draws.");
-      break;
-    }
-
-    nodes.retain(|child| child.state == State::NotEnd);
-
-    if nodes.len() <= 1 {
-      println!("Only one viable move left");
-      break;
-    }
-
-    for node in &mut nodes {
-      if END.load(Ordering::Acquire) {
-        nodes = snapshot;
-        total_depth -= 1;
-        break;
-      }
-      node.alpha_beta_pruning(&mut stats, Score::MIN, Score::MAX);
-    }
-
-    #[allow(
-      clippy::cast_precision_loss,
-      clippy::cast_possible_truncation,
-      clippy::cast_sign_loss
-    )]
-    let moves_count = (4.0 * (nodes.len() as f32).sqrt()) as usize;
-    nodes.truncate(moves_count.max(3));
-  }
-
-  println!("Searched to depth {total_depth:?}!");
-
-  println!();
-
-  let best_node = nodes.iter().max().expect("we never remove all nodes");
-
-  println!("Best move sequence: {best_node:#?}");
-
-  Ok((best_node.to_move(), stats))
+  Ok((best_move, stats))
 }
 
 /// Sets the thread count for the rayon threadpool
