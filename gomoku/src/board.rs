@@ -10,7 +10,6 @@ use rand::Rng;
 use sequences::{generate, Sequence, Sequences};
 
 use super::{Player, Score};
-use crate::state::State;
 
 /// Represents a tile on the board.
 ///
@@ -211,13 +210,16 @@ impl Board {
 
   /// Calculate the square of the distance from the center of the board.
   pub fn squared_distance_from_center(&self, p: TilePointer) -> Score {
-    let center = f32::from(self.size - 1) / 2.0; // -1 to adjust for 0-indexing
+    // let center = f32::from(self.size - 1) / 2.0; // -1 to adjust for 0-indexing
+    //
+    // let x = f32::from(p.x);
+    // let y = f32::from(p.y);
+    // let dist = (x - center).powi(2) + (y - center).powi(2);
+    //
+    // dist.round() as Score
+    let center = (self.size as Score - 1) / 2;
 
-    let x = f32::from(p.x);
-    let y = f32::from(p.y);
-    let dist = (x - center).powi(2) + (y - center).powi(2);
-
-    dist.round() as Score
+    (p.x as Score - center).pow(2) + (p.y as Score - center).pow(2)
   }
 
   /// Convert a raw index to `TilePointer`.
@@ -297,6 +299,19 @@ impl Board {
     let mut open_ends = 0; // open ends of consecutive tiles
     let mut has_hole = false; // is there a hole in the consecutive tiles
 
+    let finalize_shape = |eval: &mut Eval, current, consecutive, open_ends, has_hole| {
+      if consecutive > 0 {
+        let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
+        eval.score[current] += shape_score;
+        eval.win[current] |= is_win_shape;
+
+        // Early exit if we found a winning shape
+        is_win_shape
+      } else {
+        false
+      }
+    };
+
     for (i, &tile_idx) in sequence.iter().enumerate() {
       if let Some(player) = self.data[tile_idx] {
         if player == current {
@@ -306,9 +321,9 @@ impl Board {
 
         // opponent's tile
         if consecutive > 0 {
-          let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
-          eval.score[current] += shape_score;
-          eval.win[current] |= is_win_shape;
+          if finalize_shape(&mut eval, current, consecutive, open_ends, has_hole) {
+            return eval; // Early exit on winning shape
+          }
 
           open_ends = 0;
           has_hole = false;
@@ -337,9 +352,9 @@ impl Board {
 
         open_ends += 1;
 
-        let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
-        eval.score[current] += shape_score;
-        eval.win[current] |= is_win_shape;
+        if finalize_shape(&mut eval, current, consecutive, open_ends, has_hole) {
+          return eval; // Early exit on winning shape
+        }
 
         consecutive = 0;
         open_ends = 1;
@@ -348,48 +363,39 @@ impl Board {
     }
 
     // If there are consecutive tiles at the end of the sequence
-    if consecutive > 0 {
-      let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
-      eval.score[current] += shape_score;
-      eval.win[current] |= is_win_shape;
+    if consecutive > 0 && finalize_shape(&mut eval, current, consecutive, open_ends, has_hole) {
+      return eval; // Early exit on winning shape
     }
 
     eval
+  }
+
+  fn evaluate_sequences<'a>(&self, sequences: impl IntoIterator<Item = &'a Sequence>) -> Eval {
+    sequences
+      .into_iter()
+      .map(|seq| self.evaluate_sequence(seq))
+      .sum()
   }
 
   /// Evaluate sequences relevat to given tile
   ///
   /// Relevant means the column, row and both diagonals that include the tile.
   pub fn evaluate_sequences_relevant_to(&self, tile: TilePointer) -> Eval {
-    self
-      .relevant_sequences(tile)
-      .into_iter()
-      .map(|seq| self.evaluate_sequence(seq))
-      .sum()
+    self.evaluate_sequences(self.relevant_sequences(tile))
   }
 
   /// Evaluate the whole board and return summary for both players
   pub fn evaluate(&self) -> Eval {
-    self
-      .sequences()
-      .iter()
-      .map(|seq| self.evaluate_sequence(seq))
-      .sum()
+    self.evaluate_sequences(self.sequences())
   }
 
   /// Evaluate the whole board and return result for target player
-  pub fn evaluate_for(&self, target: Player) -> (Score, State) {
-    let Eval { score, win } = self.evaluate();
+  pub fn evaluate_for(&self, target: Player) -> Score {
+    let Eval { score, .. } = self.evaluate();
 
     let score = score[target] - score[!target];
 
-    let state = if win[target] {
-      State::Win
-    } else {
-      State::NotEnd
-    };
-
-    (score, state)
+    score
   }
 
   /// Return the zobrist hash of the board

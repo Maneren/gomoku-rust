@@ -8,7 +8,7 @@
 #![allow(clippy::similar_names)]
 #![allow(clippy::must_use_candidate)]
 #![allow(dead_code)]
-#![warn(missing_docs)]
+#![allow(missing_docs)]
 
 mod board;
 mod cache;
@@ -34,7 +34,7 @@ use jemallocator::Jemalloc;
 pub use player::Player;
 // r# to allow reserved keyword as name
 pub use r#move::Move;
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 pub use stats::Stats;
 
 #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
@@ -65,21 +65,24 @@ fn minimax(
   }
 
   let mut depth = 2;
+  let cache = cache::Cache::with_capacity(16 * 1024 * 1024);
 
   let (best_move, stats) = loop {
+    println!("Depth: {depth:?}");
     let moves: Vec<_> = empty_tiles
       .par_iter()
       .map(|&tile| {
         let mut board = board.clone();
         let mut stats = Stats::new();
         board.set_tile(tile, Some(current_player));
-        let (score, _) = node::alpha_beta_negamax(
+        let score = node::alpha_beta_negamax(
           &mut board,
           !current_player,
           depth,
           -Score::MAX,
           Score::MAX,
           &mut stats,
+          &cache,
         );
         board.set_tile(tile, None);
 
@@ -99,7 +102,9 @@ fn minimax(
   };
 
   println!("Searched to depth {depth:?}!");
+  println!("Stats: {stats:#?}");
   println!("Best move sequence: {best_move:#?}");
+  println!("Cache size: {}", cache.size());
 
   Ok((best_move, stats))
 }

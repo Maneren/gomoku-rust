@@ -17,6 +17,9 @@ pub struct Stats {
   pub nodes_evaluated: u32,
   /// The number of nodes pruned by alpha-beta pruning
   pub nodes_pruned: u64,
+
+  pub cache_hits: u32,
+  pub cache_misses: u32,
 }
 impl Stats {
   /// Create a new stats initialized to 0
@@ -24,6 +27,8 @@ impl Stats {
     Stats {
       nodes_evaluated: 0,
       nodes_pruned: 0,
+      cache_hits: 0,
+      cache_misses: 0,
     }
   }
 
@@ -35,6 +40,14 @@ impl Stats {
   /// Increase the number of pruned nodes by `count`
   pub fn prune_nodes(&mut self, count: u64) {
     self.nodes_pruned += count;
+  }
+
+  pub fn cache_hit(&mut self) {
+    self.cache_hits += 1;
+  }
+
+  pub fn cache_miss(&mut self) {
+    self.cache_misses += 1;
   }
 }
 
@@ -63,6 +76,8 @@ impl Add for Stats {
     Self {
       nodes_evaluated: self.nodes_evaluated + other.nodes_evaluated,
       nodes_pruned: self.nodes_pruned + other.nodes_pruned,
+      cache_hits: self.cache_hits + other.cache_hits,
+      cache_misses: self.cache_misses + other.cache_misses,
     }
   }
 }
