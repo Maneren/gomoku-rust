@@ -393,9 +393,7 @@ impl Board {
   pub fn evaluate_for(&self, target: Player) -> Score {
     let Eval { score, .. } = self.evaluate();
 
-    let score = score[target] - score[!target];
-
-    score
+    score[target] - score[!target]
   }
 
   /// Return the zobrist hash of the board

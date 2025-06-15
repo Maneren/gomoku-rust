@@ -13,8 +13,8 @@ debug = true
 
 [profile.release]
 strip = true
-lto = true
-codegen-units = 1
+# lto = true
+# codegen-units = 1
 
 [dependencies]
 clap = "3.2.25"

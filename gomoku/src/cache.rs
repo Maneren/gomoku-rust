@@ -1,6 +1,6 @@
 use std::sync::atomic::{self, AtomicU64};
 
-use crate::{board::ZobristHash, Board, Score};
+use crate::{alpha_beta::AlphaBeta, board::ZobristHash, Board, Score};
 
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 pub struct CacheEntry {
@@ -48,6 +48,16 @@ impl CacheEntry {
       },
       checksum as u32,
     ))
+  }
+
+  pub fn is_useful(self, alphabeta: AlphaBeta) -> bool {
+    let Self {
+      score, node_type, ..
+    } = self;
+
+    (matches!(node_type, NodeType::Exact)
+      || matches!(node_type, NodeType::LowerBound if score >= alphabeta.beta)
+      || matches!(node_type, NodeType::UpperBound if score <= alphabeta.alpha))
   }
 }
 

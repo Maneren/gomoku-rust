@@ -10,6 +10,7 @@
 #![allow(dead_code)]
 #![allow(missing_docs)]
 
+mod alpha_beta;
 mod board;
 mod cache;
 mod error;
@@ -27,7 +28,9 @@ use std::{
   time::Duration,
 };
 
+use alpha_beta::AtomicAlphaBeta;
 pub use board::{Board, Tile, TilePointer};
+use cache::Cache;
 use error::GomokuError;
 #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 use jemallocator::Jemalloc;
@@ -59,43 +62,85 @@ fn minimax(
     END.store(true, Ordering::Release);
   });
 
-  let empty_tiles = board.pointers_to_empty_tiles().collect::<Vec<_>>();
+  let mut empty_tiles = board.pointers_to_empty_tiles().collect::<Vec<_>>();
   if empty_tiles.is_empty() {
     return Err(GomokuError::NoEmptyTiles);
   }
 
   let mut depth = 2;
-  let cache = cache::Cache::with_capacity(16 * 1024 * 1024);
+  let cache = Cache::with_capacity(16 * 1024 * 1024);
 
-  let (best_move, stats) = loop {
+  let (best_move, stats, _) = loop {
+    let alphabeta = AtomicAlphaBeta::default();
+
+    let abort = AtomicBool::new(false);
+
     println!("Depth: {depth:?}");
-    let moves: Vec<_> = empty_tiles
+    let mut moves: Vec<_> = empty_tiles
       .par_iter()
       .map(|&tile| {
+        if abort.load(Ordering::Relaxed) {
+          return (Move { tile, score: 0 }, Stats::new(), None);
+        }
+
         let mut board = board.clone();
         let mut stats = Stats::new();
         board.set_tile(tile, Some(current_player));
-        let score = node::alpha_beta_negamax(
+        let (score, move_seq) = node::alpha_beta_negamax(
           &mut board,
           !current_player,
+          tile,
           depth,
-          -Score::MAX,
-          Score::MAX,
+          -alphabeta.load(Ordering::Relaxed),
           &mut stats,
           &cache,
         );
         board.set_tile(tile, None);
+        let score = -score;
 
-        (Move { tile, score }, stats)
+        // loop {
+        //   let alpha_value = alpha.load(Ordering::Relaxed);
+        //   if score <= alpha_value {
+        //     break;
+        //   }
+        //
+        //   if alpha
+        //     .compare_exchange(alpha_value, score, Ordering::Relaxed, Ordering::Relaxed)
+        //     .is_ok()
+        //   {
+        //     break;
+        //   }
+        // }
+
+        let beta_value = alphabeta.load(Ordering::Relaxed).beta;
+        if score >= beta_value {
+          println!("Top-level beta cutoff!");
+        }
+
+        (Move { tile, score }, stats, Some(move_seq))
       })
       .collect();
 
-    let &(best_move, _) = moves.iter().min_by_key(|(move_, _)| move_.score).unwrap();
+    moves.sort_by_key(|(move_, _, _)| -move_.score);
 
-    let stats = moves.iter().map(|(_, stats)| *stats).sum::<Stats>();
+    // println!(
+    //   "Sorted moves: {:#?}",
+    //   moves.iter().map(|(move_, _, _)| move_).collect::<Vec<_>>()
+    // );
+
+    empty_tiles = moves
+      .iter()
+      .map(|(move_, _, _)| move_.tile)
+      .collect::<Vec<_>>();
+
+    let (best_move, _, move_seq) = moves.first().cloned().unwrap();
+
+    let stats = moves.iter().map(|(_, stats, _)| *stats).sum::<Stats>();
+
+    println!("Best move sequence: {move_seq:#?}");
 
     if !utils::do_run() {
-      break (best_move, stats);
+      break (best_move, stats, move_seq);
     }
 
     depth += 1;
@@ -103,7 +148,6 @@ fn minimax(
 
   println!("Searched to depth {depth:?}!");
   println!("Stats: {stats:#?}");
-  println!("Best move sequence: {best_move:#?}");
   println!("Cache size: {}", cache.size());
 
   Ok((best_move, stats))

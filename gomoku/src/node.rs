@@ -1,76 +1,97 @@
-use crate::cache::{self, Cache, CacheEntry, NodeType};
+use std::fmt;
+
+use crate::{
+  alpha_beta::AlphaBeta,
+  cache::{Cache, CacheEntry, NodeType},
+  state::State,
+};
 
 use super::{
   board::{Board, TilePointer},
   player::Player,
-  state::State,
   stats::Stats,
   Score,
 };
 
+#[derive(Clone)]
+pub struct MoveSequence {
+  pub tile: TilePointer,
+  pub score: Score,
+  pub player: Player,
+  pub state: State,
+  pub next: Option<Box<Self>>,
+}
+
+impl fmt::Debug for MoveSequence {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    if let Some(child) = &self.next {
+      write!(
+        f,
+        "({:?}, {}, {}) => {child:#?}",
+        self.tile, self.score, self.player
+      )
+    } else if self.state.is_end() {
+      write!(
+        f,
+        "({:?}, {}, {}, {})",
+        self.tile, self.score, self.player, self.state
+      )
+    } else {
+      write!(f, "({:?}, {}, {})", self.tile, self.score, self.player)
+    }
+  }
+}
+
 pub fn alpha_beta_negamax(
   board: &mut Board,
   player: Player,
+  tile: TilePointer,
   depth: u8,
-  mut alpha: Score,
-  beta: Score,
+  mut alphabeta: AlphaBeta,
   stats: &mut Stats,
   cache: &Cache,
-) -> Score {
-  let cache_entry = cache.get(board);
-
+) -> (Score, MoveSequence) {
   if depth == 0 {
-    if let Some(CacheEntry {
-      score, node_type, ..
-    }) = cache_entry
-    {
-      if (matches!(node_type, NodeType::Exact)
-        || matches!(node_type, NodeType::LowerBound if score >= beta)
-        || matches!(node_type, NodeType::UpperBound if score <= alpha))
-      {
-        stats.cache_hit();
-        stats.prune_nodes((32u64).pow(depth as u32));
-        return score;
-      }
-    }
-
-    stats.evaluate_node();
-    let score = board.evaluate_for(player);
-
-    stats.cache_miss();
-    cache.insert(
-      board,
-      CacheEntry {
-        score,
-        node_type: NodeType::Exact,
-        depth,
-      },
-    );
-
-    return score;
+    return static_eval(board, player, tile, depth, alphabeta, stats, cache);
   }
 
-  if let Some(CacheEntry {
-    score,
-    node_type,
-    depth: cached_depth,
-  }) = cache_entry
+  if let Some(
+    entry @ CacheEntry {
+      score,
+      depth: cached_depth,
+      ..
+    },
+  ) = cache.get(board)
   {
-    if cached_depth >= depth
-      && (matches!(node_type, NodeType::Exact)
-        || matches!(node_type, NodeType::LowerBound if score >= beta)
-        || matches!(node_type, NodeType::UpperBound if score <= alpha))
-    {
+    if cached_depth >= depth && entry.is_useful(alphabeta) {
       stats.cache_hit();
       stats.prune_nodes((32u64).pow(depth as u32));
-      return score;
+      return (
+        score,
+        MoveSequence {
+          tile,
+          score,
+          player,
+          state: State::NotEnd,
+          next: None,
+        },
+      );
     }
   }
 
   let shallow_eval = board.pointers_to_empty_tiles().collect::<Vec<_>>();
 
   if shallow_eval.is_empty() {
-    return alpha;
+    return (
+      alphabeta.alpha,
+      MoveSequence {
+        tile,
+        score: alphabeta.alpha,
+        player,
+        state: State::Draw,
+        next: None,
+      },
+    );
   }
 
   let mut with_score = Vec::with_capacity(shallow_eval.len());
@@ -83,19 +104,29 @@ pub fn alpha_beta_negamax(
   with_score.sort_unstable_by_key(|&(score, _)| -score);
 
   let mut best_score = Score::MIN;
+  let mut best_move_seq = None;
 
   for &(_, tile) in &with_score[..48] {
     board.set_tile(tile, Some(player));
-    let score = -alpha_beta_negamax(board, !player, depth - 1, -beta, -alpha, stats, cache);
+    let (score, move_seq) =
+      alpha_beta_negamax(board, !player, tile, depth - 1, -alphabeta, stats, cache);
     board.set_tile(tile, None);
+    let score = -score;
 
     if score > best_score {
       best_score = score;
+      best_move_seq = Some(MoveSequence {
+        tile,
+        score,
+        player,
+        state: State::NotEnd,
+        next: Some(Box::new(move_seq)),
+      });
     }
 
-    alpha = alpha.max(best_score);
+    alphabeta.update(score);
 
-    if score >= beta {
+    if alphabeta.should_prune(score) {
       stats.prune_nodes((32u64).pow(depth as u32));
       cache.insert(
         board,
@@ -119,10 +150,60 @@ pub fn alpha_beta_negamax(
     },
   );
 
-  best_score
+  (best_score, best_move_seq.unwrap())
 }
 
-fn heuristic_diff(board: &mut Board, player: Player, tile: TilePointer) -> Score {
+fn static_eval(
+  board: &mut Board,
+  player: Player,
+  tile: TilePointer,
+  depth: u8,
+  alphabeta: AlphaBeta,
+  stats: &mut Stats,
+  cache: &Cache,
+) -> (i32, MoveSequence) {
+  if let Some(entry @ CacheEntry { score, .. }) = cache.get(board) {
+    if entry.is_useful(alphabeta) {
+      stats.cache_hit();
+      stats.prune_nodes((32u64).pow(depth as u32));
+      return (
+        score,
+        MoveSequence {
+          tile,
+          score,
+          player,
+          state: State::NotEnd,
+          next: None,
+        },
+      );
+    }
+  }
+
+  stats.evaluate_node();
+  let score = board.evaluate_for(player);
+  stats.cache_miss();
+  cache.insert(
+    board,
+    CacheEntry {
+      score,
+      node_type: NodeType::Exact,
+      depth,
+    },
+  );
+
+  (
+    score,
+    MoveSequence {
+      tile,
+      score,
+      player,
+      state: State::NotEnd,
+      next: None,
+    },
+  )
+}
+
+pub fn heuristic_diff(board: &mut Board, player: Player, tile: TilePointer) -> Score {
   let before = board.evaluate_sequences_relevant_to(tile);
   board.set_tile(tile, Some(player));
   let after = board.evaluate_sequences_relevant_to(tile);
