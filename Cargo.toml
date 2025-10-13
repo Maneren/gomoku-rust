@@ -20,4 +20,4 @@ codegen-units = 1
 clap = "3.2.25"
 num_cpus = "1.16.0"
 text_io = "0.1.12"
-gomoku_lib = { path = "./gomoku", features = ["jemalloc", "fen"] }
+gomoku_lib = { path = "./gomoku", features = ["mimalloc", "fen"] }

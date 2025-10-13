@@ -8,12 +8,10 @@ edition = "2021"
 crate-type = ["lib"]
 
 [features]
-jemalloc = ["jemallocator"]
+mimalloc = ["dep:mimalloc"]
 fen = ["regex"]
 
 [dependencies]
+mimalloc = { version = "0.1.48", optional = true }
 regex = { version = "1.10.5", optional = true }
 rayon = "1.10.0"
-
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-jemallocator = { version = "0.5.4", optional = true }

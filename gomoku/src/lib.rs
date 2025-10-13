@@ -27,8 +27,8 @@ use std::{
 
 pub use board::{Board, Tile, TilePointer};
 use error::GomokuError;
-#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
-use jemallocator::Jemalloc;
+#[cfg(feature = "mimalloc")]
+use mimalloc::MiMalloc;
 pub use player::Player;
 // r# to allow reserved keyword as name
 pub use r#move::Move;
@@ -38,9 +38,9 @@ use utils::{do_run, print_status};
 
 use crate::{node::Node, state::State};
 
-#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
+#[cfg(feature = "mimalloc")]
 #[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
+static GLOBAL: MiMalloc = MiMalloc;
 
 static END: AtomicBool = AtomicBool::new(false);
 
