@@ -29,6 +29,18 @@ impl Node {
   /// (unlike `Score::MIN`, whose negation overflows).
   pub const INF: Score = 2_000_000_000;
 
+  /// Discounted value of a child reply from this node's perspective.
+  ///
+  /// This is the decaying-sqrt value function preserved from the original
+  /// engine: `first_sqrt` is the static eval of the move that created this
+  /// node (with sqrt decay), `child_score` is the opponent's best reply.
+  /// The `/ 2` is the depth discount — deeper lines count at half weight —
+  /// which keeps deep speculative wins from dominating shallow tactics.
+  #[inline]
+  fn discounted_value(self_first_sqrt: Score, child_score: Score) -> Score {
+    self_first_sqrt - child_score / 2
+  }
+
   pub fn compute_next(
     &mut self,
     board: &mut Board,
@@ -90,25 +102,30 @@ impl Node {
         (child.score, child.state)
       };
 
+      // Map child score into this node's discounted value space so cutoff
+      // accounting matches the final `first_sqrt - best/2` blend. The prune
+      // is still heuristic (value function is not pure negamax) but the
+      // window now refers to the same discounted scale as `evaluate_children`.
+      let discounted = Self::discounted_value(self.first_score_sqrt, child_score);
+
       // A winning reply for the opponent refutes this node outright; remaining
       // siblings cannot change the losing outcome.
       if child_state.is_win() {
         stats.prune_nodes((self.child_nodes.len() - i - 1) as u32);
         self.child_nodes.truncate(i + 1);
-        self.score = -child_score;
+        self.score = discounted;
         self.state = State::Lose;
         return stats;
       }
 
-      let score = -child_score;
-      if score > best {
-        best = score;
-        if score > alpha {
-          alpha = score;
+      if discounted > best {
+        best = discounted;
+        if discounted > alpha {
+          alpha = discounted;
         }
       }
 
-      if score >= beta {
+      if discounted >= beta {
         stats.prune_nodes((self.child_nodes.len() - i - 1) as u32);
         self.child_nodes.truncate(i + 1);
         self.score = best;
@@ -152,7 +169,7 @@ impl Node {
       // negative impact on performance, so benchmarks have to be checked when changing it
       .expect("we already checked that the list is not empty");
 
-    self.score = self.first_score_sqrt - best.score / 2;
+    self.score = Self::discounted_value(self.first_score_sqrt, best.score);
     self.state = best.state.inversed();
 
     if self.state != State::NotEnd {
