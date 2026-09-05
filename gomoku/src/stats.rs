@@ -17,6 +17,8 @@ pub struct Stats {
   pub nodes_evaluated: u32,
   /// The number of nodes pruned by alpha-beta pruning
   pub nodes_pruned: u32,
+  /// The number of transposition-table hits
+  pub tt_hits: u32,
 }
 impl Stats {
   /// Create a new stats initialized to 0
@@ -24,6 +26,7 @@ impl Stats {
     Stats {
       nodes_evaluated: 0,
       nodes_pruned: 0,
+      tt_hits: 0,
     }
   }
 
@@ -35,6 +38,11 @@ impl Stats {
   /// Increase the number of pruned nodes by `count`
   pub fn prune_nodes(&mut self, count: u32) {
     self.nodes_pruned += count;
+  }
+
+  /// Record a transposition-table hit.
+  pub fn tt_hit(&mut self) {
+    self.tt_hits += 1;
   }
 }
 
@@ -48,10 +56,11 @@ impl fmt::Display for Stats {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(
       f,
-      "Nodes evaluated: {} ({}), Nodes pruned: {}",
+      "Nodes evaluated: {} ({}), Nodes pruned: {}, TT hits: {}",
       self.nodes_evaluated,
       format_number(self.nodes_evaluated as f32),
       self.nodes_pruned,
+      self.tt_hits,
     )
   }
 }
@@ -62,6 +71,7 @@ impl Add for Stats {
     Self {
       nodes_evaluated: self.nodes_evaluated + other.nodes_evaluated,
       nodes_pruned: self.nodes_pruned + other.nodes_pruned,
+      tt_hits: self.tt_hits + other.tt_hits,
     }
   }
 }

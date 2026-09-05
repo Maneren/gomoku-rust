@@ -12,6 +12,7 @@ mimalloc = ["dep:mimalloc"]
 fen = ["regex"]
 
 [dependencies]
+dashmap = "6.2.1"
 mimalloc = { version = "0.1.52", optional = true }
 regex = { version = "1.13.1", optional = true }
 rayon = "1.12.0"

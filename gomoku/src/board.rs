@@ -76,6 +76,7 @@ fn initialize_sequences(board_size: u8) {
 pub struct Board {
   size: u8,
   data: Box<[Tile]>,
+  hash: u64,
 }
 
 impl Board {
@@ -101,13 +102,26 @@ impl Board {
     }
 
     let board_size = data.len() as u8;
-    let flat_data = data.into_iter().flatten().collect();
+    let flat_data: Box<[Tile]> = data.into_iter().flatten().collect();
 
     initialize_sequences(board_size);
+
+    let hash = {
+      let mut h: u64 = 0;
+      for (idx, tile) in flat_data.iter().enumerate() {
+        if let Some(player) = tile {
+          let x = (idx % board_size as usize) as u8;
+          let y = (idx / board_size as usize) as u8;
+          h ^= crate::transposition::zobrist_key(x, y, *player);
+        }
+      }
+      h
+    };
 
     Ok(Board {
       data: flat_data,
       size: board_size,
+      hash,
     })
   }
 
@@ -117,7 +131,11 @@ impl Board {
 
     initialize_sequences(size);
 
-    Board { size, data }
+    Board {
+      size,
+      data,
+      hash: 0,
+    }
   }
 
   /// Get a reference to the sequences table.
@@ -223,7 +241,24 @@ impl Board {
       "attempted to overwrite tile {ptr} ({tile:?}) with value {value:?} at board \n{self}"
     );
 
+    // Incremental Zobrist update.
+    if let Some(player) = value {
+      self.hash ^= crate::transposition::zobrist_key(ptr.x, ptr.y, player);
+    } else if let Some(player) = tile {
+      self.hash ^= crate::transposition::zobrist_key(ptr.x, ptr.y, *player);
+    }
+
     self.data[index] = value;
+  }
+
+  /// Current Zobrist hash of the board stones (without side to move).
+  pub fn hash(&self) -> u64 {
+    self.hash
+  }
+
+  /// Combined hash including side to move, for TT probing.
+  pub fn hash_with_player(&self, player: Player) -> u64 {
+    self.hash ^ crate::transposition::zobrist_side(player)
   }
 
   /// Get the size of the board.

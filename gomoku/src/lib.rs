@@ -16,6 +16,8 @@ mod node;
 mod player;
 mod state;
 mod stats;
+/// Transposition table with Zobrist hashing
+pub mod transposition;
 /// Utility functions for creating a frontend
 pub mod utils;
 
@@ -36,7 +38,11 @@ use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 pub use stats::Stats;
 use utils::{do_run, print_status};
 
-use crate::{node::Node, state::State};
+use crate::{
+  node::Node,
+  state::State,
+  transposition::{Bound, TTEntry, TranspositionTable},
+};
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
@@ -71,6 +77,7 @@ fn minimax(
 
   let mut total_depth = 0;
   let mut stats = Stats::new();
+  let tt = TranspositionTable::new();
 
   let (initial_score, initial_state) = board.evaluate_for(!current_player);
   if initial_state.is_end() {
@@ -116,7 +123,7 @@ fn minimax(
 
     let mut iter_stats: Stats = nodes
       .par_iter_mut()
-      .map(|node| node.compute_next(&mut board.clone(), initial_score, alpha, beta))
+      .map(|node| node.compute_next(&mut board.clone(), initial_score, alpha, beta, &tt))
       .sum();
 
     // PVS-style null-window for root moves beyond the PV: the PV (best
@@ -154,7 +161,15 @@ fn minimax(
           nodes = snapshot;
           iter_stats = nodes
             .par_iter_mut()
-            .map(|node| node.compute_next(&mut board.clone(), initial_score, -Node::INF, Node::INF))
+            .map(|node| {
+              node.compute_next(
+                &mut board.clone(),
+                initial_score,
+                -Node::INF,
+                Node::INF,
+                &tt,
+              )
+            })
             .sum();
           stats += iter_stats;
           if nodes.iter().any(|node| !node.valid) {
@@ -208,7 +223,10 @@ fn minimax(
     nodes.truncate(moves_count.max(3));
   }
 
-  println!("Searched to depth {total_depth:?}!");
+  println!(
+    "Searched to depth {total_depth:?}! (TT entries: {})",
+    tt.len()
+  );
 
   println!();
 

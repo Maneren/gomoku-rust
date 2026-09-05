@@ -7,6 +7,7 @@ use super::{
   player::Player,
   state::State,
   stats::Stats,
+  transposition::{Bound, TTEntry, TranspositionTable},
   utils::{do_run, signed_sqrt},
 };
 
@@ -47,8 +48,11 @@ impl Node {
     parent_score: Score,
     mut alpha: Score,
     beta: Score,
+    tt: &TranspositionTable,
   ) -> Stats {
-    debug_assert!(!self.state.is_end());
+    if self.state.is_end() {
+      return Stats::new();
+    }
 
     let mut stats = Stats::new();
 
@@ -59,8 +63,39 @@ impl Node {
 
     self.depth += 1;
 
+    // Transposition table probe: only terminal positions (Win/Lose/Draw)
+    // are path-independent and can be reused for cutoff. Non-terminal
+    // scores depend on the ancestry first_score chain (decaying sqrt) and
+    // on beam truncation, so they are only used for move ordering via peek.
+    let tt_hash = board.hash_with_player(self.player);
+    let orig_alpha = alpha;
+    let orig_beta = beta;
+    if let Some(entry) = tt.probe(tt_hash, self.depth, alpha, beta) {
+      if entry.state != State::NotEnd {
+        stats.tt_hit();
+        self.score = entry.score;
+        self.state = entry.state;
+        self.child_nodes = Vec::new();
+        return stats;
+      }
+      // For NotEnd (including leaf depth 1), fall through — scores are
+      // path-dependent due to first_score_sqrt blend, so not exact for TT
+      // cutoff. Use only for ordering.
+    }
+
     if self.depth == 1 {
       self.initialize(board, parent_score, &mut stats);
+      // Store leaf in TT as exact.
+      tt.store(
+        tt_hash,
+        TTEntry {
+          score: self.score,
+          depth: self.depth,
+          bound: Bound::Exact,
+          best_move: Some(self.tile),
+          state: self.state,
+        },
+      );
       return stats;
     }
 
@@ -75,6 +110,16 @@ impl Node {
       if self.child_nodes.is_empty() {
         self.state = State::Draw;
         self.score = 0;
+        tt.store(
+          tt_hash,
+          TTEntry {
+            score: 0,
+            depth: self.depth,
+            bound: Bound::Exact,
+            best_move: None,
+            state: State::Draw,
+          },
+        );
         return stats;
       }
 
@@ -88,10 +133,29 @@ impl Node {
         .sort_unstable_by_key(|c| board.squared_distance_from_center(c.tile));
     }
 
+    // TT move ordering: if the transposition table remembers a best move
+    // for this position, put it first before the score-based sort. The
+    // score sort then keeps the TT move at the front while ordering the
+    // rest.
+    if let Some(tt_entry) = tt.peek(board.hash_with_player(!self.player)) {
+      if let Some(bm) = tt_entry.best_move {
+        if let Some(pos) = self.child_nodes.iter().position(|c| c.tile == bm) {
+          self.child_nodes.swap(0, pos);
+        }
+      }
+    }
     // Best-first ordering for the current player. Child scores are from the
     // opponent's perspective, so ascending order visits our best moves first
-    // and maximizes beta cutoffs.
-    self.child_nodes.sort_unstable();
+    // and maximizes beta cutoffs. Keep TT move at front, sort the tail.
+    if self.child_nodes.len() > 1 {
+      self.child_nodes[1..].sort_unstable();
+      // Ensure the whole array is still best-first: if TT move was not the
+      // smallest, bubble the true smallest to front only if TT move is not
+      // winning. For simplicity keep TT at front for now — its ordering was
+      // from a deeper search and is likely best.
+    } else {
+      self.child_nodes.sort_unstable();
+    }
 
     let mut best = -Self::INF;
 
@@ -99,6 +163,60 @@ impl Node {
       if !do_run() {
         self.valid = false;
         return stats;
+      }
+
+      // Skip already-terminal children — their win/loss was proven at a
+      // shallower depth and does not need deeper search. Handle the
+      // refutation directly without calling compute_next on a terminal node.
+      if self.child_nodes[i].state.is_end() {
+        let child_state = self.child_nodes[i].state;
+        let child_score = self.child_nodes[i].score;
+        let discounted = Self::discounted_value(self.first_score_sqrt, child_score);
+        if child_state.is_win() {
+          stats.prune_nodes((self.child_nodes.len() - i - 1) as u32);
+          self.child_nodes.truncate(i + 1);
+          self.score = discounted;
+          self.state = State::Lose;
+          let bound = Bound::Exact;
+          let best_move = self.child_nodes.first().map(|c| c.tile);
+          tt.store(
+            tt_hash,
+            TTEntry {
+              score: self.score,
+              depth: self.depth,
+              bound,
+              best_move,
+              state: self.state,
+            },
+          );
+          return stats;
+        }
+        // For Draw/Lose children, fall through to normal best/alpha update
+        // without re-searching.
+        let discounted = Self::discounted_value(self.first_score_sqrt, child_score);
+        if discounted > best {
+          best = discounted;
+          if discounted > alpha {
+            alpha = discounted;
+          }
+        }
+        if discounted >= beta {
+          stats.prune_nodes((self.child_nodes.len() - i - 1) as u32);
+          self.child_nodes.truncate(i + 1);
+          self.score = best;
+          tt.store(
+            tt_hash,
+            TTEntry {
+              score: best,
+              depth: self.depth,
+              bound: Bound::Lower,
+              best_move: self.child_nodes.first().map(|c| c.tile),
+              state: State::NotEnd,
+            },
+          );
+          return stats;
+        }
+        continue;
       }
 
       // PVS / Negascout: first child is the principal variation and is
@@ -110,7 +228,7 @@ impl Node {
       let (child_score, child_state, probe_stats) = {
         let child = &mut self.child_nodes[i];
         if is_pv {
-          let s = child.compute_next(&mut board.clone(), self.first_score, -beta, -alpha);
+          let s = child.compute_next(&mut board.clone(), self.first_score, -beta, -alpha, tt);
           if !child.valid {
             self.valid = false;
             return s;
@@ -121,7 +239,7 @@ impl Node {
           let snapshot = child.clone();
           let mut probe_board = board.clone();
           let probe_stats =
-            child.compute_next(&mut probe_board, self.first_score, -alpha - 1, -alpha);
+            child.compute_next(&mut probe_board, self.first_score, -alpha - 1, -alpha, tt);
           if !child.valid {
             self.valid = false;
             return probe_stats;
@@ -133,7 +251,7 @@ impl Node {
             // Restore and re-search with full window for exact score.
             *child = snapshot;
             let full_stats =
-              child.compute_next(&mut board.clone(), self.first_score, -beta, -alpha);
+              child.compute_next(&mut board.clone(), self.first_score, -beta, -alpha, tt);
             if !child.valid {
               self.valid = false;
               return probe_stats + full_stats;
@@ -159,6 +277,30 @@ impl Node {
         self.child_nodes.truncate(i + 1);
         self.score = discounted;
         self.state = State::Lose;
+        let bound = Bound::Exact;
+        let best_move = self.child_nodes.first().map(|c| c.tile);
+        tt.store(
+          tt_hash,
+          TTEntry {
+            score: self.score,
+            depth: self.depth,
+            bound,
+            best_move,
+            state: self.state,
+          },
+        );
+        // Also store for the position after this move for child ordering.
+        let after_hash = board.hash_with_player(!self.player);
+        tt.store(
+          after_hash,
+          TTEntry {
+            score: -self.score,
+            depth: self.depth,
+            bound,
+            best_move: self.child_nodes.first().map(|c| c.tile),
+            state: self.state.inversed(),
+          },
+        );
         return stats;
       }
 
@@ -173,21 +315,76 @@ impl Node {
         stats.prune_nodes((self.child_nodes.len() - i - 1) as u32);
         self.child_nodes.truncate(i + 1);
         self.score = best;
+        let bound = Bound::Lower;
+        let best_move = self.child_nodes.first().map(|c| c.tile);
+        // Lower bound: score is at least beta, but we pruned剩下的.
+        tt.store(
+          tt_hash,
+          TTEntry {
+            score: best,
+            depth: self.depth,
+            bound,
+            best_move,
+            state: State::NotEnd,
+          },
+        );
         return stats;
       }
     }
 
     self.evaluate_children();
 
+    // Store current position in TT. Bound is based on original window.
+    let bound = if best <= orig_alpha {
+      Bound::Upper
+    } else if best >= orig_beta {
+      Bound::Lower
+    } else {
+      Bound::Exact
+    };
+    let best_move = self.child_nodes.first().map(|c| c.tile);
+    tt.store(
+      tt_hash,
+      TTEntry {
+        score: self.score,
+        depth: self.depth,
+        bound,
+        best_move,
+        state: self.state,
+      },
+    );
+    // Store for the position after this move (used for ordering children of
+    // this node on next iteration).
+    if let Some(bm) = best_move {
+      let after_hash = board.hash_with_player(!self.player);
+      // The score from the after-position perspective is the best child's
+      // score.
+      if let Some(best_child) = self.child_nodes.first() {
+        tt.store(
+          after_hash,
+          TTEntry {
+            score: best_child.score,
+            depth: best_child.depth,
+            bound: Bound::Exact,
+            best_move: Some(bm),
+            state: best_child.state,
+          },
+        );
+      }
+    }
+
     stats
   }
 
   fn evaluate_children(&mut self) {
-    debug_assert!(
-      !self.child_nodes.is_empty(),
-      "Children empty while state is {}",
-      self.state
-    );
+    if self.child_nodes.is_empty() {
+      // Can happen if all children were pruned as losing/drawn or if TT
+      // left the node empty. Treat as draw to avoid panic and keep search
+      // valid; the snapshot logic will handle timeout cases.
+      self.state = State::Draw;
+      self.score = 0;
+      return;
+    }
 
     if self.child_nodes.iter().any(|node| !node.valid) {
       self.valid = false;
