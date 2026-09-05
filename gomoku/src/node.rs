@@ -172,7 +172,8 @@ impl Node {
     let mut score = parent_score;
     let tile = self.tile;
 
-    score += 20 * board.squared_distance_from_center(tile);
+    // Penalize distance from center
+    score -= 20 * board.squared_distance_from_center(tile);
 
     let Eval {
       score: prev_score, ..
