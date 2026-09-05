@@ -18,6 +18,8 @@ pub struct Stats {
   /// The number of nodes pruned by alpha-beta pruning
   pub nodes_pruned: u64,
 
+  pub heuristics_evaluated: u32,
+
   pub cache_hits: u32,
   pub cache_misses: u32,
 }
@@ -27,6 +29,7 @@ impl Stats {
     Stats {
       nodes_evaluated: 0,
       nodes_pruned: 0,
+      heuristics_evaluated: 0,
       cache_hits: 0,
       cache_misses: 0,
     }
@@ -35,6 +38,11 @@ impl Stats {
   /// Increase the number of nodes evaluated by 1
   pub fn evaluate_node(&mut self) {
     self.nodes_evaluated += 1;
+  }
+
+  /// Increase the number of heuristics evaluated by 1
+  pub fn evaluate_heuristic(&mut self) {
+    self.heuristics_evaluated += 1;
   }
 
   /// Increase the number of pruned nodes by `count`
@@ -76,6 +84,7 @@ impl Add for Stats {
     Self {
       nodes_evaluated: self.nodes_evaluated + other.nodes_evaluated,
       nodes_pruned: self.nodes_pruned + other.nodes_pruned,
+      heuristics_evaluated: self.heuristics_evaluated + other.heuristics_evaluated,
       cache_hits: self.cache_hits + other.cache_hits,
       cache_misses: self.cache_misses + other.cache_misses,
     }
