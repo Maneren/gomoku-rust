@@ -332,7 +332,7 @@ impl Node {
       }
     }
 
-    self.evaluate_children();
+    self.evaluate_children(board);
 
     // Store current position in TT. Bound is based on original window.
     let bound = if best <= orig_alpha {
@@ -376,7 +376,7 @@ impl Node {
     stats
   }
 
-  fn evaluate_children(&mut self) {
+  fn evaluate_children(&mut self, board: &Board) {
     if self.child_nodes.is_empty() {
       // Can happen if all children were pruned as losing/drawn or if TT
       // left the node empty. Treat as draw to avoid panic and keep search
@@ -393,13 +393,22 @@ impl Node {
 
     self.child_nodes.sort_unstable_by(|a, b| b.cmp(a));
 
-    let limit = match self.depth {
+    let mut limit = match self.depth {
       0 | 1 => unreachable!("depth 0 or 1 means the chilren are yet to be initialized"),
       2 | 3 => (self.child_nodes.len() / 2).max(24),
       4..=7 => 16,
       8 => 6,
       9.. => 4,
     };
+
+    // Quiescence / threat extension: if the position is not quiet (contains
+    // an open 4 or open 3 with two open ends for either player), the
+    // horizon effect would miss a forced win if we truncated. Extend by
+    // keeping all children for a few extra plies. The decaying sqrt still
+    // applies, so deeper lines are naturally discounted.
+    if self.depth < 12 && Self::is_forcing(board, self.tile) {
+      limit = self.child_nodes.len();
+    }
 
     self.child_nodes.truncate(limit);
 
@@ -421,6 +430,16 @@ impl Node {
     self
       .child_nodes
       .retain(|child| child.state == State::NotEnd);
+  }
+
+  #[inline]
+  fn is_forcing(board: &Board, tile: TilePointer) -> bool {
+    // A position is not quiet if the last move created a high-value shape
+    // for either player. Threshold 100k catches open-4 with one open end
+    // (100k), open-3 with two ends (5M) and open-4 with two ends (10M) —
+    // the classic forcing threats in Gomoku that must be answered.
+    let eval = board.evaluate_sequences_relevant_to(tile);
+    eval.score[Player::X] >= 100_000 || eval.score[Player::O] >= 100_000
   }
 
   fn initialize(&mut self, board: &mut Board, parent_score: Score, stats: &mut Stats) {
