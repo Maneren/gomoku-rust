@@ -1,7 +1,5 @@
 use std::{cmp::Ordering, fmt};
 
-use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
-
 use super::{
   board::{evaluation::Eval, Board, TilePointer},
   player::Player,
@@ -26,7 +24,18 @@ pub struct Node {
   depth: u8,
 }
 impl Node {
-  pub fn compute_next(&mut self, board: &mut Board, parent_score: Score) -> Stats {
+  /// Negamax bound. Real scores are shape sums (at most hundreds of millions),
+  /// so 1e9 is safely above any reachable score while `-INF` stays negatable
+  /// (unlike `Score::MIN`, whose negation overflows).
+  pub const INF: Score = 2_000_000_000;
+
+  pub fn compute_next(
+    &mut self,
+    board: &mut Board,
+    parent_score: Score,
+    mut alpha: Score,
+    beta: Score,
+  ) -> Stats {
     debug_assert!(!self.state.is_end());
 
     let mut stats = Stats::new();
@@ -58,32 +67,40 @@ impl Node {
       }
     }
 
-    stats += self
-      .child_nodes
-      .par_iter_mut()
-      .map(|node| node.compute_next(&mut board.clone(), self.first_score))
-      .sum();
+    // Best-first ordering for the current player. Child scores are from the
+    // opponent's perspective, so ascending order visits our best moves first
+    // and maximizes beta cutoffs.
+    self.child_nodes.sort_unstable();
 
-    self.evaluate_children();
-
-    stats
-  }
-
-  pub fn alpha_beta_pruning(&mut self, stats: &mut Stats, mut alpha: Score, beta: Score) -> Score {
-    debug_assert!(!self.state.is_end());
-    debug_assert!(self.depth >= 1);
-
-    if self.child_nodes.is_empty() {
-      return self.score;
-    }
-
-    let mut best = Score::MIN;
+    let mut best = -Self::INF;
 
     for i in 0..self.child_nodes.len() {
-      let child = &mut self.child_nodes[i];
-      debug_assert!(child.valid);
+      if !do_run() {
+        self.valid = false;
+        return stats;
+      }
 
-      let score = -child.alpha_beta_pruning(stats, -beta, -alpha);
+      let (child_score, child_state) = {
+        let child = &mut self.child_nodes[i];
+        stats += child.compute_next(&mut board.clone(), self.first_score, -beta, -alpha);
+        if !child.valid {
+          self.valid = false;
+          return stats;
+        }
+        (child.score, child.state)
+      };
+
+      // A winning reply for the opponent refutes this node outright; remaining
+      // siblings cannot change the losing outcome.
+      if child_state.is_win() {
+        stats.prune_nodes((self.child_nodes.len() - i - 1) as u32);
+        self.child_nodes.truncate(i + 1);
+        self.score = -child_score;
+        self.state = State::Lose;
+        return stats;
+      }
+
+      let score = -child_score;
       if score > best {
         best = score;
         if score > alpha {
@@ -92,13 +109,16 @@ impl Node {
       }
 
       if score >= beta {
-        stats.prune_nodes((self.child_nodes.len() - i) as u32);
+        stats.prune_nodes((self.child_nodes.len() - i - 1) as u32);
         self.child_nodes.truncate(i + 1);
-        return score;
+        self.score = best;
+        return stats;
       }
     }
 
-    best
+    self.evaluate_children();
+
+    stats
   }
 
   fn evaluate_children(&mut self) {

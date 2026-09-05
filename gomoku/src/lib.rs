@@ -93,7 +93,7 @@ fn minimax(
 
     stats += nodes
       .par_iter_mut()
-      .map(|node| node.compute_next(&mut board.clone(), initial_score))
+      .map(|node| node.compute_next(&mut board.clone(), initial_score, -Node::INF, Node::INF))
       .sum();
 
     if nodes.iter().any(|node| !node.valid) {
@@ -124,15 +124,6 @@ fn minimax(
     if nodes.len() <= 1 {
       println!("Only one viable move left");
       break;
-    }
-
-    for node in &mut nodes {
-      if END.load(Ordering::Acquire) {
-        nodes = snapshot;
-        total_depth -= 1;
-        break;
-      }
-      node.alpha_beta_pruning(&mut stats, Score::MIN, Score::MAX);
     }
 
     #[allow(
