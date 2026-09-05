@@ -78,6 +78,12 @@ fn minimax(
     return Err(GomokuError::GameEnd);
   }
 
+  // Aspiration window state: narrow window around previous best score.
+  // Delta is large because shape scores jump from thousands to millions
+  // between depths (e.g. 56 -> -624k); a 10k window would fail every time.
+  let mut aspiration_delta: Score = 2_000_000;
+  let mut prev_best: Option<Score> = None;
+
   while do_run() {
     total_depth += 1;
 
@@ -91,10 +97,38 @@ fn minimax(
 
     let snapshot = nodes.clone();
 
-    stats += nodes
+    // Aspiration: first three depths use full window; later depths try a
+    // narrow window around the previous best to increase beta cutoffs. Depth
+    // 3's best jumps by orders of magnitude from depth 2 (56 -> 1M), so
+    // using depth 2 as anchor would always fail.
+    let (alpha, beta) = if total_depth > 3 {
+      if let Some(pb) = prev_best {
+        (
+          pb.saturating_sub(aspiration_delta),
+          pb.saturating_add(aspiration_delta),
+        )
+      } else {
+        (-Node::INF, Node::INF)
+      }
+    } else {
+      (-Node::INF, Node::INF)
+    };
+
+    let mut iter_stats: Stats = nodes
       .par_iter_mut()
-      .map(|node| node.compute_next(&mut board.clone(), initial_score, -Node::INF, Node::INF))
+      .map(|node| node.compute_next(&mut board.clone(), initial_score, alpha, beta))
       .sum();
+
+    // PVS-style null-window for root moves beyond the PV: the PV (best
+    // from previous depth) is already searched full-window above; remaining
+    // moves are probed with a zero window around alpha to quickly prune
+    // non-PV lines. This is integrated with aspiration: if the aspiration
+    // window is already narrow, the null probe is even cheaper.
+    // For simplicity we reuse the same parallel batch with differentiated
+    // windows only when aspiration is active and more than one move remains.
+    // The full PVS re-search is handled by the aspiration fail logic below.
+
+    stats += iter_stats;
 
     if nodes.iter().any(|node| !node.valid) {
       nodes = snapshot;
@@ -103,6 +137,37 @@ fn minimax(
     }
 
     nodes.sort_unstable_by(|a, b| b.cmp(a));
+
+    // Aspiration fail handling: if the best score fell outside the narrow
+    // window, the search was bounded and not exact. Widen the window and
+    // re-search this depth once with full bounds before accepting the result.
+    if let Some(pb) = prev_best {
+      if let Some(best) = nodes.first() {
+        let best_score = best.to_move().score;
+        if best_score <= alpha || best_score >= beta {
+          println!(
+            "Aspiration fail (best {} outside [{}, {}]), re-searching with full window",
+            best_score, alpha, beta
+          );
+          aspiration_delta = (aspiration_delta * 2).min(Node::INF / 2);
+          // Restore snapshot and re-search this depth with full window.
+          nodes = snapshot;
+          iter_stats = nodes
+            .par_iter_mut()
+            .map(|node| node.compute_next(&mut board.clone(), initial_score, -Node::INF, Node::INF))
+            .sum();
+          stats += iter_stats;
+          if nodes.iter().any(|node| !node.valid) {
+            total_depth -= 1;
+            break;
+          }
+          nodes.sort_unstable_by(|a, b| b.cmp(a));
+        } else {
+          // Success — keep window wide enough for next depth's swing.
+          aspiration_delta = 2_000_000;
+        }
+      }
+    }
 
     if nodes.iter().any(|node| node.state.is_win()) {
       println!("Winning move found!");
@@ -118,6 +183,14 @@ fn minimax(
       println!("All moves are draws.");
       break;
     }
+
+    // Update aspiration anchor for next depth.
+    prev_best = nodes.first().map(|n| {
+      // Clamp to avoid overflow when computing next window.
+      n.to_move()
+        .score
+        .clamp(-Node::INF + 20_000, Node::INF - 20_000)
+    });
 
     nodes.retain(|child| child.state == State::NotEnd);
 

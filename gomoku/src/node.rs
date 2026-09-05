@@ -101,15 +101,50 @@ impl Node {
         return stats;
       }
 
-      let (child_score, child_state) = {
+      // PVS / Negascout: first child is the principal variation and is
+      // searched with the full window; remaining children are probed with a
+      // null window around alpha to cheaply prove they cannot beat the
+      // current best. On a fail-high (null probe beats alpha) we re-search
+      // with the full window to get an exact score.
+      let is_pv = i == 0;
+      let (child_score, child_state, probe_stats) = {
         let child = &mut self.child_nodes[i];
-        stats += child.compute_next(&mut board.clone(), self.first_score, -beta, -alpha);
-        if !child.valid {
-          self.valid = false;
-          return stats;
+        if is_pv {
+          let s = child.compute_next(&mut board.clone(), self.first_score, -beta, -alpha);
+          if !child.valid {
+            self.valid = false;
+            return s;
+          }
+          (child.score, child.state, s)
+        } else {
+          // Null-window probe: window is one point wide around alpha.
+          let snapshot = child.clone();
+          let mut probe_board = board.clone();
+          let probe_stats =
+            child.compute_next(&mut probe_board, self.first_score, -alpha - 1, -alpha);
+          if !child.valid {
+            self.valid = false;
+            return probe_stats;
+          }
+          let probe_discounted = Self::discounted_value(self.first_score_sqrt, child.score);
+          // Fail-high: probe indicates this move may beat alpha, re-search
+          // full.
+          if probe_discounted > alpha && probe_discounted < beta {
+            // Restore and re-search with full window for exact score.
+            *child = snapshot;
+            let full_stats =
+              child.compute_next(&mut board.clone(), self.first_score, -beta, -alpha);
+            if !child.valid {
+              self.valid = false;
+              return probe_stats + full_stats;
+            }
+            (child.score, child.state, probe_stats + full_stats)
+          } else {
+            (child.score, child.state, probe_stats)
+          }
         }
-        (child.score, child.state)
       };
+      stats += probe_stats;
 
       // Map child score into this node's discounted value space so cutoff
       // accounting matches the final `first_sqrt - best/2` blend. The prune
