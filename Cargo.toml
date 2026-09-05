@@ -2,7 +2,7 @@
 name = "gomoku"
 version = "7.1.0"
 authors = ["Maneren <maneren731@gmail.com>"]
-edition = "2021"
+edition = "2024"
 
 [workspace]
 
@@ -17,7 +17,7 @@ lto = true
 codegen-units = 1
 
 [dependencies]
-clap = "3.2.25"
-num_cpus = "1.16.0"
-text_io = "0.1.12"
+clap = "4.6.6"
+num_cpus = "1.17.0"
+text_io = "0.1.13"
 gomoku_lib = { path = "./gomoku", features = ["mimalloc", "fen"] }

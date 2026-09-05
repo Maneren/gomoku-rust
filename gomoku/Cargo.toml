@@ -2,7 +2,7 @@
 name = "gomoku_lib"
 version = "7.1.0"
 authors = ["Maneren <maneren731@gmail.com>"]
-edition = "2021"
+edition = "2024"
 
 [lib]
 crate-type = ["lib"]
@@ -12,6 +12,6 @@ mimalloc = ["dep:mimalloc"]
 fen = ["regex"]
 
 [dependencies]
-mimalloc = { version = "0.1.48", optional = true }
-regex = { version = "1.10.5", optional = true }
-rayon = "1.10.0"
+mimalloc = { version = "0.1.52", optional = true }
+regex = { version = "1.13.1", optional = true }
+rayon = "1.12.0"

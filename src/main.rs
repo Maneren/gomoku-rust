@@ -8,19 +8,20 @@ use std::{
   time::Instant,
 };
 
-use gomoku_lib::{self, utils, Board, Move, Player, TilePointer};
+use gomoku_lib::{self, Board, Move, Player, TilePointer, utils};
 
 type Error = Box<dyn std::error::Error>;
 
-use clap::{Arg, Command};
+use clap::{Arg, Command, builder::PossibleValuesParser, value_parser};
 
 fn main() {
   let matches = parse_args();
 
   if let Some(matches) = matches.subcommand_matches("fen") {
     let mut string = matches
-      .value_of_t("string")
-      .expect("string is required by clap");
+      .get_one::<String>("string")
+      .expect("string is required by clap")
+      .clone();
 
     // if argument is "--" read from stdin instead
     if string == "--" {
@@ -44,17 +45,21 @@ fn main() {
   }
 
   let threads = matches
-    .value_of_t("threads")
-    .unwrap_or_else(|_| num_cpus::get());
+    .get_one::<usize>("threads")
+    .copied()
+    .unwrap_or_else(num_cpus::get);
 
   gomoku_lib::set_thread_count(threads).expect("main is run only once");
 
-  let player = matches.value_of_t("player").unwrap_or(Player::O);
+  let player = matches
+    .get_one::<String>("player")
+    .and_then(|s| s.to_lowercase().parse::<Player>().ok())
+    .unwrap_or(Player::O);
 
-  let time_limit = matches.value_of_t("time").unwrap_or(1000);
-  let board_size = matches.value_of_t("board").unwrap_or(15);
+  let time_limit = matches.get_one::<u64>("time").copied().unwrap_or(1000);
+  let board_size = matches.get_one::<u8>("board").copied().unwrap_or(15);
 
-  if let Some(path) = matches.value_of("debug") {
+  if let Some(path) = matches.get_one::<String>("debug").map(String::as_str) {
     match run_debug(path, player, time_limit) {
       Ok(()) => println!("Done!"),
       Err(msg) => println!("Error: {msg}"),
@@ -79,19 +84,19 @@ fn parse_args() -> clap::ArgMatches {
       Arg::new("player")
         .help("X or O")
         .index(1)
-        .possible_values(["X", "O", "x", "o"]),
+        .value_parser(PossibleValuesParser::new(["X", "O", "x", "o"])),
     )
     .arg(
       Arg::new("time")
         .help("Time limit in milliseconds (default is 5000)")
-        .index(2),
+        .index(2)
+        .value_parser(value_parser!(u64)),
     )
     .arg(
       Arg::new("debug")
         .short('d')
         .long("debug")
         .help("Run in debug mode")
-        .takes_value(true)
         .value_name("FILE"),
     )
     .arg(
@@ -99,7 +104,7 @@ fn parse_args() -> clap::ArgMatches {
         .short('t')
         .long("threads")
         .help("How many threads to use (default is thread count of your CPU)")
-        .takes_value(true),
+        .value_parser(value_parser!(usize)),
     )
     .arg(
       Arg::new("board")
@@ -108,7 +113,7 @@ fn parse_args() -> clap::ArgMatches {
         .value_name("SIZE")
         .conflicts_with("debug")
         .help("Size of game board")
-        .takes_value(true),
+        .value_parser(value_parser!(u8)),
     )
     .get_matches()
 }
