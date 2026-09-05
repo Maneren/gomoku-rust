@@ -236,6 +236,8 @@ impl Node {
           (child.score, child.state, s)
         } else {
           // Null-window probe: window is one point wide around alpha.
+          // For terminal Win/Lose the narrow window may give a heuristic
+          // bound; always re-search with full window to get exact state.
           let snapshot = child.clone();
           let mut probe_board = board.clone();
           let probe_stats =
@@ -244,10 +246,11 @@ impl Node {
             self.valid = false;
             return probe_stats;
           }
+          let is_terminal = child.state.is_win() || child.state.is_lose();
           let probe_discounted = Self::discounted_value(self.first_score_sqrt, child.score);
-          // Fail-high: probe indicates this move may beat alpha, re-search
-          // full.
-          if probe_discounted > alpha && probe_discounted < beta {
+          // Fail-high or terminal: re-search with full window for exact
+          // score/state.
+          if is_terminal || (probe_discounted > alpha && probe_discounted < beta) {
             // Restore and re-search with full window for exact score.
             *child = snapshot;
             let full_stats =

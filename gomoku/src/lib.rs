@@ -87,8 +87,8 @@ fn minimax(
 
   // Aspiration window state: narrow window around previous best score.
   // Delta is large because shape scores jump from thousands to millions
-  // between depths (e.g. 56 -> -624k); a 10k window would fail every time.
-  let mut aspiration_delta: Score = 2_000_000;
+  // between depths (e.g. 56 -> -3M); a 2M window still fails for test12.
+  let mut aspiration_delta: Score = 5_000_000;
   let mut prev_best: Option<Score> = None;
 
   while do_run() {
@@ -148,6 +148,9 @@ fn minimax(
     // Aspiration fail handling: if the best score fell outside the narrow
     // window, the search was bounded and not exact. Widen the window and
     // re-search this depth once with full bounds before accepting the result.
+    // Narrow-window TT entries are polluting for the full re-search (they
+    // were stored with narrow bounds and beam truncation), so clear the
+    // table before the full re-search to avoid spurious cutoffs.
     if let Some(pb) = prev_best {
       if let Some(best) = nodes.first() {
         let best_score = best.to_move().score;
@@ -158,6 +161,10 @@ fn minimax(
           );
           aspiration_delta = (aspiration_delta * 2).min(Node::INF / 2);
           // Restore snapshot and re-search this depth with full window.
+          // Narrow-window TT entries are heuristic (beam-truncated) and
+          // would pollute the exact search. Keep only terminal wins/losses
+          // which are exact.
+          tt.retain_terminal();
           nodes = snapshot;
           iter_stats = nodes
             .par_iter_mut()
@@ -179,7 +186,7 @@ fn minimax(
           nodes.sort_unstable_by(|a, b| b.cmp(a));
         } else {
           // Success — keep window wide enough for next depth's swing.
-          aspiration_delta = 2_000_000;
+          aspiration_delta = 5_000_000;
         }
       }
     }

@@ -102,6 +102,17 @@ impl TranspositionTable {
   pub fn len(&self) -> usize {
     self.table.len()
   }
+
+  pub fn clear(&self) {
+    self.table.clear();
+  }
+
+  pub fn retain_terminal(&self) {
+    // Keep only terminal entries (Win/Lose/Draw) which are exact and
+    // path-independent. Remove heuristic NotEnd entries that were stored
+    // with narrow windows.
+    self.table.retain(|_, v| v.state != State::NotEnd);
+  }
 }
 
 impl Default for TranspositionTable {
