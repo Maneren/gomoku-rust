@@ -77,6 +77,15 @@ impl Node {
         self.score = 0;
         return stats;
       }
+
+      // Static ordering for the first deep expansion: children have no
+      // search scores yet, so seed with a cheap heuristic (center distance).
+      // Center-first approximates descending child score (most dangerous
+      // for us) which maximises beta/refutation cutoffs in the in-loop
+      // prune; the true scores arrive after the next depth iteration.
+      self
+        .child_nodes
+        .sort_unstable_by_key(|c| board.squared_distance_from_center(c.tile));
     }
 
     // Best-first ordering for the current player. Child scores are from the
