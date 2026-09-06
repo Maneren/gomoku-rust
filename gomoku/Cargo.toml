@@ -7,6 +7,10 @@ edition = "2024"
 [lib]
 crate-type = ["lib"]
 
+[[bench]]
+name = "evaluation_bench"
+harness = false
+
 [features]
 mimalloc = ["dep:mimalloc"]
 fen = ["regex"]
@@ -16,3 +20,6 @@ dashmap = "6.2.1"
 mimalloc = { version = "0.1.52", optional = true }
 regex = { version = "1.13.1", optional = true }
 rayon = "1.12.0"
+
+[dev-dependencies]
+divan = "0.1.21"

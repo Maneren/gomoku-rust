@@ -9,6 +9,7 @@ use super::super::{Score, player::Player};
 ///
 /// Shape is defined by number of consecutive symbols, number of open ends and
 /// if the shape contains a hole (in that case it is included in consecutive).
+#[inline]
 pub fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) {
   if has_hole {
     return match consecutive {
@@ -55,6 +56,7 @@ pub struct EvalScore(pub Score, pub Score);
 
 impl Index<Player> for EvalScore {
   type Output = Score;
+  #[inline]
   fn index(&self, player: Player) -> &Self::Output {
     match player {
       Player::X => &self.0,
@@ -64,6 +66,7 @@ impl Index<Player> for EvalScore {
 }
 
 impl IndexMut<Player> for EvalScore {
+  #[inline]
   fn index_mut(&mut self, player: Player) -> &mut Self::Output {
     match player {
       Player::X => &mut self.0,
@@ -74,12 +77,14 @@ impl IndexMut<Player> for EvalScore {
 
 impl Add for EvalScore {
   type Output = Self;
+  #[inline]
   fn add(self, other: Self) -> Self {
     Self(self.0 + other.0, self.1 + other.1)
   }
 }
 
 impl AddAssign for EvalScore {
+  #[inline]
   fn add_assign(&mut self, other: Self) {
     self.0 += other.0;
     self.1 += other.1;
@@ -91,6 +96,7 @@ pub struct EvalWin(pub bool, pub bool);
 
 impl Index<Player> for EvalWin {
   type Output = bool;
+  #[inline]
   fn index(&self, player: Player) -> &Self::Output {
     match player {
       Player::X => &self.0,
@@ -100,6 +106,7 @@ impl Index<Player> for EvalWin {
 }
 
 impl IndexMut<Player> for EvalWin {
+  #[inline]
   fn index_mut(&mut self, player: Player) -> &mut Self::Output {
     match player {
       Player::X => &mut self.0,
@@ -110,12 +117,14 @@ impl IndexMut<Player> for EvalWin {
 
 impl BitOr for EvalWin {
   type Output = Self;
+  #[inline]
   fn bitor(self, other: Self) -> Self {
     Self(self.0 | other.0, self.1 | other.1)
   }
 }
 
 impl BitOrAssign for EvalWin {
+  #[inline]
   fn bitor_assign(&mut self, other: Self) {
     self.0 |= other.0;
     self.1 |= other.1;
@@ -130,6 +139,7 @@ pub struct Eval {
 
 impl Add for Eval {
   type Output = Self;
+  #[inline]
   fn add(self, other: Self) -> Self {
     Self {
       score: self.score + other.score,
@@ -139,6 +149,7 @@ impl Add for Eval {
 }
 
 impl Sum for Eval {
+  #[inline]
   fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
     iter.fold(Eval::default(), |acc, x| acc + x)
   }

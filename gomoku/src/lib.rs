@@ -28,6 +28,7 @@ use std::{
 };
 
 pub use board::{Board, Tile, TilePointer};
+pub use state::State;
 use error::GomokuError;
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
@@ -40,7 +41,6 @@ use utils::{do_run, print_status};
 
 use crate::{
   node::Node,
-  state::State,
   transposition::{Bound, TTEntry, TranspositionTable},
 };
 
