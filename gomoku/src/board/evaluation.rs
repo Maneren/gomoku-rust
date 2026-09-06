@@ -12,10 +12,18 @@ use super::super::{Score, player::Player};
 pub fn shape_score(consecutive: u8, open_ends: u8, has_hole: bool) -> (Score, bool) {
   if has_hole {
     return match consecutive {
-      5.. => (40_000, false),
+      5.. => match open_ends {
+        2 => (1_500_000, false),
+        1 => (80_000, false),
+        _ => (0, false),
+      },
       4 => match open_ends {
-        2 => (20_000, false),
-        1 => (500, false),
+        2 => (400_000, false),
+        1 => (5_000, false),
+        _ => (0, false),
+      },
+      3 => match open_ends {
+        2 => (2_000, false),
         _ => (0, false),
       },
       _ => (0, false),
@@ -150,13 +158,14 @@ mod tests {
       shape_score(3, 0, true),
       shape_score(0, 2, false),
       shape_score(1, 2, false),
-      shape_score(4, 1, true),
+      shape_score(3, 2, true),
       shape_score(2, 2, false),
+      shape_score(4, 1, true),
       shape_score(3, 1, false),
-      shape_score(4, 2, true),
       shape_score(5, 1, true),
-      shape_score(5, 2, true),
       shape_score(4, 1, false),
+      shape_score(4, 2, true),
+      shape_score(5, 2, true),
       shape_score(3, 2, false),
       shape_score(4, 2, false),
       shape_score(5, 0, false),

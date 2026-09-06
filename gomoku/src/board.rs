@@ -268,70 +268,68 @@ impl Board {
 
   fn evaluate_sequence(&self, sequence: &[usize]) -> Eval {
     let mut eval = Eval::default();
-
-    let mut current = Player::X; // current player
-    let mut consecutive = 0; // consecutive tiles of the current player
-    let mut open_ends = 0; // open ends of consecutive tiles
-    let mut has_hole = false; // is there a hole in the consecutive tiles
-
-    for (i, &tile_idx) in sequence.iter().enumerate() {
-      if let Some(player) = self.data[tile_idx] {
-        if player == current {
-          consecutive += 1;
-          continue;
-        }
-
-        // opponent's tile
-        if consecutive > 0 {
-          let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
-          eval.score[current] += shape_score;
-          eval.win[current] |= is_win_shape;
-
-          open_ends = 0;
-          has_hole = false;
-        }
-
-        consecutive = 1;
-        current = player;
-      } else {
-        // empty tile
-        if consecutive == 0 {
-          open_ends = 1; // If there were no consecutive tiles yet, mark as an
-          // open end
-          has_hole = false;
-          continue;
-        }
-
-        // If there is no hole yet, and the next tile is of the current player,
-        // and consecutive count is less than 5, mark as a hole
-        if !has_hole
-          && consecutive < 5
-          && sequence.get(i + 1).and_then(|&idx| self.data[idx]) == Some(current)
-        {
-          has_hole = true;
-          consecutive += 1;
-          continue;
-        }
-
-        open_ends += 1;
-
-        let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
-        eval.score[current] += shape_score;
-        eval.win[current] |= is_win_shape;
-
-        consecutive = 0;
-        open_ends = 1;
-        has_hole = false;
+    let n = sequence.len();
+    let mut i = 0;
+    while i < n {
+      // Skip empties - no shape starts here
+      if self.data[sequence[i]].is_none() {
+        i += 1;
+        continue;
       }
-    }
+      let player = self.data[sequence[i]].expect("checked Some");
+      let open_left = i > 0 && self.data[sequence[i - 1]].is_none();
 
-    // If there are consecutive tiles at the end of the sequence
-    if consecutive > 0 {
-      let (shape_score, is_win_shape) = shape_score(consecutive, open_ends, has_hole);
-      eval.score[current] += shape_score;
-      eval.win[current] |= is_win_shape;
-    }
+      // Scan a maximal block of this player's stones with at most one internal
+      // hole. `stones` counts real stones, `has_hole` indicates a single
+      // empty gap was consumed.
+      let mut stones: u8 = 0;
+      let mut has_hole = false;
+      let mut j = i;
+      while j < n {
+        if let Some(p) = self.data[sequence[j]] {
+          if p == player {
+            stones += 1;
+            j += 1;
+          } else {
+            break; // opponent blocks
+          }
+        } else {
+          // empty - potential single hole
+          if !has_hole
+            && stones > 0
+            && stones < 5
+            && j + 1 < n
+            && self.data[sequence[j + 1]] == Some(player)
+          {
+            has_hole = true;
+            j += 1; // consume the hole, loop will consume the next stone(s) on next iter
+          } else {
+            break; // end of block
+          }
+        }
+      }
 
+      let open_right = j < n && self.data[sequence[j]].is_none();
+      let open_ends = u8::from(open_left) + u8::from(open_right);
+      // `shape_score` expects consecutive = stones + hole (if any) to
+      // distinguish XX_XX (4 stones + hole => 5) from XXX (3 stones).
+      // Keep that contract.
+      let consecutive = stones + u8::from(has_hole);
+      // For overline (6+ solid) `stones` may be >5; pass through as 5+ win
+      // case. `has_hole` overlines (e.g. 5 stones + hole + 1) exceed 5
+      // and are not wins.
+      let (s, is_win) = shape_score(consecutive, open_ends, has_hole);
+      // For solid overline with stones>5, shape_score(6+,...)=win per current
+      // table; win detection via count==5 vs >5 is intentionally
+      // preserved for freestyle.
+      eval.score[player] += s;
+      eval.win[player] |= is_win;
+
+      // Advance past the whole block to avoid double-counting overlapping
+      // windows. Original incremental version evaluated each maximal
+      // block once.
+      i = j.max(i + 1);
+    }
     eval
   }
 
