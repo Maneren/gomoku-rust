@@ -28,7 +28,6 @@ use std::{
 };
 
 pub use board::{Board, Tile, TilePointer};
-pub use state::State;
 use error::GomokuError;
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
@@ -36,13 +35,11 @@ use mimalloc::MiMalloc;
 pub use r#move::Move;
 pub use player::Player;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
+pub use state::State;
 pub use stats::Stats;
 use utils::{do_run, print_status};
 
-use crate::{
-  node::Node,
-  transposition::{Bound, TTEntry, TranspositionTable},
-};
+use crate::{node::Node, transposition::TranspositionTable};
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
@@ -52,6 +49,7 @@ static END: AtomicBool = AtomicBool::new(false);
 
 type Score = i32;
 
+#[allow(clippy::too_many_lines)]
 fn minimax(
   board: &mut Board,
   current_player: Player,
@@ -151,43 +149,43 @@ fn minimax(
     // Narrow-window TT entries are polluting for the full re-search (they
     // were stored with narrow bounds and beam truncation), so clear the
     // table before the full re-search to avoid spurious cutoffs.
-    if let Some(pb) = prev_best {
-      if let Some(best) = nodes.first() {
-        let best_score = best.to_move().score;
-        if best_score <= alpha || best_score >= beta {
-          println!(
-            "Aspiration fail (best {} outside [{}, {}]), re-searching with full window",
-            best_score, alpha, beta
-          );
-          aspiration_delta = (aspiration_delta * 2).min(Node::INF / 2);
-          // Restore snapshot and re-search this depth with full window.
-          // Narrow-window TT entries are heuristic (beam-truncated) and
-          // would pollute the exact search. Keep only terminal wins/losses
-          // which are exact.
-          tt.retain_terminal();
-          nodes = snapshot;
-          iter_stats = nodes
-            .par_iter_mut()
-            .map(|node| {
-              node.compute_next(
-                &mut board.clone(),
-                initial_score,
-                -Node::INF,
-                Node::INF,
-                &tt,
-              )
-            })
-            .sum();
-          stats += iter_stats;
-          if nodes.iter().any(|node| !node.valid) {
-            total_depth -= 1;
-            break;
-          }
-          nodes.sort_unstable_by(|a, b| b.cmp(a));
-        } else {
-          // Success — keep window wide enough for next depth's swing.
-          aspiration_delta = 5_000_000;
+    if let Some(best) = nodes.first()
+      && prev_best.is_some()
+    {
+      let best_score = best.to_move().score;
+      if best_score <= alpha || best_score >= beta {
+        println!(
+          "Aspiration fail (best {best_score} outside [{alpha}, {beta}]), re-searching with full \
+           window"
+        );
+        aspiration_delta = (aspiration_delta * 2).min(Node::INF / 2);
+        // Restore snapshot and re-search this depth with full window.
+        // Narrow-window TT entries are heuristic (beam-truncated) and
+        // would pollute the exact search. Keep only terminal wins/losses
+        // which are exact.
+        tt.retain_terminal();
+        nodes = snapshot;
+        iter_stats = nodes
+          .par_iter_mut()
+          .map(|node| {
+            node.compute_next(
+              &mut board.clone(),
+              initial_score,
+              -Node::INF,
+              Node::INF,
+              &tt,
+            )
+          })
+          .sum();
+        stats += iter_stats;
+        if nodes.iter().any(|node| !node.valid) {
+          total_depth -= 1;
+          break;
         }
+        nodes.sort_unstable_by(|a, b| b.cmp(a));
+      } else {
+        // Success — keep window wide enough for next depth's swing.
+        aspiration_delta = 5_000_000;
       }
     }
 

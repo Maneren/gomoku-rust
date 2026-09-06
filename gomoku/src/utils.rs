@@ -127,7 +127,7 @@ mod fen {
     };
 
     let parse_row = |part| -> Result<String, Box<dyn Error>> {
-      let parsed = replace_all(&re, part, replace_function)?.to_string();
+      let parsed = replace_all(&re, part, replace_function)?;
 
       if parsed.len() > size {
         return Err("Row too long".into());

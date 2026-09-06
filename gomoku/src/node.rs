@@ -42,6 +42,7 @@ impl Node {
     self_first_sqrt - child_score / 2
   }
 
+  #[allow(clippy::too_many_lines)]
   pub fn compute_next(
     &mut self,
     board: &mut Board,
@@ -70,17 +71,14 @@ impl Node {
     let tt_hash = board.hash_with_player(self.player);
     let orig_alpha = alpha;
     let orig_beta = beta;
-    if let Some(entry) = tt.probe(tt_hash, self.depth, alpha, beta) {
-      if entry.state != State::NotEnd {
-        stats.tt_hit();
-        self.score = entry.score;
-        self.state = entry.state;
-        self.child_nodes = Vec::new();
-        return stats;
-      }
-      // For NotEnd (including leaf depth 1), fall through — scores are
-      // path-dependent due to first_score_sqrt blend, so not exact for TT
-      // cutoff. Use only for ordering.
+    if let Some(entry) = tt.probe(tt_hash, self.depth, alpha, beta)
+      && entry.state != State::NotEnd
+    {
+      stats.tt_hit();
+      self.score = entry.score;
+      self.state = entry.state;
+      self.child_nodes = Vec::new();
+      return stats;
     }
 
     if self.depth == 1 {
@@ -137,12 +135,11 @@ impl Node {
     // for this position, put it first before the score-based sort. The
     // score sort then keeps the TT move at the front while ordering the
     // rest.
-    if let Some(tt_entry) = tt.peek(board.hash_with_player(!self.player)) {
-      if let Some(bm) = tt_entry.best_move {
-        if let Some(pos) = self.child_nodes.iter().position(|c| c.tile == bm) {
-          self.child_nodes.swap(0, pos);
-        }
-      }
+    if let Some(tt_entry) = tt.peek(board.hash_with_player(!self.player))
+      && let Some(bm) = tt_entry.best_move
+      && let Some(pos) = self.child_nodes.iter().position(|c| c.tile == bm)
+    {
+      self.child_nodes.swap(0, pos);
     }
     // Best-first ordering for the current player. Child scores are from the
     // opponent's perspective, so ascending order visits our best moves first
