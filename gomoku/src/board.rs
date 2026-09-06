@@ -5,8 +5,8 @@ mod sequences;
 use std::{fmt, str::FromStr, sync::OnceLock};
 
 pub use error::Error;
-use evaluation::{shape_score, Eval};
-use sequences::{generate, Sequence, Sequences};
+use evaluation::{Eval, shape_score};
+use sequences::{Sequence, Sequences, generate};
 
 use super::{Player, Score};
 use crate::state::State;
@@ -262,7 +262,7 @@ impl Board {
         // empty tile
         if consecutive == 0 {
           open_ends = 1; // If there were no consecutive tiles yet, mark as an
-                         // open end
+          // open end
           has_hole = false;
           continue;
         }

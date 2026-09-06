@@ -29,9 +29,9 @@ pub use board::{Board, Tile, TilePointer};
 use error::GomokuError;
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
-pub use player::Player;
 // r# to allow reserved keyword as name
 pub use r#move::Move;
+pub use player::Player;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 pub use stats::Stats;
 use utils::{do_run, print_status};

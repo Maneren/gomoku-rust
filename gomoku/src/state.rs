@@ -31,11 +31,7 @@ impl State {
 }
 impl From<bool> for State {
   fn from(b: bool) -> Self {
-    if b {
-      Self::Win
-    } else {
-      Self::NotEnd
-    }
+    if b { Self::Win } else { Self::NotEnd }
   }
 }
 

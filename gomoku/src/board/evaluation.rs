@@ -3,7 +3,7 @@ use std::{
   ops::{Add, AddAssign, BitOr, BitOrAssign, Index, IndexMut},
 };
 
-use super::super::{player::Player, Score};
+use super::super::{Score, player::Player};
 
 /// Return score and win state for the given shape
 ///

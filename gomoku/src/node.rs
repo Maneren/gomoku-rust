@@ -1,13 +1,13 @@
 use std::{cmp::Ordering, fmt};
 
 use super::{
-  board::{evaluation::Eval, Board, TilePointer},
-  player::Player,
+  Score,
+  board::{Board, TilePointer, evaluation::Eval},
   r#move::Move,
+  player::Player,
   state::State,
   stats::Stats,
   utils::{do_run, signed_sqrt},
-  Score,
 };
 
 #[derive(Clone)]

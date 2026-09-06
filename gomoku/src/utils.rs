@@ -178,7 +178,7 @@ mod fen {
   }
 }
 
-use crate::{Board, Player, Score, END};
+use crate::{Board, END, Player, Score};
 
 /// Check if the game has ended.
 ///
