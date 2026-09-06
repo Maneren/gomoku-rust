@@ -261,7 +261,8 @@ impl Board {
       } else {
         // empty tile
         if consecutive == 0 {
-          open_ends = 1; // If there were no consecutive tiles yet, mark as an open end
+          open_ends = 1; // If there were no consecutive tiles yet, mark as an
+                         // open end
           has_hole = false;
           continue;
         }
